@@ -17,21 +17,23 @@ SOURCES += main.cpp\
     clicksignalqlabel.cpp \
     dragzoomqlabel.cpp \
     kilobottracker.cpp \
-    kilobot.cpp
+    kilobot.cpp \
+    kilobotoverheadcontroller.cpp
 
 HEADERS  += mainwindow.h \
     clicksignalqlabel.h \
     dragzoomqlabel.h \
     kilobottracker.h \
-    kilobot.h
+    kilobot.h \
+    kilobotoverheadcontroller.h
 
 FORMS    += mainwindow.ui
 
 linux {
 
 # OpenCV 3
-INCLUDEPATH += /opt/local/include
-LIBS += -L/opt/local/lib \
+INCLUDEPATH += /usr/local/include
+LIBS += -L/usr/local/lib \
      -lopencv_core \
      -lopencv_imgproc \
      -lopencv_features2d\
@@ -42,9 +44,6 @@ LIBS += -L/opt/local/lib \
      -lopencv_photo\
      -lopencv_stitching\
      -lopencv_flann\
-     -lopencv_imgcodecs\
-     -lopencv_tracking\
-     -lopencv_videoio\
      -lz
 
 }

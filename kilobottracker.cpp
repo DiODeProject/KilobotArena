@@ -1,3 +1,10 @@
+/*!
+ * Kilobottracker.cpp
+ *
+ *  Created on: 3 Oct 2016
+ *  Author: Alex Cope
+ */
+
 #include "kilobottracker.h"
 #include <QImage>
 #include <QDebug>
@@ -59,7 +66,7 @@ private:
         cv::VideoCapture cap;
 
         Ptr<WarperCreator> warper_creator;
-        warper_creator = makePtr<cv::PlaneWarper>();
+        warper_creator = new cv::PlaneWarper();//makePtr<cv::PlaneWarper>();
         Ptr<detail::RotationWarper> warper = warper_creator->create(2000.0f);
 
         Point2f outputQuad[4];
@@ -171,9 +178,6 @@ KilobotTracker::~KilobotTracker()
         if (this->threads[i]) {
             delete this->threads[i];
         }
-    }
-    if (tracker) {
-        delete tracker;
     }
 }
 
@@ -380,7 +384,7 @@ void KilobotTracker::findKilobots()
     {
         float maxDist = 1.2f*this->kbMaxSize;
 
-        for (uint i = 0; i < this->kilos.size(); ++i) {
+        for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
             Rect bb;
             bb.x = cvRound(this->kilos[i].getXPosition() - maxDist);
             bb.y = cvRound(this->kilos[i].getYPosition() - maxDist);
@@ -421,7 +425,7 @@ void KilobotTracker::trackKilobots()
             float maxDist = this->kbMaxSize-2.0f;
 
             // find kilobots
-            for( size_t i = 0; i < kilos.size(); i++ )
+            for( size_t i = 0; i < (uint) kilos.size(); i++ )
             {
                 for (uint j = 0; j < circles.size(); ++j) {
 
@@ -438,7 +442,7 @@ void KilobotTracker::trackKilobots()
             }
 
 
-            for( size_t i = 0; i < kilos.size(); i++ )
+            for( size_t i = 0; i < (uint) kilos.size(); i++ )
             {
                  Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
                  circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
@@ -456,7 +460,7 @@ void KilobotTracker::trackKilobots()
             vector < Rect > bbs;
 
             // try and update each kilobot
-            for (uint i = 0; i < this->kilos.size(); ++i) {
+            for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
 
                 Rect bb;
                 bb.x = cvRound(this->kilos[i].getXPosition() - maxDist);
@@ -472,7 +476,7 @@ void KilobotTracker::trackKilobots()
                 bbs.push_back(bb);
             }
 
-            for (uint i = 0; i < this->kilos.size(); ++i) {
+            for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
 
                 Rect bb = bbs[i];
 
@@ -552,7 +556,7 @@ void KilobotTracker::trackKilobots()
                         bool oops = false;
 
                         // full exclusion
-                        for (uint l = 0; l < this->kilos.size(); ++l) {
+                        for (uint l = 0; l < (uint) this->kilos.size(); ++l) {
 
                             if (l == i) continue;
 
@@ -600,7 +604,7 @@ void KilobotTracker::trackKilobots()
 
 
 
-            for( size_t i = 0; i < kilos.size(); i++ )
+            for( size_t i = 0; i < (uint) kilos.size(); i++ )
             {
                  Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
                  circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
@@ -638,7 +642,7 @@ void KilobotTracker::trackKilobots()
             if (this->samples.size() != this->kilos.size()) return;
 
             // loop through kilos
-            for (uint i = 0; i < this->kilos.size(); ++i) {
+            for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
                 Point offset(0,0);
                 // test for no movement
                 Rect bb;
@@ -659,7 +663,7 @@ void KilobotTracker::trackKilobots()
                 //qDebug() << "## " << diff;
 
                 // draw samples and test
-                for (uint j = 0; j < num_samples; ++j) {
+                for (uint j = 0; j < (uint) num_samples; ++j) {
 
                     Point tempOff((qrand() % (2*max_dist)) - max_dist, (qrand() % (2*max_dist)) - max_dist);
 
@@ -706,7 +710,7 @@ void KilobotTracker::trackKilobots()
 
             }
 
-             for( size_t i = 0; i < kilos.size(); i++ )
+             for( size_t i = 0; i < (uint) kilos.size(); i++ )
              {
                   Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
                   circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
@@ -861,7 +865,7 @@ void KilobotTracker::setupStitcher()
 
     // initial config
     Ptr<WarperCreator> warper_creator;
-    warper_creator = makePtr<cv::PlaneWarper>();
+    warper_creator = new cv::PlaneWarper();//makePtr<cv::PlaneWarper>();
     Ptr<detail::RotationWarper> warper = warper_creator->create(2000.0f);
 
     Mat in(IM_HEIGHT, IM_WIDTH, CV_8UC3, Scalar(0,0,0));

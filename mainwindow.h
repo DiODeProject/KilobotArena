@@ -6,10 +6,20 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/videostab/videostab.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/stitching/stitcher.hpp>
+
+/* OpenCV 3:
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/video.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videostab.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/stitching.hpp>
+*/
 using namespace cv;
 
 #include <QMainWindow>

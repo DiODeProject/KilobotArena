@@ -1,21 +1,38 @@
+/*!
+ * Kilobottracker.h
+ *
+ *  Created on: 3 Oct 2016
+ *  Author: Alex Cope
+ */
+
 #ifndef CALIBRATEARENA_H
 #define CALIBRATEARENA_H
 #include <ios>
 #include <vector>
 
-// OpenCV includes
-#include <opencv2/core/core.hpp>
+// OpenCV 2 includes
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/videostab/videostab.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/stitching/stitcher.hpp>
+#include <opencv2/opencv.hpp>
+// OpenCV 3 :
+/*
+ #include <opencv2/highgui.hpp>
+#include <opencv2/video.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videostab.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/stitching.hpp>
 #include <opencv2/opencv.hpp>
+#include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/tracking.hpp>
 #include <opencv2/tracking/tracker.hpp>
 #include <opencv2/videoio.hpp>
+*/
 
 
 // allow easy addressing of OpenCV functions
@@ -35,8 +52,8 @@ using namespace std;
 
 // buffers and semaphores
 struct srcBuffer {
-    UMat warped_image;
-    UMat warped_mask;
+    Mat warped_image;
+    Mat warped_mask;
     Point corner;
     Size size;
     Mat full_warped_image;
@@ -192,8 +209,8 @@ private:
 
     Mat fullImages[4][3];
 
-    vector < UMat > warpedImages;
-    vector < UMat > warpedMasks;
+    vector < Mat > warpedImages;
+    vector < Mat > warpedMasks;
     vector < Point > corners;
     vector < Size > sizes;
 
@@ -228,7 +245,7 @@ private:
     srcDataType srcType = CAMERA;
     QString videoPath;
 
-    MultiTracker * tracker = NULL;
+    //MultiTracker * tracker = NULL;
 
     trackerType trackType = CIRCLES_LOCAL;
 
