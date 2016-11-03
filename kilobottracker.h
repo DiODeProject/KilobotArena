@@ -39,10 +39,14 @@ struct srcBuffer {
     UMat warped_mask;
     Point corner;
     Size size;
-    UMat full_warped_image;
+    Mat full_warped_image;
 };
 
-#define BUFF_SIZE 5
+#define BUFF_SIZE 2
+
+#define IM_WIDTH 2048
+#define IM_HEIGHT 1536
+
 
 enum srcDataType {
     IMAGES,
@@ -53,7 +57,25 @@ enum srcDataType {
 enum trackerType {
     CIRCLES_NAIVE,
     CIRCLES_LOCAL,
-    PARTICLE_FILTER
+    PARTICLE_FILTER,
+    SAMPLE_MATCH
+};
+
+enum lightColour {
+    OFF,
+    BLUE,
+    GREEN,
+    RED
+};
+
+struct kiloLight {
+    lightColour col;
+    Point pos;
+};
+
+struct circlesLocalTrackerData {
+    // mappings from the image indices to the quadrants
+    int inds[4];
 };
 
 class acquireThread;
@@ -89,10 +111,10 @@ public slots:
     void startLoop();
 
     /*!
-     * \brief stitchImages
-     * Use the existing feature matches to stitch the images
+     * \brief iterateTracker
+     * Use the existing feature matches to stitch the images and track the kilobots
      */
-    void stitchImages();
+    void iterateTracker();
 
     /*!
      * \brief loadCalibration
@@ -106,21 +128,69 @@ public slots:
      */
     void findKilobots();
 
+    /*!
+     * \brief setCamOrder
+     * If the camera order does not match the calibration order, alter
+     */
     void setCamOrder();
 
+    // accessors - docs not required??
+    void setSourceType(bool);
     void setKbMin(int);
     void setKbMax(int);
     void setCannyThresh(int);
     void setHoughAcc(int);
 
+    /*!
+     * \brief setVideoDir
+     * \param dir
+     * Set the path to video files for tracking
+     */
+    void setVideoDir(QString dir);
+
 private:
 
+    // PRIVATE METHODS
+
+    /*!
+     * \brief trackKilobots
+     * The method used to contain the tracking algorithm for one timestep
+     */
     void trackKilobots();
 
+    /*!
+     * \brief setupStitcher
+     * Setup required after loading the calibration data
+     */
+    void setupStitcher();
+
+    /*!
+     * \brief showMat
+     * Convert a Mat for display and send it as a QPixmap via the setStichedImage signal
+     */
+    void showMat(Mat &);
+
+    /*!
+     * \brief getKiloBotLight
+     * \param channels
+     * \param centreOfBox
+     * \return
+     * Used to detect the presence, colour, and position of a kiloBot's light and return it
+     */
+    kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox);
+
+    /*!
+     * \brief launchThreads
+     * Launches the threads for each of the source images
+     */
+    void launchThreads();
+
+
+    // INTERNAL VARIABLES
+
     Mat finalImage;
-    Mat finalImageR;
-    Mat finalImageG;
-    Mat finalImageB;
+
+    Mat fullImages[4][3];
 
     vector < UMat > warpedImages;
     vector < UMat > warpedMasks;
@@ -144,15 +214,19 @@ private:
     QPoint smallImageSize;
 
     Ptr<detail::ExposureCompensator> compensator;
+    Ptr<detail::Blender> blender;
 
     QElapsedTimer timer;
 
     bool loadFirstIm = false;
 
-    int kbMinSize = 7;
-    int kbMaxSize = 11;
-    int houghAcc = 120;
-    int cannyThresh = 15;
+    int kbMinSize = 10;
+    int kbMaxSize = 31;
+    int houghAcc = 25;
+    int cannyThresh = 50;
+
+    srcDataType srcType = CAMERA;
+    QString videoPath;
 
     MultiTracker * tracker = NULL;
 
@@ -160,9 +234,18 @@ private:
 
     QVector < Kilobot > kilos;
 
+    QVector < float > kiloHeadings;
+
+    QVector < Mat > samples;
+
     QVector < QVector < int > > exclusionTestsIndices;
 
     float last_time = 0.0f;
+
+    circlesLocalTrackerData clData;
+
+    Size fullSize;
+    Point fullCorner;
 
 };
 

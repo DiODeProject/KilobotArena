@@ -13,7 +13,6 @@
 #include <vector>
 
 
-
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
@@ -32,6 +31,10 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(ui->lineEdit, SIGNAL(editingFinished()), &this->kbtracker, SLOT(setCamOrder()));
 
+    connect(ui->cam_radio, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(setSourceType(bool)));
+
+    connect(ui->sel_video, SIGNAL(clicked(bool)), this, SLOT(setVideoSource()));
+
     connect(ui->houghAcc_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHoughAcc(int)));
     connect(ui->cannyThresh_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setCannyThresh(int)));
     connect(ui->kbMax_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMax(int)));
@@ -45,33 +48,22 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::loadImages()
+void MainWindow::setVideoSource()
 {
-/*
+
     QSettings settings;
-    QString lastDir = settings.value("lastDir", QDir::homePath()).toString();
-    QStringList fileNames = QFileDialog::getOpenFileNames(this, tr("Load the Four Calibration Images"), lastDir, tr("Image files (*.jpg *.png);; All files (*)"));
+    QString lastDir = settings.value("videoLastDir", QDir::homePath()).toString();
+    QString dirName = QFileDialog::getExistingDirectory(this, tr("Set the video source"), lastDir);
 
-    if (fileNames.size() != 4) {
-        ui->error_label->setText("Four calibration images are required");
-        return;
+    if (dirName.isEmpty()) {
+        ui->error_label->setText("No path selected");
     }
 
-    vector <Mat> imgs;
-
-    for (uint i = 0; i < fileNames.size(); ++i) {
-        imgs.push_back(imread(fileNames[i].toStdString(), CV_LOAD_IMAGE_COLOR));
-        if (!imgs.back().data) {
-            ui->error_label->setText("Error loading an image");
-            return;
-        }
-    }
-
-    //calibrater.setCalibrationImages(imgs);
-
-    QDir lastDirectory (fileNames[0]);
-    lastDirectory.cdUp();
-    settings.setValue ("lastDir", lastDirectory.absolutePath());*/
+    // set dir
+    this->kbtracker.setVideoDir(dirName);
+    ui->vid_path->setText(dirName);
+    ui->vid_path->setToolTip(dirName);
+    settings.setValue ("videoLastDir", dirName);
 }
 
 

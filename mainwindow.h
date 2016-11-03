@@ -33,10 +33,10 @@ public slots:
 
 
     /*!
-     * \brief loadImages
-     * Method to generate a dialog used for loading the calibration images
+     * \brief setVideoSource
+     * Method to generate a dialog used for setting the video source
      */
-    void loadImages();
+    void setVideoSource();
 
 private:
     Ui::MainWindow *ui;
