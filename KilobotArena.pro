@@ -18,33 +18,52 @@ SOURCES += main.cpp\
     dragzoomqlabel.cpp \
     kilobottracker.cpp \
     kilobot.cpp \
-    kilobotoverheadcontroller.cpp
+    kilobotoverheadcontroller.cpp \
+    ohc/calibrate.cpp \
+    ohc/ftdiconn.cpp \
+    ohc/intelhex.cpp \
+    ohc/serialconn.cpp \
+    ohc/serialwin.cpp \
+    ohc/vusbconn.cpp
 
 HEADERS  += mainwindow.h \
     clicksignalqlabel.h \
     dragzoomqlabel.h \
     kilobottracker.h \
     kilobot.h \
-    kilobotoverheadcontroller.h
+    kilobotoverheadcontroller.h \
+    ohc/calibrate.h \
+    ohc/ftdiconn.h \
+    ohc/intelhex.h \
+    ohc/packet.h \
+    ohc/serialconn.h \
+    ohc/serialwin.h \
+    ohc/vusbconn.h
 
 FORMS    += mainwindow.ui
 
 linux {
 
-# OpenCV 3
-INCLUDEPATH += /usr/local/include
-LIBS += -L/usr/local/lib \
-     -lopencv_core \
-     -lopencv_imgproc \
-     -lopencv_features2d\
-     -lopencv_highgui\
-     -lopencv_contrib\
-     -lopencv_calib3d\
-     -lopencv_objdetect\
-     -lopencv_photo\
-     -lopencv_stitching\
-     -lopencv_flann\
-     -lz
+CONFIG += link_pkgconfig
+PKGCONFIG += libftdi1
+PKGCONFIG += libusb
+PKGCONFIG += opencv
+
+# OpenCV 2
+#INCLUDEPATH += /usr/local/include
+#LIBS += -L/usr/local/lib \
+#     -lopencv_core \
+#     -lopencv_imgproc \
+#     -lopencv_features2d\
+#     -lopencv_highgui\
+#     -lopencv_contrib\
+#     -lopencv_calib3d\
+#     -lopencv_objdetect\
+#     -lopencv_photo\
+#     -lopencv_stitching\
+#     -lopencv_flann\
+#     -lz
+#     -lusb
 
 }
 
