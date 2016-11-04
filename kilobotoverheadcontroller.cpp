@@ -13,6 +13,9 @@
 #include "ohc/packet.h"
 
 #include <QThread>
+#include <QFileDialog>
+#include <QMessageBox>
+#include <QSettings>
 
 // OHC data structures & defs
 typedef struct {
@@ -35,7 +38,7 @@ static const kilo_cmd_t KILO_COMMANDS[] = {
 
 static const int NUM_KILO_COMMANDS = sizeof(KILO_COMMANDS)/sizeof(kilo_cmd_t);
 
-KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(parent), device(0), sending(false), connected(false)
+KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(parent), device(2), sending(false), connected(false)
 {
 
     // OHC link setup
@@ -85,6 +88,15 @@ void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_typ
     assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
 
     // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
+
+    // NOTES: -type goes from 0-127 for user defined types and is 8bit unsigned int (128+ reserved for system types)
+    //        -data must be an array of 9 unsigned 8bit ints
+
+    // TEMPORARY SIGNALLING:
+    uint8_t type = (uint8_t) message;
+    uint8_t data_ohc[9] = {0,0,0,0,0,0,0,0,0};
+    this->sendDataMessage(data_ohc, type);
+
 }
 
 void KilobotOverheadController::ftdiUpdateStatus(QString str)
@@ -107,7 +119,16 @@ void KilobotOverheadController::serialUpdateStatus(QString str)
 
 void KilobotOverheadController::updateStatus()
 {
-    // display some info
+    QString str = device == 0 ? ftdi_status : (device == 1 ? vusb_status : serial_status);
+     if (str.startsWith("connect")) {
+         connected = true;
+         emit errorMessage("OHC connected");
+         // enable stuff for when connected
+     } else {
+         connected = false;
+         // disable stuff for when not connected
+         emit errorMessage("OHC disconnected");
+     }
 }
 
 void KilobotOverheadController::toggleConnection() {
@@ -150,7 +171,7 @@ void KilobotOverheadController::sendMessage(int type_int) {
     } else  {
         if (sending) {
             stopSending();
-            return;
+            //return;
         }
 
         if (type == COMMAND_LEDTOGGLE) {
@@ -200,7 +221,78 @@ void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) 
         serial_conn->sendCommand(packet);
 }
 
+void KilobotOverheadController::chooseProgramFile() {
+    QSettings settings;
+    QString lastDir = settings.value("progLastDir", QDir::homePath()).toString();
+    QString filename = QFileDialog::getOpenFileName((QWidget *) sender(), "Open Program File", lastDir, "Program Hex File (*.hex)"); //launches File Selector
+    program_file = filename;
+    //upload_button->setEnabled(false);
+    if (filename.isEmpty()) {
+        ((QPushButton *)sender())->setText("[select file]");
+    } else {
+        QFileInfo info(filename);
+        if (info.isReadable()) {
+            ((QPushButton *)sender())->setText(info.fileName());
+            //if (connected)
+            //    upload_button->setEnabled(true);
+            QDir dirName (filename);
+            dirName.cdUp();
+            settings.setValue ("progLastDir", dirName.absolutePath());
+        }
+        else {
+            QMessageBox::critical((QWidget *) sender(), "Kilobots Toolkit", "Unable to open program file for reading.");
+            ((QPushButton *)sender())->setText("[select file]");
+            program_file = "";
+        }
+    }
+}
+
+void KilobotOverheadController::uploadProgram() {
+    if (sending) {
+        stopSending();
+    }
+    if (program_file.isEmpty()) {
+         QMessageBox::critical((QWidget *) sender(), "Kilobots Toolkit", "You must select a program file to upload.");
+    }
+    else {
+        // set to boot
+        this->sendMessage(BOOT);
+        sending = true;
+        if (device == 0)
+            ftdi_conn->sendProgram(program_file);
+        else if (device == 1)
+            vusb_conn->sendProgram(program_file);
+        else
+            serial_conn->sendProgram(program_file);
+    }
+}
+
+
 void KilobotOverheadController::showError(QString str)
 {
     emit errorMessage(str);
 }
+
+void KilobotOverheadController::resetKilobots()
+{
+    sendMessage(RESET);
+}
+
+void KilobotOverheadController::sleepKilobots()
+{
+    sendMessage(SLEEP);
+}
+
+void KilobotOverheadController::runKilobots()
+{
+    sendMessage(RUN);
+}
+
+//void KilobotOverheadController::setSerial()
+//{
+    //this->device = 2;
+    /*QVector<QString> ports = SerialConnection::enumerate();
+    if (ports.size()>0) {
+
+    }*/
+//}

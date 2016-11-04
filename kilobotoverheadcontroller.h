@@ -37,7 +37,19 @@ public slots:
     void ftdiUpdateStatus(QString);
     void vusbUpdateStatus(QString);
     void showError(QString);
+
+    // connect / disconnect
     void toggleConnection();
+
+    // access the build in kilobot commands for all kilobots
+    void resetKilobots();
+    void sleepKilobots();
+    void runKilobots();
+    void stopSending();
+
+    // program loading
+    void chooseProgramFile();
+    void uploadProgram();
 
 private:
 
@@ -55,11 +67,12 @@ private:
     QString ftdi_status;
     QString serial_status;
 
+    QString program_file;
+
     // PRIVATE METHODS
 
     void updateStatus();
 
-    void stopSending();
     void sendMessage(int);
     void sendDataMessage(uint8_t *, uint8_t);
 

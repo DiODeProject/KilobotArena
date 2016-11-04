@@ -26,6 +26,7 @@ using namespace cv;
 
 // Project includes
 #include "kilobottracker.h"
+#include "kilobotoverheadcontroller.h"
 
 namespace Ui {
 class MainWindow;
@@ -48,10 +49,15 @@ public slots:
      */
     void setVideoSource();
 
+    void left();
+    void right();
+    void straight();
+
 private:
     Ui::MainWindow *ui;
 
     KilobotTracker kbtracker;
+    KilobotOverheadController ohc;
 };
 
 #endif // MAINWINDOW_H

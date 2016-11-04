@@ -12,6 +12,8 @@
 // STL includes
 #include <vector>
 
+// this enables us to 'talk' kilobot
+#include "ohc/packet.h"
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -20,7 +22,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
-    //connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
+    connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
 
     connect(&kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
 
@@ -41,7 +43,17 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->kbMax_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMax(int)));
     connect(ui->kbMin_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMin(int)));
 
+    connect(ui->ohc_connect, SIGNAL(clicked(bool)), &this->ohc, SLOT(toggleConnection()));
+    connect(ui->ohc_reset, SIGNAL(toggled(bool)), &this->ohc, SLOT(resetKilobots()));
+    connect(ui->ohc_sleep, SIGNAL(toggled(bool)), &this->ohc, SLOT(sleepKilobots()));
+    connect(ui->ohc_run, SIGNAL(toggled(bool)), &this->ohc, SLOT(runKilobots()));
+    connect(ui->ohc_stop, SIGNAL(toggled(bool)), &this->ohc, SLOT(stopSending()));
+    connect(ui->ohc_set_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(chooseProgramFile()));
+    connect(ui->ohc_upload_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(uploadProgram()));
 
+    connect(ui->left, SIGNAL(clicked(bool)), this, SLOT(left()));
+    connect(ui->right, SIGNAL(clicked(bool)), this, SLOT(right()));
+    connect(ui->straight, SIGNAL(clicked(bool)), this, SLOT(straight()));
 }
 
 MainWindow::~MainWindow()
@@ -67,4 +79,17 @@ void MainWindow::setVideoSource()
     settings.setValue ("videoLastDir", dirName);
 }
 
+void MainWindow::left()
+{
+    ohc.signalKilobot(0,2,0);
+}
 
+void MainWindow::right()
+{
+    ohc.signalKilobot(0,3,0);
+}
+
+void MainWindow::straight()
+{
+    ohc.signalKilobot(0,1,0);
+}
