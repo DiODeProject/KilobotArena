@@ -20,6 +20,8 @@ typedef unsigned int kilobot_message_data;
 #define KILOBOT_MAX_COLOUR 255 // colour channel
 #define KILOBOT_REFRESH_DELAY 3 // in milliseconds
 
+#define KILOBOT_MAX_ID 1024 //
+
 // for now
 typedef unsigned int KilobotEnvironment;
 
@@ -37,12 +39,17 @@ public:
     Kilobot() {}
     ~Kilobot();
     kilobot_id getID();
+    void setID(kilobot_id);
     kilobot_pos getXPosition();
     kilobot_pos getYPosition();
     kilobot_colour getLedColour();
     //kilobot_colour resolveKilobotState(stateColours);
     void updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment);
     kilobot_message_data getEnvironmentValue();
+
+    // temporary
+    int lightThreshold = 220;
+
 private:
     kilobot_id id = 0;
     kilobot_pos x = 0;

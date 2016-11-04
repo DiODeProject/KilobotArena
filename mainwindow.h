@@ -53,6 +53,8 @@ public slots:
     void right();
     void straight();
 
+    void test_id();
+
 private:
     Ui::MainWindow *ui;
 

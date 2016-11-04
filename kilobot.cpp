@@ -55,3 +55,13 @@ kilobot_colour Kilobot::getLedColour()
 {
     return this->col;
 }
+
+kilobot_id Kilobot::getID()
+{
+    return this->id;
+}
+
+void Kilobot::setID(kilobot_id id)
+{
+    this->id = id;
+}

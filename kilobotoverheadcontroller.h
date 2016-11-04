@@ -26,13 +26,14 @@ public:
     ~KilobotOverheadController();
     void assignIDs(); // assign IDs
     //getIDs(); // return list of ids
-    void identifyKilobot(kilobot_id id);
-    void signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data);
 
 signals:
     void errorMessage(QString);
+    void setStopButton(bool);
 
 public slots:
+    void identifyKilobot(kilobot_id id);
+    void signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data);
     void serialUpdateStatus(QString);
     void ftdiUpdateStatus(QString);
     void vusbUpdateStatus(QString);

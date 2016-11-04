@@ -64,6 +64,8 @@ struct srcBuffer {
 #define IM_WIDTH 2048
 #define IM_HEIGHT 1536
 
+#define IDENTIFY_TIMEOUT 10
+
 
 enum srcDataType {
     IMAGES,
@@ -88,6 +90,11 @@ enum lightColour {
 struct kiloLight {
     lightColour col;
     Point pos;
+};
+
+enum stageType {
+    IDENTIFY,
+    TRACK
 };
 
 struct circlesLocalTrackerData {
@@ -119,13 +126,15 @@ signals:
 
     void setStitchedImage(QPixmap);
 
+    void identifyKilo(kilobot_id);
+
 public slots:
     /*!
      * \brief startLoop
      * This slot is the target of the timeout on the QTimer tick, and fetches warped images from the thread buffers and
      * stitches them
      */
-    void startLoop();
+    void startLoop(int stage);
 
     /*!
      * \brief iterateTracker
@@ -144,6 +153,12 @@ public slots:
      * Find the locations of Kilobots in the stitched image
      */
     void findKilobots();
+
+    /*!
+     * \brief identifyKilobots
+     * Find out what IDs the Kilobots have
+     */
+    void identifyKilobots();
 
     /*!
      * \brief setCamOrder
@@ -194,13 +209,18 @@ private:
      * \return
      * Used to detect the presence, colour, and position of a kiloBot's light and return it
      */
-    kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox);
+    kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox, int index);
+
+
+    Rect getKiloBotBoundingBox(int index, float scale);
 
     /*!
      * \brief launchThreads
      * Launches the threads for each of the source images
      */
     void launchThreads();
+
+    void stopThreads();
 
 
     // INTERNAL VARIABLES
@@ -263,6 +283,12 @@ private:
 
     Size fullSize;
     Point fullCorner;
+
+    uint currentID = 0;
+    uint found = IDENTIFY_TIMEOUT;
+    uint numFound = 0;
+
+    stageType stage = TRACK;
 
 };
 

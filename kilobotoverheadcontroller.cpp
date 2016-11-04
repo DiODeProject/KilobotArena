@@ -79,6 +79,11 @@ KilobotOverheadController::~KilobotOverheadController()
 void KilobotOverheadController::identifyKilobot(kilobot_id id)
 {
     assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
+
+    // TEMPORARY SIGNALLING:
+    uint8_t type = (uint8_t) 4;
+    uint8_t data_ohc[9] = {(uint8_t) id,0,0,0,0,0,0,0,0};
+    this->sendDataMessage(data_ohc, type);
 }
 
 void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data)
@@ -94,7 +99,7 @@ void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_typ
 
     // TEMPORARY SIGNALLING:
     uint8_t type = (uint8_t) message;
-    uint8_t data_ohc[9] = {0,0,0,0,0,0,0,0,0};
+    uint8_t data_ohc[9] = {(uint8_t) id,0,0,0,0,0,0,0,0};
     this->sendDataMessage(data_ohc, type);
 
 }
@@ -133,18 +138,22 @@ void KilobotOverheadController::updateStatus()
 
 void KilobotOverheadController::toggleConnection() {
     if (device == 0) {
-        if (ftdi_status.startsWith("connect"))
+        if (ftdi_status.startsWith("connect")) {
             ftdi_conn->close();
+            emit setStopButton(true);
+        }
         else
             ftdi_conn->open();
-    } else if (device == 1) {
+    /*} else if (device == 1) {
         if (vusb_status.startsWith("connect"))
             vusb_conn->close();
         else
-            vusb_conn->open();
+            vusb_conn->open(); THIS IS NEVER USED EVEN IN KILOGUI!*/
     } else {
-        if (serial_status.startsWith("connect"))
+        if (serial_status.startsWith("connect")) {
             serial_conn->close();
+            emit setStopButton(true);
+        }
         else
             serial_conn->open();
     }
@@ -153,11 +162,6 @@ void KilobotOverheadController::toggleConnection() {
 void KilobotOverheadController::stopSending() {
     if (sending)
         sendMessage(COMMAND_STOP);
-    /*QList<QPushButton*>::iterator i;
-    for (i = toggle_buttons.begin(); i != toggle_buttons.end(); i++) {
-        if ((*i)->isChecked())
-            (*i)->setChecked(false);
-    }*/
 }
 
 void KilobotOverheadController::sendMessage(int type_int) {
@@ -197,8 +201,10 @@ void KilobotOverheadController::sendMessage(int type_int) {
 }
 
 void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) {
-    if (sending)
+    if (sending) {
+        emit setStopButton(true);
         stopSending();
+    }
 
     QByteArray packet(PACKET_SIZE, 0);
     uint8_t checksum = PACKET_HEADER^PACKET_FORWARDMSG^type;
@@ -250,6 +256,7 @@ void KilobotOverheadController::chooseProgramFile() {
 void KilobotOverheadController::uploadProgram() {
     if (sending) {
         stopSending();
+        emit setStopButton(true);
     }
     if (program_file.isEmpty()) {
          QMessageBox::critical((QWidget *) sender(), "Kilobots Toolkit", "You must select a program file to upload.");
