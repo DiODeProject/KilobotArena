@@ -93,8 +93,17 @@ struct kiloLight {
 };
 
 enum stageType {
+    ASSIGN,
     IDENTIFY,
     TRACK
+};
+
+enum assignStage {
+    START,
+    CHOOSE,
+    TEST,
+    NEXTID,
+    COMPLETE
 };
 
 struct circlesLocalTrackerData {
@@ -127,6 +136,8 @@ signals:
     void setStitchedImage(QPixmap);
 
     void identifyKilo(kilobot_id);
+
+    void broadcastMessage(kilobot_message_type,kilobot_message_data);
 
 public slots:
     /*!
@@ -183,6 +194,8 @@ public slots:
 private:
 
     // PRIVATE METHODS
+
+    void assignKilobotIDs();
 
     /*!
      * \brief trackKilobots
@@ -287,6 +300,7 @@ private:
     uint currentID = 0;
     uint found = IDENTIFY_TIMEOUT;
     uint numFound = 0;
+    assignStage aStage = START;
 
     stageType stage = TRACK;
 

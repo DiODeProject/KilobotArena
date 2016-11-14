@@ -26,6 +26,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
 
     connect(&this->kbtracker,SIGNAL(identifyKilo(kilobot_id)), &this->ohc, SLOT(identifyKilobot(kilobot_id)));
+    connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_message_type,kilobot_message_data)), &this->ohc, SLOT(broadcastMessage(kilobot_message_type,kilobot_message_data)));
 
     connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
 
@@ -35,8 +36,10 @@ MainWindow::MainWindow(QWidget *parent) :
     QSignalMapper *mapper = new QSignalMapper(this);
     mapper->setMapping(ui->run, TRACK);
     mapper->setMapping(ui->identify, IDENTIFY);
+    mapper->setMapping(ui->assign, ASSIGN);
     connect(ui->run, SIGNAL(clicked(bool)), mapper, SLOT(map()));
     connect(ui->identify, SIGNAL(clicked(bool)), mapper, SLOT(map()));
+    connect(ui->assign, SIGNAL(clicked(bool)), mapper, SLOT(map()));
     connect(mapper, SIGNAL(mapped(int)), &this->kbtracker, SLOT(startLoop(int)));
 
 
@@ -95,7 +98,8 @@ void MainWindow::setVideoSource()
 
 void MainWindow::left()
 {
-    ohc.signalKilobot(0,2,0);
+    //ohc.signalKilobot(0,2,0);
+    ohc.broadcastMessage(3,0);
 }
 
 void MainWindow::right()

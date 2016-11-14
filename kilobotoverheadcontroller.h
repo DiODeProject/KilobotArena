@@ -33,6 +33,7 @@ signals:
 
 public slots:
     void identifyKilobot(kilobot_id id);
+    void broadcastMessage(kilobot_message_type message, kilobot_message_data data);
     void signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data);
     void serialUpdateStatus(QString);
     void ftdiUpdateStatus(QString);

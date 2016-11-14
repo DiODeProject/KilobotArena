@@ -48,7 +48,8 @@ public:
     kilobot_message_data getEnvironmentValue();
 
     // temporary
-    int lightThreshold = 220;
+
+    int lightThreshold = 170;
 
 private:
     kilobot_id id = 0;

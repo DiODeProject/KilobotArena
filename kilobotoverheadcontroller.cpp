@@ -104,6 +104,23 @@ void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_typ
 
 }
 
+void KilobotOverheadController::broadcastMessage(kilobot_message_type message, kilobot_message_data data)
+{
+    //assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
+    //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
+
+    // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
+
+    // NOTES: -type goes from 0-127 for user defined types and is 8bit unsigned int (128+ reserved for system types)
+    //        -data must be an array of 9 unsigned 8bit ints
+
+    // TEMPORARY SIGNALLING:
+    uint8_t type = (uint8_t) message;
+    uint8_t data_ohc[9] = {(uint8_t) data,0,0,0,0,0,0,0,0};
+    this->sendDataMessage(data_ohc, type);
+
+}
+
 void KilobotOverheadController::ftdiUpdateStatus(QString str)
 {
     ftdi_status = str;

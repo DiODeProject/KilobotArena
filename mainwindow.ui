@@ -94,7 +94,7 @@
       <x>640</x>
       <y>330</y>
       <width>111</width>
-      <height>32</height>
+      <height>41</height>
      </rect>
     </property>
     <property name="text">
@@ -386,7 +386,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>3,2,1,0</string>
+      <string>0,1,2,3</string>
      </property>
     </widget>
     <widget class="QLabel" name="label">
@@ -604,11 +604,24 @@
       <x>760</x>
       <y>330</y>
       <width>111</width>
-      <height>32</height>
+      <height>21</height>
      </rect>
     </property>
     <property name="text">
      <string>Identify Kilobots</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="assign">
+    <property name="geometry">
+     <rect>
+      <x>760</x>
+      <y>350</y>
+      <width>111</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Assign IDs</string>
     </property>
    </widget>
   </widget>
