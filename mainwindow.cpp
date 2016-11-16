@@ -40,7 +40,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->run, SIGNAL(clicked(bool)), mapper, SLOT(map()));
     connect(ui->identify, SIGNAL(clicked(bool)), mapper, SLOT(map()));
     connect(ui->assign, SIGNAL(clicked(bool)), mapper, SLOT(map()));
-    connect(mapper, SIGNAL(mapped(int)), &this->kbtracker, SLOT(startLoop(int)));
+    connect(mapper, SIGNAL(mapped(int)), &this->kbtracker, SLOT(startStopLoop(int)));
 
 
     connect(ui->find_kb, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(findKilobots()));
@@ -99,7 +99,7 @@ void MainWindow::setVideoSource()
 void MainWindow::left()
 {
     //ohc.signalKilobot(0,2,0);
-    ohc.broadcastMessage(3,0);
+    ohc.broadcastMessage(1,0);
 }
 
 void MainWindow::right()

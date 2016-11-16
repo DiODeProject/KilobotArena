@@ -116,7 +116,14 @@ void KilobotOverheadController::broadcastMessage(kilobot_message_type message, k
 
     // TEMPORARY SIGNALLING:
     uint8_t type = (uint8_t) message;
-    uint8_t data_ohc[9] = {(uint8_t) data,0,0,0,0,0,0,0,0};
+    uint8_t data_ohc[9];
+    if (data < 256) {
+        data_ohc[0] = (uint8_t) data;
+    } else if (data < 65536) {
+        data -= 4096;
+        data_ohc[0] = data >> 8;
+        data_ohc[1] = data & 255;
+    }
     this->sendDataMessage(data_ohc, type);
 
 }

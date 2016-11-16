@@ -49,7 +49,7 @@ public:
 
     // temporary
 
-    int lightThreshold = 170;
+    int lightThreshold = 230;
 
 private:
     kilobot_id id = 0;

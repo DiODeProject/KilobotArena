@@ -47,6 +47,7 @@ using namespace std;
 #include <QSemaphore>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QTime>
 
 #include "kilobot.h"
 
@@ -106,6 +107,8 @@ enum assignStage {
     COMPLETE
 };
 
+const int baseFourMultipliers[6] = {1,4,16,64,256,1024};
+
 struct circlesLocalTrackerData {
     // mappings from the image indices to the quadrants
     int inds[4];
@@ -145,13 +148,13 @@ public slots:
      * This slot is the target of the timeout on the QTimer tick, and fetches warped images from the thread buffers and
      * stitches them
      */
-    void startLoop(int stage);
+    void startStopLoop(int stage);
 
     /*!
      * \brief iterateTracker
      * Use the existing feature matches to stitch the images and track the kilobots
      */
-    void iterateTracker();
+    void iterateLoop();
 
     /*!
      * \brief loadCalibration
@@ -197,6 +200,8 @@ private:
 
     void assignKilobotIDs();
 
+    void assignKilobotIDsBase4();
+
     /*!
      * \brief trackKilobots
      * The method used to contain the tracking algorithm for one timestep
@@ -223,6 +228,7 @@ private:
      * Used to detect the presence, colour, and position of a kiloBot's light and return it
      */
     kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox, int index);
+    kiloLight getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index);
 
 
     Rect getKiloBotBoundingBox(int index, float scale);
@@ -267,6 +273,7 @@ private:
     Ptr<detail::Blender> blender;
 
     QElapsedTimer timer;
+    QElapsedTimer assignTimer;
 
     bool loadFirstIm = false;
 
@@ -283,6 +290,8 @@ private:
     trackerType trackType = CIRCLES_LOCAL;
 
     QVector < Kilobot > kilos;
+
+    QVector < int > kiloTempIDs;
 
     QVector < float > kiloHeadings;
 
