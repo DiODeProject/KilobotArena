@@ -16,7 +16,7 @@
 #include "ohc/serialconn.h"
 #include "ohc/calibrate.h"
 
-
+typedef unsigned int goal_pos;
 
 class KilobotOverheadController : public QObject
 {
@@ -34,14 +34,14 @@ signals:
 public slots:
     void identifyKilobot(kilobot_id id);
     void broadcastMessage(kilobot_message_type message, kilobot_message_data data);
-    void signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data);
+    void signalKilobot(kilobot_id id, kilobot_message_type message, QVector <uint8_t> data);
     void serialUpdateStatus(QString);
     void ftdiUpdateStatus(QString);
     void vusbUpdateStatus(QString);
     void showError(QString);
 
-    // connect / disconnect
-    void toggleConnection();
+    // CONTROL
+    void toggleConnection(); // connect / disconnect
 
     // access the build in kilobot commands for all kilobots
     void resetKilobots();
@@ -49,9 +49,10 @@ public slots:
     void runKilobots();
     void stopSending();
 
-    // program loading
-    void chooseProgramFile();
-    void uploadProgram();
+    void chooseProgramFile(); // find program file
+    void uploadProgram(); // upload program file
+
+    void addGoal(); // add goal for kilobots
 
 private:
 
@@ -70,6 +71,9 @@ private:
     QString serial_status;
 
     QString program_file;
+
+    goal_pos x_g = 0;
+    goal_pos y_g = 0;
 
     // PRIVATE METHODS
 

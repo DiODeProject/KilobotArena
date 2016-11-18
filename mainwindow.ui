@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>885</width>
-    <height>705</height>
+    <height>794</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -432,8 +432,8 @@
    <widget class="QPushButton" name="ohc_connect">
     <property name="geometry">
      <rect>
-      <x>760</x>
-      <y>440</y>
+      <x>640</x>
+      <y>430</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -445,8 +445,8 @@
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
      <rect>
-      <x>760</x>
-      <y>470</y>
+      <x>640</x>
+      <y>460</y>
       <width>120</width>
       <height>101</height>
      </rect>
@@ -509,12 +509,17 @@
       <bool>true</bool>
      </property>
     </widget>
+    <zorder>ohc_run</zorder>
+    <zorder>ohc_reset</zorder>
+    <zorder>ohc_sleep</zorder>
+    <zorder>ohc_stop</zorder>
+    <zorder>line_3</zorder>
    </widget>
    <widget class="QPushButton" name="ohc_set_prog">
     <property name="geometry">
      <rect>
-      <x>760</x>
-      <y>580</y>
+      <x>640</x>
+      <y>570</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -526,8 +531,8 @@
    <widget class="QPushButton" name="ohc_upload_prog">
     <property name="geometry">
      <rect>
-      <x>760</x>
-      <y>610</y>
+      <x>640</x>
+      <y>600</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -539,8 +544,8 @@
    <widget class="QPushButton" name="left">
     <property name="geometry">
      <rect>
-      <x>630</x>
-      <y>500</y>
+      <x>690</x>
+      <y>650</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -552,8 +557,8 @@
    <widget class="QPushButton" name="straight">
     <property name="geometry">
      <rect>
-      <x>660</x>
-      <y>500</y>
+      <x>720</x>
+      <y>650</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -565,8 +570,8 @@
    <widget class="QPushButton" name="right">
     <property name="geometry">
      <rect>
-      <x>690</x>
-      <y>500</y>
+      <x>750</x>
+      <y>650</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -578,8 +583,8 @@
    <widget class="QPushButton" name="test">
     <property name="geometry">
      <rect>
-      <x>640</x>
-      <y>560</y>
+      <x>690</x>
+      <y>710</y>
       <width>80</width>
       <height>22</height>
      </rect>
@@ -591,8 +596,8 @@
    <widget class="QLineEdit" name="test_id">
     <property name="geometry">
      <rect>
-      <x>640</x>
-      <y>530</y>
+      <x>690</x>
+      <y>680</y>
       <width>81</width>
       <height>22</height>
      </rect>
@@ -622,6 +627,32 @@
     </property>
     <property name="text">
      <string>Assign IDs</string>
+    </property>
+   </widget>
+   <widget class="Line" name="line_3">
+    <property name="geometry">
+     <rect>
+      <x>630</x>
+      <y>630</y>
+      <width>241</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="ohc_addgoal">
+    <property name="geometry">
+     <rect>
+      <x>770</x>
+      <y>430</y>
+      <width>101</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Add Goal</string>
     </property>
    </widget>
   </widget>

@@ -24,7 +24,11 @@ SOURCES += main.cpp\
     ohc/intelhex.cpp \
     ohc/serialconn.cpp \
     ohc/serialwin.cpp \
-    ohc/vusbconn.cpp
+    ohc/vusbconn.cpp \
+    kilobotenvironment.cpp \
+    mykilobotenvironment.cpp \
+    kilobotexperiment.cpp \
+    mykilobotexperiment.cpp
 
 HEADERS  += mainwindow.h \
     clicksignalqlabel.h \
@@ -38,7 +42,12 @@ HEADERS  += mainwindow.h \
     ohc/packet.h \
     ohc/serialconn.h \
     ohc/serialwin.h \
-    ohc/vusbconn.h
+    ohc/vusbconn.h \
+    kilobotenvironment.h \
+    mykilobotenvironment.h \
+    kilobotexperiment.h \
+    mykilobotexperiment.h \
+    userthread.h
 
 FORMS    += mainwindow.ui
 

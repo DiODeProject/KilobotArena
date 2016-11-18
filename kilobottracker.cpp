@@ -16,7 +16,6 @@
 #include <QtMath>
 
 
-
 QSemaphore srcFree[4];
 QSemaphore srcUsed[4];
 srcBuffer srcBuff[4][BUFF_SIZE];
@@ -343,6 +342,12 @@ void KilobotTracker::iterateLoop()
 
     }
 
+}
+
+void KilobotTracker::updateKilobotStates()
+{
+   qDebug() << "yay, we got a message";
+   emit temptemptemp(NULL);
 }
 
 void KilobotTracker::findKilobots()

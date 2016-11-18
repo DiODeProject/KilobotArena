@@ -10,12 +10,16 @@
 */
 
 #include "kilobotoverheadcontroller.h"
+#include "clicksignalqlabel.h"
+#include "dragzoomqlabel.h"
 #include "ohc/packet.h"
 
 #include <QThread>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QSettings>
+#include <QString>
+#include <QMouseEvent>
 
 // OHC data structures & defs
 typedef struct {
@@ -86,11 +90,11 @@ void KilobotOverheadController::identifyKilobot(kilobot_id id)
     this->sendDataMessage(data_ohc, type);
 }
 
-void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data)
+void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_type message, QVector<uint8_t> data)
 {
     assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
     assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
-    assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
+    //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
 
     // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
 
@@ -99,8 +103,8 @@ void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_typ
 
     // TEMPORARY SIGNALLING:
     uint8_t type = (uint8_t) message;
-    uint8_t data_ohc[9] = {(uint8_t) id,0,0,0,0,0,0,0,0};
-    this->sendDataMessage(data_ohc, type);
+    //uint8_t data_ohc[9] = {(uint8_t) id,0,0,0,0,0,0,0,0};
+    this->sendDataMessage(&data[0], type);
 
 }
 
@@ -149,15 +153,15 @@ void KilobotOverheadController::serialUpdateStatus(QString str)
 void KilobotOverheadController::updateStatus()
 {
     QString str = device == 0 ? ftdi_status : (device == 1 ? vusb_status : serial_status);
-     if (str.startsWith("connect")) {
-         connected = true;
-         emit errorMessage("OHC connected");
-         // enable stuff for when connected
-     } else {
-         connected = false;
-         // disable stuff for when not connected
-         emit errorMessage("OHC disconnected");
-     }
+    if (str.startsWith("connect")) {
+        connected = true;
+        emit errorMessage("OHC connected");
+        // enable stuff for when connected
+    } else {
+        connected = false;
+        // disable stuff for when not connected
+        emit errorMessage("OHC disconnected");
+    }
 }
 
 void KilobotOverheadController::toggleConnection() {
@@ -168,7 +172,7 @@ void KilobotOverheadController::toggleConnection() {
         }
         else
             ftdi_conn->open();
-    /*} else if (device == 1) {
+        /*} else if (device == 1) {
         if (vusb_status.startsWith("connect"))
             vusb_conn->close();
         else
@@ -283,7 +287,7 @@ void KilobotOverheadController::uploadProgram() {
         emit setStopButton(true);
     }
     if (program_file.isEmpty()) {
-         QMessageBox::critical((QWidget *) sender(), "Kilobots Toolkit", "You must select a program file to upload.");
+        QMessageBox::critical((QWidget *) sender(), "Kilobots Toolkit", "You must select a program file to upload.");
     }
     else {
         // set to boot
@@ -321,9 +325,59 @@ void KilobotOverheadController::runKilobots()
 
 //void KilobotOverheadController::setSerial()
 //{
-    //this->device = 2;
-    /*QVector<QString> ports = SerialConnection::enumerate();
+//this->device = 2;
+/*QVector<QString> ports = SerialConnection::enumerate();
     if (ports.size()>0) {
 
     }*/
 //}
+
+
+
+
+void KilobotOverheadController::addGoal() {
+
+    goal_pos xG_pos;
+    goal_pos yG_pos;
+
+    // Define goal manually:
+    xG_pos = 50;
+    yG_pos = 50;
+
+    // User-defined goal:
+    // Read mouse click:
+    QMouseEvent * m_ev;
+
+    if (m_ev->button() == Qt::LeftButton) {
+//        xG_pos = m_ev->x();
+//        yG_pos = m_ev->y();
+//        m_ev->accept();
+
+        //        this->isDragged = true;
+        //        this->setMouseTracking(true);
+        //        emit moving(QPoint(ev->localPos().x(),ev->localPos().y()));
+        //        ev->accept();
+    }
+
+
+    // Save goal position and emit confirmation:
+    x_g = xG_pos;
+    y_g = yG_pos;
+
+    QString str1 = QString::number(xG_pos);
+    QString str2 = QString::number(yG_pos);
+    QString str = "Goal Added. Loc: (";
+
+    str.append(str1);
+    str.append(",");
+    str.append(str2);
+    str.append(").");
+
+    emit errorMessage(str);
+
+}
+
+
+
+
+

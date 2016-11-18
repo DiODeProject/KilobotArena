@@ -22,9 +22,7 @@ typedef unsigned int kilobot_message_data;
 
 #define KILOBOT_MAX_ID 1024 //
 
-// for now
-typedef unsigned int KilobotEnvironment;
-
+class KilobotEnvironment;
 
 struct kilobot_colour
 {
@@ -35,7 +33,7 @@ struct kilobot_colour
 
 class Kilobot {
 public:
-    Kilobot(kilobot_id identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment);
+    Kilobot(kilobot_id identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment *environment);
     Kilobot() {}
     ~Kilobot();
     kilobot_id getID();
@@ -44,19 +42,22 @@ public:
     kilobot_pos getYPosition();
     kilobot_colour getLedColour();
     //kilobot_colour resolveKilobotState(stateColours);
-    void updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment);
+    void updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment * environment);
     kilobot_message_data getEnvironmentValue();
 
     // temporary
 
     int lightThreshold = 230;
 
+signals:
+    void sendEnviron(Kilobot*);
+
 private:
     kilobot_id id = 0;
     kilobot_pos x = 0;
     kilobot_pos y = 0;
     kilobot_colour col = {0,0,0};
-    KilobotEnvironment env = 0;
+    KilobotEnvironment * env = NULL;
 };
 
 #endif // KILOBOT_H

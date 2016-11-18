@@ -5,11 +5,13 @@
  *      Author: marshall
  */
 
+
+#include "kilobotenvironment.h"
 #include "kilobot.h"
 #include <assert.h>
 #include <math.h>
 
-Kilobot::Kilobot(kilobot_id identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment) {
+Kilobot::Kilobot(kilobot_id identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment * environment) {
     // TODO Auto-generated constructor stub
     assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
     id = identifier;
@@ -27,7 +29,7 @@ Kilobot::~Kilobot() {
     // TODO return stateColour from stateColours that has smallest Euclidean distance to this.col
 //}
 
-void Kilobot::updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment) {
+void Kilobot::updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment * environment) {
     assert(colourValues.r <= KILOBOT_MAX_COLOUR);
     assert(colourValues.g <= KILOBOT_MAX_COLOUR);
     assert(colourValues.b <= KILOBOT_MAX_COLOUR);

@@ -142,6 +142,8 @@ signals:
 
     void broadcastMessage(kilobot_message_type,kilobot_message_data);
 
+    void temptemptemp(Kilobot *);
+
 public slots:
     /*!
      * \brief startLoop
@@ -193,6 +195,8 @@ public slots:
      * Set the path to video files for tracking
      */
     void setVideoDir(QString dir);
+
+    void updateKilobotStates();
 
 private:
 
