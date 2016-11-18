@@ -115,6 +115,7 @@ struct circlesLocalTrackerData {
 };
 
 class acquireThread;
+class KilobotExperiment;
 
 /*!
  * \brief The KilobotTracker class
@@ -129,6 +130,9 @@ public:
     explicit KilobotTracker(QPoint smallImageSize = QPoint(300,300), QObject *parent = 0);
     ~KilobotTracker();
 
+    KilobotExperiment * expt;
+
+
 signals:
     /*!
      * \brief errorMessage
@@ -138,11 +142,15 @@ signals:
 
     void setStitchedImage(QPixmap);
 
-    void identifyKilo(kilobot_id);
+    void identifyKilo(uint8_t);
 
-    void broadcastMessage(kilobot_message_type,kilobot_message_data);
+    void broadcastMessage(kilobot_message);
 
-    void temptemptemp(Kilobot *);
+    void startExperiment(bool);
+
+    void stopExperiment();
+
+    void testtesttest(Kilobot*,Kilobot);
 
 public slots:
     /*!
@@ -197,6 +205,8 @@ public slots:
     void setVideoDir(QString dir);
 
     void updateKilobotStates();
+
+    void getInitialKilobotStates();
 
 private:
 
@@ -293,7 +303,7 @@ private:
 
     trackerType trackType = CIRCLES_LOCAL;
 
-    QVector < Kilobot > kilos;
+    QVector < Kilobot * > kilos;
 
     QVector < int > kiloTempIDs;
 
@@ -316,6 +326,7 @@ private:
     assignStage aStage = START;
 
     stageType stage = TRACK;
+
 
 };
 

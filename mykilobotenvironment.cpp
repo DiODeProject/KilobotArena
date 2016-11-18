@@ -1,12 +1,14 @@
 #include "mykilobotenvironment.h"
 #include <QVector>
+#include <QLineF>
 
 #include "kilobot.h"
 
 mykilobotenvironment::mykilobotenvironment(QObject *parent) : KilobotEnvironment(parent)
 {
 
-
+    // hard-code for now
+    this->target = QPoint(1100,1100); // millimetres
 
 
 }
@@ -19,24 +21,13 @@ void mykilobotenvironment::update()
 }
 
 
-
-//QVector <uint8_t> mykilobotenvironment::getEnvironmentValue(kilobot_pos x, kilobot_pos y)
-//{
-
-//    Q_UNUSED(x);
-//    Q_UNUSED(y);
-
-//    QVector <uint8_t> retur;
-
-//    retur.resize(9);
-
-//    return retur;
-
-//}
-
-void mykilobotenvironment::generateEnviron(Kilobot* kb)
+void mykilobotenvironment::generateEnvironment(Kilobot kilobot)
 {
+    // lalala
+    QPoint kbPos = QPoint(kilobot.getXPosition(), kilobot.getYPosition());
+    int dist = QLineF(kbPos, this->target).length();
 
+    // construct data packet of 10 bits
 
 }
 

@@ -2,6 +2,7 @@
 #define MYKILOBOTENVIRONMENT_H
 
 #include <QObject>
+#include <QPoint>
 #include "kilobotenvironment.h"
 
 class mykilobotenvironment : public KilobotEnvironment
@@ -16,7 +17,10 @@ signals:
 
 public slots:
     void update();
-    void generateEnviron(Kilobot*);
+    void generateEnvironment(Kilobot kilobot);
+
+private:
+    QPoint target;
 
 };
 #endif // MYKILOBOTENVIRONMENT_H

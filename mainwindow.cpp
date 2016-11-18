@@ -10,7 +10,7 @@
 #include <QFileDialog>
 #include <QSignalMapper>
 
-// BRING IN USER CODE
+// INCLUDE USER THREAD
 #include "userthread.h"
 
 // STL includes
@@ -25,14 +25,17 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    // CREATE THE USER THREAD
     this->thread = new UserThread(&kbtracker, &ohc);
-    this->thread->start();
+
+    // make sure that the tracker can ping the experiment
+    KilobotExperiment * expt = this->thread->getExperimentPointer();
+    if (expt == NULL) {qDebug() << "Something has gone REALLY wrong"; QApplication::exit(-1);}//panic
+    kbtracker.expt = expt;
 
     connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
     connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
 
-    connect(&this->kbtracker,SIGNAL(identifyKilo(kilobot_id)), &this->ohc, SLOT(identifyKilobot(kilobot_id)));
+    connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
     connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_message_type,kilobot_message_data)), &this->ohc, SLOT(broadcastMessage(kilobot_message_type,kilobot_message_data)));
 
     connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
@@ -71,8 +74,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->ohc_set_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(chooseProgramFile()));
     connect(ui->ohc_upload_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(uploadProgram()));
 
-    connect(ui->ohc_addgoal, SIGNAL(clicked(bool)), &this->ohc, SLOT(addGoal()));
-
     connect(ui->left, SIGNAL(clicked(bool)), this, SLOT(left()));
     connect(ui->right, SIGNAL(clicked(bool)), this, SLOT(right()));
     connect(ui->straight, SIGNAL(clicked(bool)), this, SLOT(straight()));
@@ -108,7 +109,7 @@ void MainWindow::setVideoSource()
 void MainWindow::left()
 {
     //ohc.signalKilobot(0,2,0);
-    ohc.broadcastMessage(1,0);
+    //ohc.broadcastMessage(1,0);
 }
 
 void MainWindow::right()
@@ -118,7 +119,7 @@ void MainWindow::right()
 
 void MainWindow::straight()
 {
-   //ohc.signalKilobot(0,1,0);
+    //ohc.signalKilobot(0,1,0);
 }
 
 void MainWindow::test_id()

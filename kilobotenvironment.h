@@ -13,11 +13,11 @@ public:
 //    virtual QVector <uint8_t> getEnvironmentValue(kilobot_pos, kilobot_pos) { QVector <uint8_t> temp; return temp;}
 
 signals:
-    void transmitKiloState(kilobot_id id, kilobot_message_type message, QVector <uint8_t> data);
+    void transmitKiloState(kilobot_message);
 
 public slots:
     virtual void update() {}
-    virtual void generateEnviron(Kilobot*) {}
+    virtual void generateEnvironment(Kilobot) {}
 
 
 };

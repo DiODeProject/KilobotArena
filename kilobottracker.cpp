@@ -6,6 +6,7 @@
  */
 
 #include "kilobottracker.h"
+#include "kilobotexperiment.h"
 #include <QImage>
 #include <QDebug>
 #include <QThread>
@@ -15,6 +16,7 @@
 #include <QFileDialog>
 #include <QtMath>
 
+#define TEST_WITHOUT_CAMERAS
 
 QSemaphore srcFree[4];
 QSemaphore srcUsed[4];
@@ -89,6 +91,7 @@ private:
                     image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_00200_")+QString::number(index)+QString(".jpg")).toStdString());
                 }
                 else if (type == CAMERA) {
+#ifndef TEST_WITHOUT_CAMERAS
                     camUsage.acquire();
                     if (!cap.isOpened() && camOrder[index]!=3 /* TEMPORARY!!! */) {
                         cap.open(camOrder[index]);
@@ -113,6 +116,7 @@ private:
                         camUsage.release();
                     }
                     else
+#endif
                     {
                         image = Mat(IM_HEIGHT,IM_WIDTH, CV_8UC3, Scalar(0,0,0)); /* TEMPORARY!!! */
                         camUsage.release();
@@ -163,7 +167,6 @@ private:
             camUsage.acquire();
             if (cap.isOpened()) cap.release();
             camUsage.release();
-            //QThread::sleep(1);
         }
     }
 };
@@ -204,6 +207,10 @@ void KilobotTracker::startStopLoop(int stage)
 
     this->stage = (stageType) stage;
 
+    Kilobot * kilo = new Kilobot;
+
+    emit testtesttest(kilo, *kilo);
+
     // check if running
     if (this->threads[0] && this->threads[0]->isRunning()) {
 
@@ -213,6 +220,9 @@ void KilobotTracker::startStopLoop(int stage)
 
         emit errorMessage(QString("FPS = ") + QString::number(float(time)/(float(timer.elapsed())/1000.0f)));
         this->stopThreads();
+
+        // Stop the experiment
+        emit stopExperiment();
 
         return;
 
@@ -225,6 +235,12 @@ void KilobotTracker::startStopLoop(int stage)
 
     // launch threads
     this->launchThreads();
+
+    // connect kilobots
+    for (int i = 0; i < this->kilos.size(); ++i) {
+        disconnect(kilos[i]);
+        connect(this->kilos[i],SIGNAL(sendUpdateToExperiment(Kilobot*,Kilobot)), this->expt, SLOT(setupInitialStateRequiredCode(Kilobot*,Kilobot)));
+    }
 
     if (!this->compensator) {
         // calculate to compensate for exposure
@@ -260,6 +276,11 @@ void KilobotTracker::iterateLoop()
         srcUsed[2].available() > 0 && \
         srcUsed[3].available() > 0) || this->loadFirstIm)
     {
+
+        // we have tracking, so it is safe to start the experiment
+        if (!this->loadFirstIm && time == 0) {
+            emit startExperiment(false /*we are not resuming the experiment*/);
+        }
 
         srcUsed[0].acquire();
         srcUsed[1].acquire();
@@ -346,8 +367,17 @@ void KilobotTracker::iterateLoop()
 
 void KilobotTracker::updateKilobotStates()
 {
-   qDebug() << "yay, we got a message";
-   emit temptemptemp(NULL);
+    for (int i = 0; i < kilos.size(); ++i) {
+        kilos[i]->updateExperiment();
+        kilos[i]->updateHardware();
+    }
+}
+
+void KilobotTracker::getInitialKilobotStates()
+{
+    for (int i = 0; i < kilos.size(); ++i) {
+        kilos[i]->updateExperiment();
+    }
 }
 
 void KilobotTracker::findKilobots()
@@ -405,8 +435,8 @@ void KilobotTracker::findKilobots()
 
     for( size_t i = 0; i < circles.size(); i++ ) {
 
-        Kilobot kilo(INT_MAX,circles[i][0],circles[i][1],col,0);
-        this->kilos.push_back(kilo);
+        this->kilos.push_back(new Kilobot(INT_MAX,circles[i][0],circles[i][1],col,0));
+        // link to experiment
 
     }
 
@@ -423,8 +453,8 @@ void KilobotTracker::findKilobots()
 
         for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
             Rect bb;
-            bb.x = cvRound(this->kilos[i].getXPosition() - maxDist);
-            bb.y = cvRound(this->kilos[i].getYPosition() - maxDist);
+            bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
+            bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
             bb.width = cvRound(maxDist*2.0f);
             bb.height = cvRound(maxDist*2.0f);
 
@@ -449,8 +479,8 @@ void KilobotTracker::assignKilobotIDs()
     cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
 
     for (int i = 0; i < kilos.size(); ++i) {
-        Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-        if (kilos[i].getID() == INT_MAX) {
+        Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
+        if (kilos[i]->getID() == INT_MAX) {
             // not id'd
             if (i == (int) currentID)
                 circle( display, center, 3, Scalar(0,255,0), 3, 8, 0 );
@@ -464,11 +494,11 @@ void KilobotTracker::assignKilobotIDs()
 
     this->showMat(display);
 
-    emit broadcastMessage(20,0);
+    //emit broadcastMessage(20,0);
 
     // setup thresholds for LEDs
     if (time < 30) {
-        if (time == 0) emit broadcastMessage(1,0);
+        //if (time == 0) emit broadcastMessage(1,0);
 
         for (int i = 0; i < kilos.size(); ++i) {
             Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
@@ -502,14 +532,14 @@ void KilobotTracker::assignKilobotIDs()
         // upload prog...
 
         // set on packet
-        emit broadcastMessage(1,0);
+        //emit broadcastMessage(1,0);
 
         this->aStage = TEST;
         this->currentID = 0;
 
     } else if (this->aStage == CHOOSE) {
 
-        emit broadcastMessage(3,0);
+        //emit broadcastMessage(3,0);
         this->aStage = TEST;
 
     } else if (this->aStage == TEST) {
@@ -538,7 +568,7 @@ void KilobotTracker::assignKilobotIDs()
             int colOff = 1;
             if (light.col == RED) colOff = 2;
             if (light.col == GREEN) colOff = 1;
-            emit broadcastMessage(2,colOff);
+            //emit broadcastMessage(2,colOff);
             this->aStage = CHOOSE;
         }
 
@@ -567,8 +597,8 @@ void KilobotTracker::assignKilobotIDs()
         }
 
         if (numOn == (int) currentID+1) {
-            emit broadcastMessage(4,currentID);
-            kilos[currentID].setID(currentID);
+            //emit broadcastMessage(4,currentID);
+            kilos[currentID]->setID(currentID);
             this->aStage = NEXTID;
         }
 
@@ -583,7 +613,7 @@ void KilobotTracker::assignKilobotIDs()
         // otherwise
         this->currentID++;
 
-        emit broadcastMessage(10,0);
+        //emit broadcastMessage(10,0);
         this->aStage = CHOOSE;
 
     }
@@ -599,8 +629,8 @@ void KilobotTracker::assignKilobotIDsBase4()
     cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
 
     for (int i = 0; i < kilos.size(); ++i) {
-        Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-        if (kilos[i].getID() == INT_MAX) {
+        Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
+        if (kilos[i]->getID() == INT_MAX) {
             // not id'd
             if (i == (int) currentID)
                 circle( display, center, 3, Scalar(0,255,0), 3, 8, 0 );
@@ -616,12 +646,12 @@ void KilobotTracker::assignKilobotIDsBase4()
 
     this->showMat(display);
 
-    emit broadcastMessage(20,0);
+    //emit broadcastMessage(20,0);
 
     // setup thresholds for LEDs
     if (time < 30) {
         if (time == 0) {
-            emit broadcastMessage(10,0);
+            //emit broadcastMessage(10,0);
             this->kiloTempIDs.clear();
             this->kiloTempIDs.resize(this->kilos.size());
         }
@@ -659,7 +689,7 @@ void KilobotTracker::assignKilobotIDsBase4()
         // upload prog...
 
         // set on packet
-        emit broadcastMessage(1,0);
+        //emit broadcastMessage(1,0);
         this->assignTimer.start();
 
         this->aStage = TEST;
@@ -668,7 +698,7 @@ void KilobotTracker::assignKilobotIDsBase4()
 
     } else if (this->aStage == CHOOSE) {
 
-         emit broadcastMessage(2,this->kiloTempIDs[numFound]+4096);
+         //emit broadcastMessage(2,this->kiloTempIDs[numFound]+4096);
         ++numFound;
         if (numFound > kiloTempIDs.size() - 1) {
             this->aStage = COMPLETE;
@@ -734,7 +764,7 @@ void KilobotTracker::assignKilobotIDsBase4()
         // otherwise
         this->currentID++;
 
-        emit broadcastMessage(10,0);
+        //emit broadcastMessage(10,0);
         this->aStage = CHOOSE;
 
     }
@@ -765,7 +795,7 @@ void KilobotTracker::identifyKilobots()
     for (uint i = 0; i < (uint) kilos.size(); ++i) {
 
         // if unassigned
-        if (kilos[i].getID() == INT_MAX) {
+        if (kilos[i]->getID() == INT_MAX) {
             // get bounding box
             Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
 
@@ -785,14 +815,14 @@ void KilobotTracker::identifyKilobots()
             kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
 
             if (light.col != OFF) {
-                kilos[i].setID((kilobot_id) currentID);
+                kilos[i]->setID((uint8_t) currentID);
                 found = 0;
                 return;
             }
         }
 
-        Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-        if (kilos[i].getID() == INT_MAX) {
+        Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
+        if (kilos[i]->getID() == INT_MAX) {
             // not id'd
            circle( display, center, 3, Scalar(255,0,0), 3, 8, 0 );
         } else {
@@ -831,13 +861,13 @@ void KilobotTracker::trackKilobots()
             {
                 for (uint j = 0; j < circles.size(); ++j) {
 
-                    Point centerK(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
+                    Point centerK(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
                     Point centerC(cvRound(circles[j][0]), cvRound(circles[j][1]));
                     Point diff = centerK - centerC;
                     double dist = cv::sqrt(diff.x*diff.x + diff.y*diff.y);
                     // check
                     if (dist < maxDist) {
-                        kilos[i].updateState(centerC.x, centerC.y,kilos[i].getLedColour(),0);
+                        kilos[i]->updateState(centerC.x, centerC.y,kilos[i]->getLedColour(),0);
                     }
 
                 }
@@ -846,7 +876,7 @@ void KilobotTracker::trackKilobots()
 
             for( size_t i = 0; i < (uint) kilos.size(); i++ )
             {
-                 Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
+                 Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
                  circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
             }
 
@@ -950,9 +980,9 @@ void KilobotTracker::trackKilobots()
 
                             if (l == i) continue;
 
-                            Point cCent(circles[k][0]-bb.width/2+kilos[i].getXPosition(), circles[k][1]-bb.height/2+kilos[i].getYPosition());
+                            Point cCent(circles[k][0]-bb.width/2+kilos[i]->getXPosition(), circles[k][1]-bb.height/2+kilos[i]->getYPosition());
 
-                            if ( qPow(cCent.x - kilos[l].getXPosition(),2) + qPow(cCent.y - kilos[l].getYPosition(),2) \
+                            if ( qPow(cCent.x - kilos[l]->getXPosition(),2) + qPow(cCent.y - kilos[l]->getYPosition(),2) \
                                    <  qPow(circles[k][0]-bb.width/2,2) + qPow(circles[k][1]-bb.height/2,2) ) {
                                 circles.erase(circles.begin()+k);
                                 --k;
@@ -979,9 +1009,9 @@ void KilobotTracker::trackKilobots()
 
                             float smooth_fact = 0.5;
 
-                            int new_x = float(bb.x+circles[best_index][0])*(1.0-smooth_fact) + float(kilos[i].getXPosition())*smooth_fact;
-                            int new_y = float(bb.y+circles[best_index][1])*(1.0-smooth_fact) + float(kilos[i].getYPosition())*smooth_fact;
-                            this->kilos[i].updateState(new_x,new_y,kilos[i].getLedColour(),0);
+                            int new_x = float(bb.x+circles[best_index][0])*(1.0-smooth_fact) + float(kilos[i]->getXPosition())*smooth_fact;
+                            int new_y = float(bb.y+circles[best_index][1])*(1.0-smooth_fact) + float(kilos[i]->getYPosition())*smooth_fact;
+                            this->kilos[i]->updateState(new_x,new_y,kilos[i]->getLedColour(),0);
 
                         }
 
@@ -996,8 +1026,8 @@ void KilobotTracker::trackKilobots()
 
             for( size_t i = 0; i < (uint) kilos.size(); i++ )
             {
-                 Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-                 if (kilos[i].getID() == INT_MAX) {
+                 Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
+                 if (kilos[i]->getID() == INT_MAX) {
                      // not id'd
                     circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
                  } else {
@@ -1008,8 +1038,8 @@ void KilobotTracker::trackKilobots()
 
             if (kilos.size() > 0) {
                 Rect bb;
-                bb.x = cvRound(this->kilos[0].getXPosition() - maxDist);
-                bb.y = cvRound(this->kilos[0].getYPosition() - maxDist);
+                bb.x = cvRound(this->kilos[0]->getXPosition() - maxDist);
+                bb.y = cvRound(this->kilos[0]->getYPosition() - maxDist);
                 bb.width = cvRound(maxDist*2.0f);
                 bb.height = cvRound(maxDist*2.0f);
                 rectangle(display, bb, Scalar(0,0,255),3);
@@ -1042,8 +1072,8 @@ void KilobotTracker::trackKilobots()
                 Point offset(0,0);
                 // test for no movement
                 Rect bb;
-                bb.x = cvRound(this->kilos[i].getXPosition() - maxDist);
-                bb.y = cvRound(this->kilos[i].getYPosition() - maxDist);
+                bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
+                bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
                 bb.width = cvRound(maxDist*2.0f);
                 bb.height = cvRound(maxDist*2.0f);
 
@@ -1062,8 +1092,8 @@ void KilobotTracker::trackKilobots()
                     Point tempOff((qrand() % (2*max_dist)) - max_dist, (qrand() % (2*max_dist)) - max_dist);
 
                     // test
-                    bb.x = cvRound(this->kilos[i].getXPosition() + tempOff.x - maxDist);
-                    bb.y = cvRound(this->kilos[i].getYPosition() + tempOff.y - maxDist);
+                    bb.x = cvRound(this->kilos[i]->getXPosition() + tempOff.x - maxDist);
+                    bb.y = cvRound(this->kilos[i]->getYPosition() + tempOff.y - maxDist);
                     bb.width = cvRound(maxDist*2.0f);
                     bb.height = cvRound(maxDist*2.0f);
 
@@ -1090,11 +1120,11 @@ void KilobotTracker::trackKilobots()
                 }
 
                 // move kilobot
-                this->kilos[i].updateState(this->kilos[i].getXPosition()+offset.x, this->kilos[i].getYPosition()+offset.y,this->kilos[i].getLedColour(), 0);
+                this->kilos[i]->updateState(this->kilos[i]->getXPosition()+offset.x, this->kilos[i]->getYPosition()+offset.y,this->kilos[i]->getLedColour(), 0);
 
                 // move sample
-                bb.x = cvRound(this->kilos[i].getXPosition() - maxDist);
-                bb.y = cvRound(this->kilos[i].getYPosition() - maxDist);
+                bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
+                bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
                 bb.width = cvRound(maxDist*2.0f);
                 bb.height = cvRound(maxDist*2.0f);
 
@@ -1106,7 +1136,7 @@ void KilobotTracker::trackKilobots()
 
              for( size_t i = 0; i < (uint) kilos.size(); i++ )
              {
-                  Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
+                  Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
                   circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
              }
 
@@ -1125,8 +1155,8 @@ Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
     float maxDist = scale*this->kbMaxSize;
 
     Rect bb;
-    bb.x = cvRound(this->kilos[i].getXPosition() - maxDist);
-    bb.y = cvRound(this->kilos[i].getYPosition() - maxDist);
+    bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
+    bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
     bb.width = cvRound(maxDist*2.0f);
     bb.height = cvRound(maxDist*2.0f);
 
@@ -1157,30 +1187,30 @@ kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, in
 
     // find colour
     for (uint i = 0; i < 3; ++i) {
-        cv::threshold(channels[i], temp[i], kilos[index].lightThreshold,255,CV_THRESH_TOZERO);
-        temp[i] = temp[i] - kilos[index].lightThreshold;
+        cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+        temp[i] = temp[i] - kilos[index]->lightThreshold;
         sums[i] = cv::sum(temp[i]);
         maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
     }
 
     /*if (sums[maxIndex][0] > tooBig) {
-        kilos[index].lightThreshold = kilos[index].lightThreshold + step < 255 ? kilos[index].lightThreshold + step : kilos[index].lightThreshold;
+        kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
     }
     if (sums[maxIndex][0] < 1.0f) {
-        kilos[index].lightThreshold = kilos[index].lightThreshold - step > 180 ? kilos[index].lightThreshold - step : kilos[index].lightThreshold;
+        kilos[index]->lightThreshold = kilos[index]->lightThreshold - step > 180 ? kilos[index]->lightThreshold - step : kilos[index]->lightThreshold;
 
         maxIndex = 0;
 
         // move back up if we hit a bit prob
         for (uint i = 0; i < 3; ++i) {
-            cv::threshold(channels[i], temp[i], kilos[index].lightThreshold,255,CV_THRESH_TOZERO);
-            temp[i] = temp[i] - kilos[index].lightThreshold;
+            cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+            temp[i] = temp[i] - kilos[index]->lightThreshold;
             sums[i] = cv::sum(temp[i]);
             maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
         }
 
         if (sums[maxIndex][0] > tooBig) {
-            kilos[index].lightThreshold = kilos[index].lightThreshold + step < 255 ? kilos[index].lightThreshold + step : kilos[index].lightThreshold;
+            kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
         }
     }*/
 
@@ -1218,30 +1248,30 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
 
     // find colour
     for (uint i = 0; i < 3; ++i) {
-        cv::threshold(channels[i], temp[i], kilos[index].lightThreshold,255,CV_THRESH_TOZERO);
-        temp[i] = temp[i] - kilos[index].lightThreshold;
+        cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+        temp[i] = temp[i] - kilos[index]->lightThreshold;
         sums[i] = cv::sum(temp[i]);
         maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
     }
 
     if (sums[maxIndex][0] > tooBig) {
-        kilos[index].lightThreshold = kilos[index].lightThreshold + step < 255 ? kilos[index].lightThreshold + step : kilos[index].lightThreshold;
+        kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
     }
     if (sums[maxIndex][0] < 1.0f) {
-        kilos[index].lightThreshold = kilos[index].lightThreshold - step > 180 ? kilos[index].lightThreshold - step : kilos[index].lightThreshold;
+        kilos[index]->lightThreshold = kilos[index]->lightThreshold - step > 180 ? kilos[index]->lightThreshold - step : kilos[index]->lightThreshold;
 
         maxIndex = 0;
 
         // move back up if we hit a bit prob
         for (uint i = 0; i < 3; ++i) {
-            cv::threshold(channels[i], temp[i], kilos[index].lightThreshold,255,CV_THRESH_TOZERO);
-            temp[i] = temp[i] - kilos[index].lightThreshold;
+            cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+            temp[i] = temp[i] - kilos[index]->lightThreshold;
             sums[i] = cv::sum(temp[i]);
             maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
         }
 
         if (sums[maxIndex][0] > tooBig) {
-            kilos[index].lightThreshold = kilos[index].lightThreshold + step < 255 ? kilos[index].lightThreshold + step : kilos[index].lightThreshold;
+            kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
         }
     }
 
@@ -1258,7 +1288,7 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
 
     }
 
-    //qDebug() << kilos[index].lightThreshold;
+    //qDebug() << kilos[index]->lightThreshold;
 
     return light;
 
