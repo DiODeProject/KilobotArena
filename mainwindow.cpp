@@ -10,6 +10,9 @@
 #include <QFileDialog>
 #include <QSignalMapper>
 
+// INCLUDE USER THREAD
+#include "userthread.h"
+
 // STL includes
 #include <vector>
 
@@ -22,10 +25,17 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    this->thread = new UserThread(&kbtracker, &ohc);
+
+    // make sure that the tracker can ping the experiment
+    KilobotExperiment * expt = this->thread->getExperimentPointer();
+    if (expt == NULL) {qDebug() << "Something has gone REALLY wrong"; QApplication::exit(-1);}//panic
+    kbtracker.expt = expt;
+
     connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
     connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
 
-    connect(&this->kbtracker,SIGNAL(identifyKilo(kilobot_id)), &this->ohc, SLOT(identifyKilobot(kilobot_id)));
+    connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
     connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_message_type,kilobot_message_data)), &this->ohc, SLOT(broadcastMessage(kilobot_message_type,kilobot_message_data)));
     connect(&this->kbtracker,SIGNAL(broadcastMessageFull(uint8_t,QVector<uint8_t>)), &this->ohc, SLOT(broadcastMessageFull(uint8_t,QVector<uint8_t>)));
 
@@ -100,17 +110,17 @@ void MainWindow::setVideoSource()
 void MainWindow::left()
 {
     //ohc.signalKilobot(0,2,0);
-    ohc.broadcastMessage(1,0);
+    //ohc.broadcastMessage(1,0);
 }
 
 void MainWindow::right()
 {
-    ohc.signalKilobot(0,3,0);
+    //ohc.signalKilobot(0,3,0);
 }
 
 void MainWindow::straight()
 {
-    ohc.signalKilobot(0,1,0);
+    //ohc.signalKilobot(0,1,0);
 }
 
 void MainWindow::test_id()

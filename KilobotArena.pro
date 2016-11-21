@@ -20,11 +20,13 @@ SOURCES += main.cpp\
     kilobot.cpp \
     kilobotoverheadcontroller.cpp \
     ohc/calibrate.cpp \
-    ohc/ftdiconn.cpp \
     ohc/intelhex.cpp \
     ohc/serialconn.cpp \
     ohc/serialwin.cpp \
-    ohc/vusbconn.cpp
+    kilobotenvironment.cpp \
+    mykilobotenvironment.cpp \
+    kilobotexperiment.cpp \
+    mykilobotexperiment.cpp
 
 HEADERS  += mainwindow.h \
     clicksignalqlabel.h \
@@ -33,12 +35,15 @@ HEADERS  += mainwindow.h \
     kilobot.h \
     kilobotoverheadcontroller.h \
     ohc/calibrate.h \
-    ohc/ftdiconn.h \
     ohc/intelhex.h \
     ohc/packet.h \
     ohc/serialconn.h \
     ohc/serialwin.h \
-    ohc/vusbconn.h
+    kilobotenvironment.h \
+    mykilobotenvironment.h \
+    kilobotexperiment.h \
+    mykilobotexperiment.h \
+    userthread.h
 
 FORMS    += mainwindow.ui
 
@@ -97,5 +102,11 @@ LIBS += /usr/local/share/OpenCV/3rdparty/lib/libIlmImf.a
 
 # Required for OpenCV
 LIBS += -framework AppKit
+LIBS += -framework QtKit
+LIBS += -framework CoreMedia
+LIBS += -framework CoreVideo
+LIBS += -framework AVFoundation
+
+
 
 }

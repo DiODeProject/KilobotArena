@@ -43,16 +43,8 @@ KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(
 {
 
     // OHC link setup
-    vusb_conn = new VUSBConnection();
-    ftdi_conn = new FTDIConnection();
     serial_conn = new SerialConnection();
-    //connect(ftdi_conn, SIGNAL(readText(QString)), serial, SLOT(addText(QString)));
-    //connect(serial_conn, SIGNAL(readText(QString)), serial, SLOT(addText(QString)));
 
-    connect(vusb_conn, SIGNAL(error(QString)), this, SLOT(showError(QString)));
-    connect(vusb_conn, SIGNAL(status(QString)), this, SLOT(vusbUpdateStatus(QString)));
-    connect(ftdi_conn, SIGNAL(error(QString)), this, SLOT(showError(QString)));
-    connect(ftdi_conn, SIGNAL(status(QString)), this, SLOT(ftdiUpdateStatus(QString)));
     connect(serial_conn, SIGNAL(error(QString)), this, SLOT(showError(QString)));
     connect(serial_conn, SIGNAL(status(QString)), this, SLOT(serialUpdateStatus(QString)));
 
@@ -60,15 +52,11 @@ KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(
     QThread *thread = new QThread();
     connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 
-    // Move connections to thread
-    vusb_conn->moveToThread(thread);
-    ftdi_conn->moveToThread(thread);
+    // Move connection to thread
     serial_conn->moveToThread(thread);
 
     // Start thread and open connections
     thread->start();
-    vusb_conn->open();
-    ftdi_conn->open();
     serial_conn->open();
 }
 
@@ -77,9 +65,9 @@ KilobotOverheadController::~KilobotOverheadController()
     // nothing doing here...
 }
 
-void KilobotOverheadController::identifyKilobot(kilobot_id id)
+void KilobotOverheadController::identifyKilobot(uint8_t id)
 {
-    assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
+    assert(id <= pow(2, uint8_t_LENGTH) - 1);
 
     // TEMPORARY SIGNALLING:
     uint8_t type = (uint8_t) 4;
@@ -87,11 +75,11 @@ void KilobotOverheadController::identifyKilobot(kilobot_id id)
     this->sendDataMessage(data_ohc, type);
 }
 
-void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data)
+void KilobotOverheadController::signalKilobot(kilobot_message message)
 {
-    assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
-    assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
-    assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
+    //assert(id <= pow(2, uint8_t_LENGTH) - 1);
+    //assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
+    //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
 
     // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
 
@@ -99,13 +87,13 @@ void KilobotOverheadController::signalKilobot(kilobot_id id, kilobot_message_typ
     //        -data must be an array of 9 unsigned 8bit ints
 
     // TEMPORARY SIGNALLING:
-    uint8_t type = (uint8_t) message;
-    uint8_t data_ohc[9] = {(uint8_t) id,0,0,0,0,0,0,0,0};
-    this->sendDataMessage(data_ohc, type);
+    //uint8_t type = (uint8_t) message;
+    //uint8_t data_ohc[9] = {(uint8_t) id,0,0,0,0,0,0,0,0};
+    //this->sendDataMessage(data_ohc, type);
 
 }
 
-void KilobotOverheadController::broadcastMessage(kilobot_message_type message, kilobot_message_data data)
+void KilobotOverheadController::broadcastMessage(kilobot_message message)
 {
     //assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
     //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
@@ -116,7 +104,7 @@ void KilobotOverheadController::broadcastMessage(kilobot_message_type message, k
     //        -data must be an array of 9 unsigned 8bit ints
 
     // TEMPORARY SIGNALLING:
-    uint8_t type = (uint8_t) message;
+   /* uint8_t type = (uint8_t) message;
     uint8_t data_ohc[9];
     if (data < 256) {
         data_ohc[0] = (uint8_t) data;
@@ -125,7 +113,7 @@ void KilobotOverheadController::broadcastMessage(kilobot_message_type message, k
         data_ohc[0] = data >> 8;
         data_ohc[1] = data & 255;
     }
-    this->sendDataMessage(data_ohc, type);
+    this->sendDataMessage(data_ohc, type);*/
 
 }
 
@@ -144,17 +132,6 @@ void KilobotOverheadController::broadcastMessageFull(uint8_t type, QVector<uint8
 
 }
 
-void KilobotOverheadController::ftdiUpdateStatus(QString str)
-{
-    ftdi_status = str;
-    updateStatus();
-}
-
-void KilobotOverheadController::vusbUpdateStatus(QString str)
-{
-    vusb_status = str;
-    updateStatus();
-}
 
 void KilobotOverheadController::serialUpdateStatus(QString str)
 {
@@ -164,7 +141,7 @@ void KilobotOverheadController::serialUpdateStatus(QString str)
 
 void KilobotOverheadController::updateStatus()
 {
-    QString str = device == 0 ? ftdi_status : (device == 1 ? vusb_status : serial_status);
+    QString str = serial_status;
      if (str.startsWith("connect")) {
          connected = true;
          emit errorMessage("OHC connected");
@@ -177,26 +154,14 @@ void KilobotOverheadController::updateStatus()
 }
 
 void KilobotOverheadController::toggleConnection() {
-    if (device == 0) {
-        if (ftdi_status.startsWith("connect")) {
-            ftdi_conn->close();
-            emit setStopButton(true);
-        }
-        else
-            ftdi_conn->open();
-    /*} else if (device == 1) {
-        if (vusb_status.startsWith("connect"))
-            vusb_conn->close();
-        else
-            vusb_conn->open(); THIS IS NEVER USED EVEN IN KILOGUI!*/
-    } else {
-        if (serial_status.startsWith("connect")) {
-            serial_conn->close();
-            emit setStopButton(true);
-        }
-        else
-            serial_conn->open();
+
+    if (serial_status.startsWith("connect")) {
+        serial_conn->close();
+        emit setStopButton(true);
     }
+    else
+        serial_conn->open();
+
 }
 
 void KilobotOverheadController::stopSending() {
@@ -232,12 +197,7 @@ void KilobotOverheadController::sendMessage(int type_int) {
         }
     }
 
-    if (device == 0)
-        ftdi_conn->sendCommand(packet);
-    else if (device == 1)
-        vusb_conn->sendCommand(packet);
-    else
-        serial_conn->sendCommand(packet);
+    serial_conn->sendCommand(packet);
 }
 
 void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) {
@@ -259,12 +219,7 @@ void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) 
     sending = true;
 
 
-    if (device == 0)
-        ftdi_conn->sendCommand(packet);
-    else if (device == 1)
-        vusb_conn->sendCommand(packet);
-    else
-        serial_conn->sendCommand(packet);
+    serial_conn->sendCommand(packet);
 }
 
 void KilobotOverheadController::chooseProgramFile() {
@@ -305,12 +260,7 @@ void KilobotOverheadController::uploadProgram() {
         // set to boot
         this->sendMessage(BOOT);
         sending = true;
-        if (device == 0)
-            ftdi_conn->sendProgram(program_file);
-        else if (device == 1)
-            vusb_conn->sendProgram(program_file);
-        else
-            serial_conn->sendProgram(program_file);
+        serial_conn->sendProgram(program_file);
     }
 }
 

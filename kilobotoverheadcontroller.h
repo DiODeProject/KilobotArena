@@ -11,8 +11,6 @@
 // Include for communication with the OHC
 #include <stdint.h>
 #include "ohc/serialwin.h"
-#include "ohc/vusbconn.h"
-#include "ohc/ftdiconn.h"
 #include "ohc/serialconn.h"
 #include "ohc/calibrate.h"
 
@@ -32,13 +30,11 @@ signals:
     void setStopButton(bool);
 
 public slots:
-    void identifyKilobot(kilobot_id id);
-    void broadcastMessage(kilobot_message_type message, kilobot_message_data data);
     void broadcastMessageFull(uint8_t type, QVector < uint8_t > data);
-    void signalKilobot(kilobot_id id, kilobot_message_type message, kilobot_message_data data);
+    void identifyKilobot(uint8_t id);
+    void broadcastMessage(kilobot_message);
+    void signalKilobot(kilobot_message);
     void serialUpdateStatus(QString);
-    void ftdiUpdateStatus(QString);
-    void vusbUpdateStatus(QString);
     void showError(QString);
 
     // connect / disconnect
@@ -62,12 +58,8 @@ private:
     bool sending;
     bool connected;
 
-    VUSBConnection *vusb_conn;
-    FTDIConnection *ftdi_conn;
     SerialConnection *serial_conn;
 
-    QString vusb_status;
-    QString ftdi_status;
     QString serial_status;
 
     QString program_file;

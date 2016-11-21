@@ -5,13 +5,15 @@
  *      Author: marshall
  */
 
+
+#include "kilobotenvironment.h"
 #include "kilobot.h"
 #include <assert.h>
 #include <math.h>
 
-Kilobot::Kilobot(kilobot_id identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment) {
+Kilobot::Kilobot(uint8_t identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment * environment) {
     // TODO Auto-generated constructor stub
-    //assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
+    //assert(id <= pow(2, uint8_t_LENGTH) - 1); // we don't need these now we have a bitfield structure ;-)
     id = identifier;
     x = xPosition;
     y = yPosition;
@@ -23,11 +25,30 @@ Kilobot::~Kilobot() {
     // TODO Auto-generated destructor stub
 }
 
-//kilobot_colour Kilobot::resolveKilobotState(stateColours) {
-    // TODO return stateColour from stateColours that has smallest Euclidean distance to this.col
-//}
+// copy assignment
+Kilobot::Kilobot(const Kilobot& other)
+{
+    if (this != &other) {
+        this->x = other.x;
+        this->y = other.y;
+        this->id = other.id;
+        this->col = other.col;
+    }
+}
 
-void Kilobot::updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment) {
+void Kilobot::updateHardware()
+{
+    Kilobot copyOfMe(*this);
+    emit sendUpdateToHardware(copyOfMe);
+}
+
+void Kilobot::updateExperiment()
+{
+    Kilobot copyOfMe = (*this);
+    emit sendUpdateToExperiment(this, copyOfMe);
+}
+
+void Kilobot::updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment * environment) {
     assert(colourValues.r <= KILOBOT_MAX_COLOUR);
     assert(colourValues.g <= KILOBOT_MAX_COLOUR);
     assert(colourValues.b <= KILOBOT_MAX_COLOUR);
@@ -56,12 +77,12 @@ kilobot_colour Kilobot::getLedColour()
     return this->col;
 }
 
-kilobot_id Kilobot::getID()
+uint8_t Kilobot::getID()
 {
     return this->id;
 }
 
-void Kilobot::setID(kilobot_id id)
+void Kilobot::setID(uint8_t id)
 {
     this->id = id;
 }

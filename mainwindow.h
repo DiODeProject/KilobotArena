@@ -27,6 +27,9 @@ using namespace cv;
 // Project includes
 #include "kilobottracker.h"
 #include "kilobotoverheadcontroller.h"
+#include "kilobotexperiment.h"
+
+class UserThread;
 
 namespace Ui {
 class MainWindow;
@@ -60,6 +63,7 @@ private:
 
     KilobotTracker kbtracker;
     KilobotOverheadController ohc;
+    UserThread * thread;
 };
 
 #endif // MAINWINDOW_H
