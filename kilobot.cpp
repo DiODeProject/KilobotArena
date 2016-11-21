@@ -11,7 +11,7 @@
 
 Kilobot::Kilobot(kilobot_id identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment environment) {
     // TODO Auto-generated constructor stub
-    assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
+    //assert(id <= pow(2, KILOBOT_ID_LENGTH) - 1);
     id = identifier;
     x = xPosition;
     y = yPosition;

@@ -27,6 +27,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(&this->kbtracker,SIGNAL(identifyKilo(kilobot_id)), &this->ohc, SLOT(identifyKilobot(kilobot_id)));
     connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_message_type,kilobot_message_data)), &this->ohc, SLOT(broadcastMessage(kilobot_message_type,kilobot_message_data)));
+    connect(&this->kbtracker,SIGNAL(broadcastMessageFull(uint8_t,QVector<uint8_t>)), &this->ohc, SLOT(broadcastMessageFull(uint8_t,QVector<uint8_t>)));
 
     connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
 

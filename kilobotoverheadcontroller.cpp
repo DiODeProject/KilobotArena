@@ -16,6 +16,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QSettings>
+#include <QDebug>
 
 // OHC data structures & defs
 typedef struct {
@@ -125,6 +126,21 @@ void KilobotOverheadController::broadcastMessage(kilobot_message_type message, k
         data_ohc[1] = data & 255;
     }
     this->sendDataMessage(data_ohc, type);
+
+}
+
+void KilobotOverheadController::broadcastMessageFull(uint8_t type, QVector<uint8_t> data)
+{
+    //assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
+    //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
+
+    // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
+
+    // NOTES: -type goes from 0-127 for user defined types and is 8bit unsigned int (128+ reserved for system types)
+    //        -data must be an array of 9 unsigned 8bit ints
+
+    // SIGNALLING:
+    if (data.size() == 9) this->sendDataMessage(&data[0], type);
 
 }
 

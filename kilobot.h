@@ -22,6 +22,9 @@ typedef unsigned int kilobot_message_data;
 
 #define KILOBOT_MAX_ID 1024 //
 
+#include <limits.h>
+#define UNASSIGNED_ID INT_MAX
+
 // for now
 typedef unsigned int KilobotEnvironment;
 
@@ -52,7 +55,7 @@ public:
     int lightThreshold = 230;
 
 private:
-    kilobot_id id = 0;
+    kilobot_id id = UNASSIGNED_ID;
     kilobot_pos x = 0;
     kilobot_pos y = 0;
     kilobot_colour col = {0,0,0};

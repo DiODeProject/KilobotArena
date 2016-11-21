@@ -400,7 +400,7 @@ void KilobotTracker::findKilobots()
 
     for( size_t i = 0; i < circles.size(); i++ ) {
 
-        Kilobot kilo(INT_MAX,circles[i][0],circles[i][1],col,0);
+        Kilobot kilo(UNASSIGNED_ID,circles[i][0],circles[i][1],col,0);
         this->kilos.push_back(kilo);
 
     }
@@ -445,7 +445,7 @@ void KilobotTracker::assignKilobotIDs()
 
     for (int i = 0; i < kilos.size(); ++i) {
         Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-        if (kilos[i].getID() == INT_MAX) {
+        if (kilos[i].getID() == UNASSIGNED_ID) {
             // not id'd
             if (i == (int) currentID)
                 circle( display, center, 3, Scalar(0,255,0), 3, 8, 0 );
@@ -595,19 +595,14 @@ void KilobotTracker::assignKilobotIDsBase4()
 
     for (int i = 0; i < kilos.size(); ++i) {
         Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-        if (kilos[i].getID() == INT_MAX) {
+        if (kilos[i].getID() == UNASSIGNED_ID) {
             // not id'd
-            if (i == (int) currentID)
-                circle( display, center, 3, Scalar(0,255,0), 3, 8, 0 );
-            else
-                circle( display, center, 3, Scalar(255,0,0), 3, 8, 0 );
+           circle( display, center, 3, Scalar(255,0,0), 3, 8, 0 );
         } else {
             // id'd
            circle( display, center, 3, Scalar(0,0,255), 3, 8, 0 );
         }
     }
-
-
 
     this->showMat(display);
 
@@ -645,13 +640,11 @@ void KilobotTracker::assignKilobotIDsBase4()
     }
 
     // slow us down
-    if (time % 5) return;
+    //if (time % 5) return;
 
 
 
     if (this->aStage == START) {
-
-        // upload prog...
 
         // set on packet
         emit broadcastMessage(1,0);
@@ -660,27 +653,61 @@ void KilobotTracker::assignKilobotIDsBase4()
         this->aStage = TEST;
         this->currentID = 0;
         this->numFound = 0;
+        for (int i = 0; i < kiloTempIDs.size(); ++i) {
+
+            // reset dupes
+            if (kiloTempIDs[i] == DUPE) this->kiloTempIDs[i] = 0;
+
+        }
 
     } else if (this->aStage == CHOOSE) {
 
-         emit broadcastMessage(2,this->kiloTempIDs[numFound]+4096);
-        ++numFound;
-        if (numFound > kiloTempIDs.size() - 1) {
-            this->aStage = COMPLETE;
+        if (assignTimer.elapsed() > 1000) {
+            if (this->kiloTempIDs[numFound] != DUPE && this->kiloTempIDs[numFound] != ASSIGNED) {
+                QVector<uint8_t> data;
+                data.resize(9);
+                // current temp ID
+                data[0] = (this->kiloTempIDs[numFound] >> 8)&0xFF;
+                data[1] = this->kiloTempIDs[numFound]&0xFF;
+                // UID to set
+                data[2] = (numFound >> 8)&0xFF;
+                data[3] = numFound&0xFF;
+                emit broadcastMessageFull(2,data);
+                this->kilos[numFound].setID(numFound);
+                this->kiloTempIDs[numFound] = ASSIGNED; // set as assigned
+            }
+            ++numFound;
+            if (numFound > kiloTempIDs.size() - 1) {
+                if (found == 1) {
+                    this->aStage = NEXTID;
+                } else {
+                    this->aStage = COMPLETE;
+                    this->startStopLoop(ASSIGN);
+                }
+            }
         }
-
 
         //emit broadcastMessage(3,0);
         //this->aStage = TEST;
 
     } else if (this->aStage == TEST) {
 
-        //
-        if (assignTimer.elapsed() > 950*(numFound+1)) {
+        if (assignTimer.elapsed() < 200) {
+            // get next seg
+            emit broadcastMessage(4,0);
+        }
 
+        //
+        if (assignTimer.elapsed() > 1000*(numFound+1)+1000) {
+
+            // get next seg
+            emit broadcastMessage(4,0);
 
             // check colours
             for (int i = 0; i < kilos.size(); ++i) {
+
+                if (kilos[i].getID() != UNASSIGNED_ID) continue;
+
                 Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
 
                 Mat temp[3];
@@ -700,37 +727,50 @@ void KilobotTracker::assignKilobotIDsBase4()
 
                 this->kiloTempIDs[i] += int(light.col) * baseFourMultipliers[numFound];
 
-
             }
 
             ++numFound;
 
             if (numFound > 5) {
-                // work out if we have have duplicates, if so fix them
-                this->aStage = CHOOSE;
                 for (int i = 0; i < kilos.size(); ++i) {
                     qDebug() << i << ":" << this->kiloTempIDs[i];
                 }
+                found = 0;
+                // work out if we have have duplicates, if so fix them
+                for (int i = 0; i < this->kiloTempIDs.size(); ++i) {
+                    // if we haven't already been identified as a dupe, or assigned
+                    if (kiloTempIDs[i] != DUPE && kiloTempIDs[i] != ASSIGNED) {
+                        // already compared to ones below
+                        int temp = kiloTempIDs[i];
+                        for (uint j = i+1; j < this->kiloTempIDs.size(); ++j) {
+                            if (temp == kiloTempIDs[j]) {
+                                kiloTempIDs[i] = DUPE;
+                                kiloTempIDs[j] = DUPE;
+                                // signal dupes
+                                found = 1;
+                            }
+                        }
+                    }
+                }
+
+                this->aStage = CHOOSE;
+
                 numFound = 0;
+                assignTimer.restart();
             }
 
-            qDebug() << "loop...";
+            //qDebug() << "loop...";
         }
 
 
     } else if (this->aStage == NEXTID) {
 
-        // if done
-        if ((int) this->currentID > this->kilos.size() - 2) {
-            this->aStage = COMPLETE;
-            return;
-        }
+        // reset the dupes
+        emit broadcastMessage(3,0);
 
-        // otherwise
-        this->currentID++;
-
-        emit broadcastMessage(10,0);
-        this->aStage = CHOOSE;
+        // repeat process
+        numFound = 0;
+        this->aStage = START;
 
     }
 
@@ -760,7 +800,7 @@ void KilobotTracker::identifyKilobots()
     for (uint i = 0; i < (uint) kilos.size(); ++i) {
 
         // if unassigned
-        if (kilos[i].getID() == INT_MAX) {
+        if (kilos[i].getID() == UNASSIGNED_ID) {
             // get bounding box
             Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
 
@@ -787,7 +827,7 @@ void KilobotTracker::identifyKilobots()
         }
 
         Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-        if (kilos[i].getID() == INT_MAX) {
+        if (kilos[i].getID() == UNASSIGNED_ID) {
             // not id'd
            circle( display, center, 3, Scalar(255,0,0), 3, 8, 0 );
         } else {
@@ -992,7 +1032,7 @@ void KilobotTracker::trackKilobots()
             for( size_t i = 0; i < (uint) kilos.size(); i++ )
             {
                  Point center(round(kilos[i].getXPosition()), round(kilos[i].getYPosition()));
-                 if (kilos[i].getID() == INT_MAX) {
+                 if (kilos[i].getID() == UNASSIGNED_ID) {
                      // not id'd
                     circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
                  } else {
@@ -1206,7 +1246,7 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
     Mat temp[3];
     Scalar sums[3];
 
-    float tooBig = 2000.0f;
+    float tooBig = 10000.0f;
     int step = 5;
 
     uint maxIndex = 0;

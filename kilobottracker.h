@@ -107,6 +107,9 @@ enum assignStage {
     COMPLETE
 };
 
+#define ASSIGNED -INT_MAX
+#define DUPE INT_MAX
+
 const int baseFourMultipliers[6] = {1,4,16,64,256,1024};
 
 struct circlesLocalTrackerData {
@@ -141,6 +144,8 @@ signals:
     void identifyKilo(kilobot_id);
 
     void broadcastMessage(kilobot_message_type,kilobot_message_data);
+
+    void broadcastMessageFull(uint8_t,QVector<uint8_t>);
 
 public slots:
     /*!
