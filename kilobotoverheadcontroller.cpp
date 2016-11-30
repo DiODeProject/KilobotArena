@@ -116,6 +116,12 @@ void KilobotOverheadController::broadcastMessage(kilobot_message message)
 
 }
 
+void KilobotOverheadController::initialiseOHC()
+{
+    // Initialize OHC Here
+
+}
+
 void KilobotOverheadController::serialUpdateStatus(QString str)
 {
     serial_status = str;

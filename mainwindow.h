@@ -28,6 +28,10 @@ using namespace cv;
 #include "kilobottracker.h"
 #include "kilobotoverheadcontroller.h"
 #include "kilobotexperiment.h"
+#include "kilobotenvironment.h"
+
+#include "mykilobotenvironment.h"
+#include "mykilobotexperiment.h"
 
 class UserThread;
 
@@ -64,6 +68,8 @@ private:
     KilobotTracker kbtracker;
     KilobotOverheadController ohc;
     UserThread * thread;
+    mykilobotexperiment myexpt;
+    mykilobotenvironment myenv;
 };
 
 #endif // MAINWINDOW_H

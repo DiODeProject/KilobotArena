@@ -132,6 +132,8 @@ public:
 
     KilobotExperiment * expt;
 
+    QVector < Kilobot * > kilos;
+
 
 signals:
     /*!
@@ -302,8 +304,6 @@ private:
     //MultiTracker * tracker = NULL;
 
     trackerType trackType = CIRCLES_LOCAL;
-
-    QVector < Kilobot * > kilos;
 
     QVector < int > kiloTempIDs;
 

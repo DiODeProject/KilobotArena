@@ -10,6 +10,9 @@
 #include <QFileDialog>
 #include <QSignalMapper>
 
+// CS incudes
+#include <QPainter>
+
 // INCLUDE USER THREAD
 #include "userthread.h"
 
@@ -34,10 +37,11 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
     connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
+    connect(&this->myexpt,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
+    connect(&this->myenv,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
 
     connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
     connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_message_type,kilobot_message_data)), &this->ohc, SLOT(broadcastMessage(kilobot_message_type,kilobot_message_data)));
-
     connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
 
     connect(ui->load_calib, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(loadCalibration()));
@@ -53,12 +57,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(mapper, SIGNAL(mapped(int)), &this->kbtracker, SLOT(startStopLoop(int)));
 
 
+    // Tracker GUI Setup:
     connect(ui->find_kb, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(findKilobots()));
-
     connect(ui->lineEdit, SIGNAL(editingFinished()), &this->kbtracker, SLOT(setCamOrder()));
-
     connect(ui->cam_radio, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(setSourceType(bool)));
-
     connect(ui->sel_video, SIGNAL(clicked(bool)), this, SLOT(setVideoSource()));
 
     connect(ui->houghAcc_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHoughAcc(int)));
@@ -66,6 +68,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->kbMax_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMax(int)));
     connect(ui->kbMin_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMin(int)));
 
+    // OHC GUI Setup:
     connect(ui->ohc_connect, SIGNAL(clicked(bool)), &this->ohc, SLOT(toggleConnection()));
     connect(ui->ohc_reset, SIGNAL(toggled(bool)), &this->ohc, SLOT(resetKilobots()));
     connect(ui->ohc_sleep, SIGNAL(toggled(bool)), &this->ohc, SLOT(sleepKilobots()));
@@ -81,6 +84,18 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(&this->ohc,SIGNAL(setStopButton(bool)),ui->ohc_stop,SLOT(setChecked(bool)));
 
     connect(ui->test, SIGNAL(clicked(bool)), this, SLOT(test_id()));
+
+    // Experiment/Environment GUI Setup
+    connect(ui->type1_slider, SIGNAL(valueChanged(int)), &this->myexpt, SLOT(setKBtype1(int)));
+    connect(ui->home1_slider, SIGNAL(valueChanged(int)), &this->myexpt, SLOT(setHome1(int)));
+    connect(ui->goal1_slider, SIGNAL(valueChanged(int)), &this->myexpt, SLOT(setGoal1(int)));
+    connect(ui->type2_slider, SIGNAL(valueChanged(int)), &this->myexpt, SLOT(setKBtype2(int)));
+    connect(ui->home2_slider, SIGNAL(valueChanged(int)), &this->myexpt, SLOT(setHome2(int)));
+    connect(ui->goal2_slider, SIGNAL(valueChanged(int)), &this->myexpt, SLOT(setGoal2(int)));
+    connect(ui->setupExpt1, SIGNAL(clicked(bool)), &this->myexpt, SLOT(setExperiment1()));
+    connect(ui->setupExpt2, SIGNAL(clicked(bool)), &this->myexpt, SLOT(setExperiment2()));
+    connect(ui->init_expt, SIGNAL(clicked(bool)), &this->myexpt, SLOT(setupExperiment()));
+
 }
 
 MainWindow::~MainWindow()

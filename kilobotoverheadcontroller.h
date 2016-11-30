@@ -35,6 +35,7 @@ public slots:
     void signalKilobot(kilobot_message);
     void serialUpdateStatus(QString);
     void showError(QString);
+    void initialiseOHC();
 
     // connect / disconnect
     void toggleConnection();

@@ -35,7 +35,7 @@ public slots:
         //qDebug() << "pre set state 2";
         // store pointer for connecting
         this->currKilobot = kilobot;
-        updateKilobotState(kilobotCopy);
+        updateKilobotEnvironment(kilobotCopy);
     }
 
     /*!
@@ -53,7 +53,7 @@ public slots:
         // switch the signal from setup to standard
         kilobot->disconnect(SIGNAL(sendUpdateToExperiment(Kilobot*,Kilobot)));
         connect(kilobot,SIGNAL(sendUpdateToExperiment(Kilobot*,Kilobot)), this, SLOT(updateStateRequiredCode(Kilobot*,Kilobot)));
-        setupInitialKilobotState(kilobotCopy);
+        setupInitialKilobotEnvironment(kilobotCopy);
     }
 
 protected:
@@ -68,8 +68,8 @@ protected:
         }
     }
 
-    virtual void updateKilobotState(Kilobot kilobotCopy) = 0; // provided in derived class to implement experiment logic for Kilobot state updates
-    virtual void setupInitialKilobotState(Kilobot kilobotCopy) = 0;
+    virtual void updateKilobotEnvironment(Kilobot kilobotCopy) = 0; // provided in derived class to implement experiment logic for Kilobot state updates
+    virtual void setupInitialKilobotEnvironment(Kilobot kilobotCopy) = 0;
 
 private:
     Kilobot * currKilobot = NULL;
