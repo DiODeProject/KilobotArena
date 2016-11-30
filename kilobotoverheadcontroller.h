@@ -30,9 +30,8 @@ signals:
     void setStopButton(bool);
 
 public slots:
-    void broadcastMessageFull(uint8_t type, QVector < uint8_t > data);
     void identifyKilobot(uint8_t id);
-    void broadcastMessage(kilobot_message);
+    void broadcastMessage(kilobot_broadcast);
     void signalKilobot(kilobot_message);
     void serialUpdateStatus(QString);
     void showError(QString);
@@ -70,6 +69,8 @@ private:
 
     void sendMessage(int);
     void sendDataMessage(uint8_t *, uint8_t);
+
+    QVector < kilobot_message > message_q;
 
 };
 

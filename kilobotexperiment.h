@@ -4,24 +4,32 @@
 #include <QObject>
 #include <QDebug>
 #include <kilobotenvironment.h>
-#include <kilobottracker.h>
-#include <kilobotoverheadcontroller.h>
+#include <kilobot.h>
 
 class KilobotExperiment : public QObject
 {
     Q_OBJECT
 public:
-    explicit KilobotExperiment(QObject *parent = 0);
+    KilobotExperiment() {}
+    virtual ~KilobotExperiment()
+    {
+    }
+
+    int serviceInterval = 100; // ms
+    QVector <KilobotEnvironment *> environments;
 
 signals:
     void updateKilobotStates();
     void getInitialKilobotStates();
     void experimentComplete();
     void saveImage(QString);
+    void signalKilobot(kilobot_message);
+    void broadcastMessage(kilobot_broadcast);
+    void setTrackingType(int);
 
 public slots:
     virtual void initialise(bool) = 0;
-    virtual void run() = 0;
+    virtual void run() {}
 
     /*!
      * \brief updateStateRequiredCode
@@ -56,10 +64,14 @@ public slots:
         setupInitialKilobotState(kilobotCopy);
     }
 
+    void signalKilobotExpt(kilobot_message msg)
+    {
+        emit signalKilobot(msg);
+    }
+
 protected:
     double time;
 
-    QVector <KilobotEnvironment *> environments;
 
     void setCurrentKilobotEnvironment(KilobotEnvironment * environment) {
         if (currKilobot != NULL && environment != NULL) {
@@ -68,12 +80,15 @@ protected:
         }
     }
 
-    virtual void updateKilobotState(Kilobot kilobotCopy) = 0; // provided in derived class to implement experiment logic for Kilobot state updates
-    virtual void setupInitialKilobotState(Kilobot kilobotCopy) = 0;
+    virtual void updateKilobotState(Kilobot kilobotCopy) {} // provided in derived class to implement experiment logic for Kilobot state updates
+    virtual void setupInitialKilobotState(Kilobot kilobotCopy) {}
 
 private:
     Kilobot * currKilobot = NULL;
 
+
 };
+
+
 
 #endif // KILOBOTEXPERIMENT_H

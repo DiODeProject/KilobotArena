@@ -25,6 +25,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    // thread for usercode
     this->thread = new UserThread(&kbtracker, &ohc);
 
     // make sure that the tracker can ping the experiment
@@ -32,41 +33,34 @@ MainWindow::MainWindow(QWidget *parent) :
     if (expt == NULL) {qDebug() << "Something has gone REALLY wrong"; QApplication::exit(-1);}//panic
     kbtracker.expt = expt;
 
-    connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
-    connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
+    // SIGNAL / SLOT CONNECTIONS ////////////////////////////////////////////////////////////////////
+    // //////////////////////////////////////////////////////////////////////////////////////////////
 
-    connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
-    connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_message_type,kilobot_message_data)), &this->ohc, SLOT(broadcastMessage(kilobot_message_type,kilobot_message_data)));
-    connect(&this->kbtracker,SIGNAL(broadcastMessageFull(uint8_t,QVector<uint8_t>)), &this->ohc, SLOT(broadcastMessageFull(uint8_t,QVector<uint8_t>)));
-
-    connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
-
-    connect(ui->load_calib, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(loadCalibration()));
-
-
-    QSignalMapper *mapper = new QSignalMapper(this);
-    mapper->setMapping(ui->run, TRACK);
-    mapper->setMapping(ui->identify, IDENTIFY);
-    mapper->setMapping(ui->assign, ASSIGN);
-    connect(ui->run, SIGNAL(clicked(bool)), mapper, SLOT(map()));
-    connect(ui->identify, SIGNAL(clicked(bool)), mapper, SLOT(map()));
-    connect(ui->assign, SIGNAL(clicked(bool)), mapper, SLOT(map()));
-    connect(mapper, SIGNAL(mapped(int)), &this->kbtracker, SLOT(startStopLoop(int)));
-
-
-    connect(ui->find_kb, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(findKilobots()));
-
-    connect(ui->lineEdit, SIGNAL(editingFinished()), &this->kbtracker, SLOT(setCamOrder()));
-
+    // to TRACKER
+    connect(ui->load_calib, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(SETUPloadCalibration()));
     connect(ui->cam_radio, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(setSourceType(bool)));
-
-    connect(ui->sel_video, SIGNAL(clicked(bool)), this, SLOT(setVideoSource()));
+    connect(ui->find_kb, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(SETUPfindKilobots()));
+    connect(ui->lineEdit, SIGNAL(editingFinished()), &this->kbtracker, SLOT(SETUPsetCamOrder()));
 
     connect(ui->houghAcc_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHoughAcc(int)));
     connect(ui->cannyThresh_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setCannyThresh(int)));
     connect(ui->kbMax_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMax(int)));
     connect(ui->kbMin_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMin(int)));
 
+    QSignalMapper *mapper = new QSignalMapper(this);
+    mapper->setMapping(ui->run, TRACK);
+    mapper->setMapping(ui->identify, IDENTIFY);
+    connect(ui->run, SIGNAL(clicked(bool)), mapper, SLOT(map()));
+    connect(ui->identify, SIGNAL(clicked(bool)), mapper, SLOT(map()));
+    connect(mapper, SIGNAL(mapped(int)), &this->kbtracker, SLOT(LOOPstartstop(int)));
+
+    // from TRACKER
+    connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
+    connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
+
+    connect(ui->sel_video, SIGNAL(clicked(bool)), this, SLOT(setVideoSource()));
+
+    // to OHC
     connect(ui->ohc_connect, SIGNAL(clicked(bool)), &this->ohc, SLOT(toggleConnection()));
     connect(ui->ohc_reset, SIGNAL(toggled(bool)), &this->ohc, SLOT(resetKilobots()));
     connect(ui->ohc_sleep, SIGNAL(toggled(bool)), &this->ohc, SLOT(sleepKilobots()));
@@ -75,12 +69,24 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->ohc_set_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(chooseProgramFile()));
     connect(ui->ohc_upload_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(uploadProgram()));
 
+    // from OHC
+    connect(&this->ohc,SIGNAL(setStopButton(bool)),ui->ohc_stop,SLOT(setChecked(bool)));
+    connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
+
+    // TRACKER -> OHC
+    connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
+    connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_broadcast)), &this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
+
+    // USERTHREAD -> UI
+    connect(this->thread, SIGNAL(setLibName(QString)), ui->expt_msg, SLOT(setText(QString)));
+
+    // UI -> this
+    connect(ui->load_expt, SIGNAL(clicked(bool)), this, SLOT(getExperiment()));
+
+    // TESTING
     connect(ui->left, SIGNAL(clicked(bool)), this, SLOT(left()));
     connect(ui->right, SIGNAL(clicked(bool)), this, SLOT(right()));
     connect(ui->straight, SIGNAL(clicked(bool)), this, SLOT(straight()));
-
-    connect(&this->ohc,SIGNAL(setStopButton(bool)),ui->ohc_stop,SLOT(setChecked(bool)));
-
     connect(ui->test, SIGNAL(clicked(bool)), this, SLOT(test_id()));
 }
 
@@ -107,23 +113,75 @@ void MainWindow::setVideoSource()
     settings.setValue ("videoLastDir", dirName);
 }
 
+void MainWindow::getExperiment()
+{
+
+    QSettings settings;
+    QString lastDir = settings.value("exptLastDir", QDir::homePath()).toString();
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Load experiment"), lastDir, tr("LIB files (*.so);; All files (*)"));
+
+    if (fileName.isEmpty()) {
+        ui->error_label->setText("No file selected");
+    }
+
+    // load
+    this->thread->loadLibrary(fileName);
+
+    QDir lastDirectory (fileName);
+    lastDirectory.cdUp();
+    settings.setValue ("exptLastDir", lastDirectory.absolutePath());
+}
+
 void MainWindow::left()
 {
-    //ohc.signalKilobot(0,2,0);
-    //ohc.broadcastMessage(1,0);
+
+    robcomm[ui->test_id->text().toInt()] = 1;
+
+    kilobot_message msg;
+    for (int i = 0; i < 3; ++i) {
+        msg.id = i;
+        msg.type = 0;
+        msg.data = robcomm[i];
+        ohc.signalKilobot(msg);
+    }
+
 }
 
 void MainWindow::right()
 {
-    //ohc.signalKilobot(0,3,0);
+    robcomm[ui->test_id->text().toInt()] = 2;
+
+    kilobot_message msg;
+    for (int i = 0; i < 3; ++i) {
+        msg.id = i;
+        msg.type = 0;
+        msg.data = robcomm[i];
+        ohc.signalKilobot(msg);
+    }
 }
 
 void MainWindow::straight()
 {
-    //ohc.signalKilobot(0,1,0);
+    robcomm[ui->test_id->text().toInt()] = 0;
+
+    kilobot_message msg;
+    for (int i = 0; i < 3; ++i) {
+        msg.id = i;
+        msg.type = 0;
+        msg.data = robcomm[i];
+        ohc.signalKilobot(msg);
+    }
 }
 
 void MainWindow::test_id()
 {
-    ohc.identifyKilobot(ui->test_id->text().toInt());
+    robcomm[ui->test_id->text().toInt()] = 3;
+
+    kilobot_message msg;
+    for (int i = 0; i < 3; ++i) {
+        msg.id = i;
+        msg.type = 0;
+        msg.data = robcomm[i];
+        ohc.signalKilobot(msg);
+    }
 }

@@ -18,7 +18,7 @@
     <property name="geometry">
      <rect>
       <x>30</x>
-      <y>610</y>
+      <y>700</y>
       <width>851</width>
       <height>31</height>
      </rect>
@@ -53,7 +53,7 @@
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>390</y>
+      <y>440</y>
       <width>231</width>
       <height>32</height>
      </rect>
@@ -433,7 +433,7 @@
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>430</y>
+      <y>520</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -446,7 +446,7 @@
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>460</y>
+      <y>550</y>
       <width>120</width>
       <height>101</height>
      </rect>
@@ -509,17 +509,12 @@
       <bool>true</bool>
      </property>
     </widget>
-    <zorder>ohc_run</zorder>
-    <zorder>ohc_reset</zorder>
-    <zorder>ohc_sleep</zorder>
-    <zorder>ohc_stop</zorder>
-    <zorder>line_3</zorder>
    </widget>
    <widget class="QPushButton" name="ohc_set_prog">
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>570</y>
+      <y>660</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -532,7 +527,7 @@
     <property name="geometry">
      <rect>
       <x>640</x>
-      <y>600</y>
+      <y>690</y>
       <width>121</width>
       <height>22</height>
      </rect>
@@ -544,8 +539,8 @@
    <widget class="QPushButton" name="left">
     <property name="geometry">
      <rect>
-      <x>690</x>
-      <y>650</y>
+      <x>350</x>
+      <y>640</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -557,8 +552,8 @@
    <widget class="QPushButton" name="straight">
     <property name="geometry">
      <rect>
-      <x>720</x>
-      <y>650</y>
+      <x>380</x>
+      <y>640</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -570,8 +565,8 @@
    <widget class="QPushButton" name="right">
     <property name="geometry">
      <rect>
-      <x>750</x>
-      <y>650</y>
+      <x>410</x>
+      <y>640</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -583,8 +578,8 @@
    <widget class="QPushButton" name="test">
     <property name="geometry">
      <rect>
-      <x>690</x>
-      <y>710</y>
+      <x>350</x>
+      <y>700</y>
       <width>80</width>
       <height>22</height>
      </rect>
@@ -596,8 +591,8 @@
    <widget class="QLineEdit" name="test_id">
     <property name="geometry">
      <rect>
-      <x>690</x>
-      <y>680</y>
+      <x>350</x>
+      <y>670</y>
       <width>81</width>
       <height>22</height>
      </rect>
@@ -609,31 +604,18 @@
       <x>760</x>
       <y>330</y>
       <width>111</width>
-      <height>21</height>
+      <height>41</height>
      </rect>
     </property>
     <property name="text">
      <string>Identify Kilobots</string>
     </property>
    </widget>
-   <widget class="QPushButton" name="assign">
-    <property name="geometry">
-     <rect>
-      <x>760</x>
-      <y>350</y>
-      <width>111</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Assign IDs</string>
-    </property>
-   </widget>
    <widget class="Line" name="line_3">
     <property name="geometry">
      <rect>
       <x>630</x>
-      <y>630</y>
+      <y>720</y>
       <width>241</width>
       <height>16</height>
      </rect>
@@ -646,13 +628,42 @@
     <property name="geometry">
      <rect>
       <x>770</x>
-      <y>430</y>
+      <y>520</y>
       <width>101</width>
       <height>22</height>
      </rect>
     </property>
     <property name="text">
      <string>Add Goal</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="load_expt">
+    <property name="geometry">
+     <rect>
+      <x>640</x>
+      <y>390</y>
+      <width>231</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Load experiment</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="expt_msg">
+    <property name="geometry">
+     <rect>
+      <x>640</x>
+      <y>420</y>
+      <width>231</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&lt;no expt loaded&gt;</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
     </property>
    </widget>
   </widget>

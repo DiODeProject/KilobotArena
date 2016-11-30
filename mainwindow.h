@@ -27,7 +27,7 @@ using namespace cv;
 // Project includes
 #include "kilobottracker.h"
 #include "kilobotoverheadcontroller.h"
-#include "kilobotexperiment.h"
+//#include "kilobotexperiment.h"
 
 class UserThread;
 
@@ -52,6 +52,8 @@ public slots:
      */
     void setVideoSource();
 
+    void getExperiment();
+
     void left();
     void right();
     void straight();
@@ -64,6 +66,8 @@ private:
     KilobotTracker kbtracker;
     KilobotOverheadController ohc;
     UserThread * thread;
+
+    int robcomm[3] = {3,3,3};
 };
 
 #endif // MAINWINDOW_H

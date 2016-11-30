@@ -9,9 +9,16 @@
 #define KILOBOT_H_
 
 #include <stdint.h>
+#include <QPointF>
+
+enum lightColour {
+    OFF,
+    BLUE,
+    GREEN,
+    RED
+};
 
 typedef uint16_t kilobot_id;
-typedef unsigned int kilobot_pos;
 typedef unsigned char kilobot_channel_colour;
 //typedef unsigned char kilobot_message_type;
 typedef struct {
@@ -19,6 +26,11 @@ typedef struct {
         kilobot_id id :10;
         uint16_t data :10;
 } kilobot_message;
+
+typedef struct {
+        uint8_t type;
+        uint8_t * data = 0;
+} kilobot_broadcast;
 
 #define uint8_t_LENGTH 10 // in bits
 #define KILOBOT_MESSAGE_TYPE_LENGTH 4 // in bits
@@ -30,33 +42,47 @@ typedef struct {
 
 #define UNASSIGNED_ID INT16_MAX
 
+/*enum tracking_type {
+    POS_ONLY,
+    LED_ONLY,
+    ADAPTIVE_LED_ONLY,
+    POS_LED,
+    POS_ADAPTIVE_LED,
+};*/
 
-class KilobotEnvironment;
+enum tracking_flags {
+    POS = 1 << 0,
+    LED = 1 << 1,
+    ADAPTIVE_LED = 1 << 2,
+    ROT = 1 << 3
+};
+
 
 #include <QObject>
 
-struct kilobot_colour
+/*struct kilobot_colour
 {
     kilobot_channel_colour r;
     kilobot_channel_colour g;
     kilobot_channel_colour b;
-};
+};*/
+typedef lightColour kilobot_colour;
 
 class Kilobot : public QObject {
     Q_OBJECT
 public:
-    Kilobot(uint8_t identifier, kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment *environment);
+    Kilobot(uint8_t identifier, QPointF position, QPointF velocity, kilobot_colour colourValues);
     Kilobot() {}
     ~Kilobot();
     // copy constructor
     Kilobot(const Kilobot& other);
     uint8_t getID();
     void setID(uint8_t);
-    kilobot_pos getXPosition();
-    kilobot_pos getYPosition();
+    QPointF getPosition();
+    QPointF getVelocity();
     kilobot_colour getLedColour();
     //kilobot_colour resolveKilobotState(stateColours);
-    void updateState(kilobot_pos xPosition, kilobot_pos yPosition, kilobot_colour colourValues, KilobotEnvironment * environment);
+    void updateState(QPointF position, QPointF velocity, kilobot_colour colourValues);
 
     /*!
      * \brief updateHardware
@@ -83,10 +109,9 @@ signals:
 
 private:
     kilobot_id id = UNASSIGNED_ID;
-    kilobot_pos x = 0;
-    kilobot_pos y = 0;
-    kilobot_colour col = {0,0,0};
-    KilobotEnvironment * env = NULL;
+    QPointF pos = QPointF(0,0);
+    QPointF vel = QPointF(1,1);
+    kilobot_colour col = OFF;
 };
 
 #endif // KILOBOT_H

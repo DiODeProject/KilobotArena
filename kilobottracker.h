@@ -77,16 +77,10 @@ enum srcDataType {
 enum trackerType {
     CIRCLES_NAIVE,
     CIRCLES_LOCAL,
-    PARTICLE_FILTER,
-    SAMPLE_MATCH
+    MY_HAPPY_OTHER_TRACKER,
 };
 
-enum lightColour {
-    OFF,
-    BLUE,
-    GREEN,
-    RED
-};
+
 
 struct kiloLight {
     lightColour col;
@@ -94,23 +88,11 @@ struct kiloLight {
 };
 
 enum stageType {
-    ASSIGN,
     IDENTIFY,
     TRACK
 };
 
-enum assignStage {
-    START,
-    CHOOSE,
-    TEST,
-    NEXTID,
-    COMPLETE
-};
 
-#define ASSIGNED -INT16_MAX
-#define DUPE INT16_MAX
-
-const int baseFourMultipliers[6] = {1,4,16,64,256,1024};
 
 struct circlesLocalTrackerData {
     // mappings from the image indices to the quadrants
@@ -147,7 +129,7 @@ signals:
 
     void identifyKilo(uint8_t);
 
-    void broadcastMessage(kilobot_message);
+    void broadcastMessage(kilobot_broadcast);
 
     void startExperiment(bool);
 
@@ -155,33 +137,31 @@ signals:
 
     void testtesttest(Kilobot*,Kilobot);
 
-    void broadcastMessageFull(uint8_t,QVector<uint8_t>);
-
 public slots:
     /*!
      * \brief startLoop
      * This slot is the target of the timeout on the QTimer tick, and fetches warped images from the thread buffers and
      * stitches them
      */
-    void startStopLoop(int stage);
+    void LOOPstartstop(int stage);
 
     /*!
      * \brief iterateTracker
      * Use the existing feature matches to stitch the images and track the kilobots
      */
-    void iterateLoop();
+    void LOOPiterate();
 
     /*!
      * \brief loadCalibration
      * Load the calibration matrices from an OpenCV FileStorage format
      */
-    void loadCalibration();
+    void SETUPloadCalibration();
 
     /*!
      * \brief findKilobots
      * Find the locations of Kilobots in the stitched image
      */
-    void findKilobots();
+    void SETUPfindKilobots();
 
     /*!
      * \brief identifyKilobots
@@ -193,33 +173,32 @@ public slots:
      * \brief setCamOrder
      * If the camera order does not match the calibration order, alter
      */
-    void setCamOrder();
+    void SETUPsetCamOrder();
 
     // accessors - docs not required??
-    void setSourceType(bool);
-    void setKbMin(int);
-    void setKbMax(int);
-    void setCannyThresh(int);
-    void setHoughAcc(int);
+    void setSourceType(bool val) {if (val) this->srcType = CAMERA; else this->srcType = VIDEO;}
+    void setKbMin(int val){this->kbMinSize = val;}
+    void setKbMax(int val) {this->kbMaxSize = val;}
+    void setCannyThresh(int val) {this->cannyThresh = val;}
+    void setHoughAcc(int val) {this->houghAcc = val;}
 
     /*!
      * \brief setVideoDir
      * \param dir
      * Set the path to video files for tracking
      */
-    void setVideoDir(QString dir);
+    void setVideoDir(QString dir) {this->videoPath = dir;}
 
     void updateKilobotStates();
 
     void getInitialKilobotStates();
 
+    void setTrackingType(int t_type) {this->t_type = t_type;}
+
 private:
 
     // PRIVATE METHODS
 
-    void assignKilobotIDs();
-
-    void assignKilobotIDsBase4();
 
     /*!
      * \brief trackKilobots
@@ -231,7 +210,7 @@ private:
      * \brief setupStitcher
      * Setup required after loading the calibration data
      */
-    void setupStitcher();
+    void SETUPstitcher();
 
     /*!
      * \brief showMat
@@ -256,12 +235,16 @@ private:
      * \brief launchThreads
      * Launches the threads for each of the source images
      */
-    void launchThreads();
+    void THREADSlaunch();
 
-    void stopThreads();
+    void THREADSstop();
+
+    void identifyKilobot(int);
 
 
     // INTERNAL VARIABLES
+
+    int t_type = POS | ADAPTIVE_LED | ROT;
 
     Mat finalImage;
 
@@ -292,7 +275,6 @@ private:
     Ptr<detail::Blender> blender;
 
     QElapsedTimer timer;
-    QElapsedTimer assignTimer;
 
     bool loadFirstIm = false;
 
@@ -304,17 +286,11 @@ private:
     srcDataType srcType = CAMERA;
     QString videoPath;
 
-    //MultiTracker * tracker = NULL;
-
     trackerType trackType = CIRCLES_LOCAL;
 
     QVector < Kilobot * > kilos;
 
-    QVector < int > kiloTempIDs;
-
     QVector < float > kiloHeadings;
-
-    QVector < Mat > samples;
 
     QVector < QVector < int > > exclusionTestsIndices;
 
@@ -327,11 +303,10 @@ private:
 
     uint currentID = 0;
     uint found = IDENTIFY_TIMEOUT;
-    uint numFound = 0;
-    assignStage aStage = START;
 
     stageType stage = TRACK;
 
+    Mat testAdap;
 
 };
 

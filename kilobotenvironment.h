@@ -9,11 +9,13 @@ class KilobotEnvironment : public QObject
 {
     Q_OBJECT
 public:
-    explicit KilobotEnvironment(QObject *parent = 0);
-//    virtual QVector <uint8_t> getEnvironmentValue(kilobot_pos, kilobot_pos) { QVector <uint8_t> temp; return temp;}
+    explicit KilobotEnvironment(QObject *) {}
+    KilobotEnvironment() {}
+    virtual QVector <uint8_t> getEnvironmentValue(QPointF) { QVector <uint8_t> temp; return temp;}
 
 signals:
     void transmitKiloState(kilobot_message);
+    //void broadcastMessage(kilobot_broadcast);
 
 public slots:
     virtual void update() {}

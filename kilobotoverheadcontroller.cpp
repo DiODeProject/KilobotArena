@@ -77,59 +77,58 @@ void KilobotOverheadController::identifyKilobot(uint8_t id)
 
 void KilobotOverheadController::signalKilobot(kilobot_message message)
 {
-    //assert(id <= pow(2, uint8_t_LENGTH) - 1);
-    //assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
-    //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
-
-    // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
 
     // NOTES: -type goes from 0-127 for user defined types and is 8bit unsigned int (128+ reserved for system types)
     //        -data must be an array of 9 unsigned 8bit ints
 
-    // TEMPORARY SIGNALLING:
-    //uint8_t type = (uint8_t) message;
-    //uint8_t data_ohc[9] = {(uint8_t) id,0,0,0,0,0,0,0,0};
-    //this->sendDataMessage(data_ohc, type);
+    this->message_q.push_back(message);
 
-}
+    while (message_q.size() > 2) {
+        // we have enough queued messages to make a packet
 
-void KilobotOverheadController::broadcastMessage(kilobot_message message)
-{
-    //assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
-    //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
+        uint8_t type = 0; // reserved for three-in-one messages
+        uint8_t data[9] = {0,0,0,0,0,0,0,0,0}; // intialise to zero
 
-    // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
+        // pack data into buffer for each of the three messages (3 bytes for each message, 9 bytes total)
+        for (int i = 0; i < 3; ++i) {
+            data[i*3] = data[i*3] | (this->message_q.front().id >> 2);
+            data[1+i*3] = data[1+i*3] | (this->message_q.front().id << 6);
+            data[1+i*3] = data[1+i*3] | (this->message_q.front().type << 2);
+            data[1+i*3] = data[1+i*3] | (this->message_q.front().data >> 8);
+            data[2+i*3] = data[2+i*3] | this->message_q.front().data;
+            // remove message from queue
+            this->message_q.pop_front();
+        }
 
-    // NOTES: -type goes from 0-127 for user defined types and is 8bit unsigned int (128+ reserved for system types)
-    //        -data must be an array of 9 unsigned 8bit ints
-
-    // TEMPORARY SIGNALLING:
-   /* uint8_t type = (uint8_t) message;
-    uint8_t data_ohc[9];
-    if (data < 256) {
-        data_ohc[0] = (uint8_t) data;
-    } else if (data < 65536) {
-        data -= 4096;
-        data_ohc[0] = data >> 8;
-        data_ohc[1] = data & 255;
+        // send message
+        this->sendDataMessage(data, type);
     }
-    this->sendDataMessage(data_ohc, type);*/
 
 }
 
-void KilobotOverheadController::broadcastMessageFull(uint8_t type, QVector<uint8_t> data)
+void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
 {
-    //assert(message <= pow(2, KILOBOT_MESSAGE_TYPE_LENGTH) - 1);
-    //assert(data <= pow(2, KILOBOT_MESSAGE_DATA_LENGTH) - 1);
-
-    // TODO this method should work on a queue basis - signals should be queued until at least 3 are available, then broadcast in a single message
-
     // NOTES: -type goes from 0-127 for user defined types and is 8bit unsigned int (128+ reserved for system types)
     //        -data must be an array of 9 unsigned 8bit ints
 
-    // SIGNALLING:
-    if (data.size() == 9) this->sendDataMessage(&data[0], type);
+    if (message.type == 0) {
+        qDebug() << "Warning - tried to send a user broadcast message with type 0 reserved for composite messages";
+        return;
+    }
 
+    if (message.type > 127) {
+        qDebug() << "Warning - tried to send a user broadcast message with type in the system message range > 127";
+        return;
+    }
+
+    if (message.data == 0) {
+        uint8_t data[9] = {0,0,0,0,0,0,0,0,0};
+        this->sendDataMessage(data, message.type);
+
+    } else {
+        this->sendDataMessage(message.data, message.type);
+
+    }
 }
 
 

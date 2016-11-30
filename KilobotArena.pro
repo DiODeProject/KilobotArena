@@ -23,10 +23,7 @@ SOURCES += main.cpp\
     ohc/intelhex.cpp \
     ohc/serialconn.cpp \
     ohc/serialwin.cpp \
-    kilobotenvironment.cpp \
-    mykilobotenvironment.cpp \
-    kilobotexperiment.cpp \
-    mykilobotexperiment.cpp
+    kilobotidassignment.cpp
 
 HEADERS  += mainwindow.h \
     clicksignalqlabel.h \
@@ -40,10 +37,9 @@ HEADERS  += mainwindow.h \
     ohc/serialconn.h \
     ohc/serialwin.h \
     kilobotenvironment.h \
-    mykilobotenvironment.h \
     kilobotexperiment.h \
-    mykilobotexperiment.h \
-    userthread.h
+    userthread.h \
+    kilobotidassignment.h
 
 FORMS    += mainwindow.ui
 

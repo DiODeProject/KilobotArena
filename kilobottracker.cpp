@@ -16,7 +16,7 @@
 #include <QFileDialog>
 #include <QtMath>
 
-#define TEST_WITHOUT_CAMERAS
+//#define TEST_WITHOUT_CAMERAS
 
 QSemaphore srcFree[4];
 QSemaphore srcUsed[4];
@@ -36,6 +36,13 @@ class acquireThread : public QThread
 {
 public:
 
+    ~acquireThread() {
+        // shut down cam
+        camUsage.acquire();
+        if (cap.isOpened()) cap.release();
+        camUsage.release();
+    }
+
     // reprojection details
     Mat K;
     Mat R;
@@ -53,6 +60,8 @@ public:
 
     srcDataType type = CAMERA;
 
+    cv::VideoCapture cap;
+
 private:
     /*!
      * \brief run
@@ -63,8 +72,6 @@ private:
         uint time = 0;
         Mat image;
         Mat mask;
-
-        cv::VideoCapture cap;
 
         Ptr<WarperCreator> warper_creator;
         warper_creator = new cv::PlaneWarper();//makePtr<cv::PlaneWarper>();
@@ -93,7 +100,7 @@ private:
                 else if (type == CAMERA) {
 #ifndef TEST_WITHOUT_CAMERAS
                     camUsage.acquire();
-                    if (!cap.isOpened() && camOrder[index]!=3 /* TEMPORARY!!! */) {
+                    if (!cap.isOpened() /*&& camOrder[index]!=3  TEMPORARY!!! */) {
                         cap.open(camOrder[index]);
                         // set REZ
                         if (cap.isOpened()) {
@@ -162,12 +169,6 @@ private:
 
         }
 
-        if (type == CAMERA) {
-            // shut down cam
-            camUsage.acquire();
-            if (cap.isOpened()) cap.release();
-            camUsage.release();
-        }
     }
 };
 
@@ -176,7 +177,7 @@ KilobotTracker::KilobotTracker(QPoint smallImageSize, QObject *parent) : QObject
 {
     this->smallImageSize = smallImageSize;
     this->tick.setInterval(1);
-    connect(&this->tick, SIGNAL(timeout()), this, SLOT(iterateLoop()));
+    connect(&this->tick, SIGNAL(timeout()), this, SLOT(LOOPiterate()));
 
     // initialise semaphores
     srcFree[0].release(BUFF_SIZE);
@@ -191,7 +192,7 @@ KilobotTracker::KilobotTracker(QPoint smallImageSize, QObject *parent) : QObject
 KilobotTracker::~KilobotTracker()
 {
     if (this->threads[0] && this->threads[0]->isRunning()) {
-        this->stopThreads();
+        this->THREADSstop();
     }
 
     // clean up memory
@@ -202,24 +203,24 @@ KilobotTracker::~KilobotTracker()
     }
 }
 
-void KilobotTracker::startStopLoop(int stage)
+void KilobotTracker::LOOPstartstop(int stage)
 {
 
     this->stage = (stageType) stage;
 
-    Kilobot * kilo = new Kilobot;
+    /*Kilobot * kilo = new Kilobot;
 
-    emit testtesttest(kilo, *kilo);
+    emit testtesttest(kilo, *kilo);*/
 
     // check if running
     if (this->threads[0] && this->threads[0]->isRunning()) {
 
         // reset IDing
-        this->aStage = START;
+        //this->aStage = START;
         currentID = 0;
 
         emit errorMessage(QString("FPS = ") + QString::number(float(time)/(float(timer.elapsed())/1000.0f)));
-        this->stopThreads();
+        this->THREADSstop();
 
         // Stop the experiment
         emit stopExperiment();
@@ -234,7 +235,7 @@ void KilobotTracker::startStopLoop(int stage)
     }
 
     // launch threads
-    this->launchThreads();
+    this->THREADSlaunch();
 
     // connect kilobots
     for (int i = 0; i < this->kilos.size(); ++i) {
@@ -267,7 +268,7 @@ void KilobotTracker::startStopLoop(int stage)
 }
 
 
-void KilobotTracker::iterateLoop()
+void KilobotTracker::LOOPiterate()
 {
 
     // wait for semaphores
@@ -279,7 +280,9 @@ void KilobotTracker::iterateLoop()
 
         // we have tracking, so it is safe to start the experiment
         if (!this->loadFirstIm && time == 0) {
-            emit startExperiment(false /*we are not resuming the experiment*/);
+            if (this->stage != IDENTIFY) {
+                emit startExperiment(false /*we are not resuming the experiment*/);
+            }
         }
 
         srcUsed[0].acquire();
@@ -303,8 +306,7 @@ void KilobotTracker::iterateLoop()
 
         // apply compensation
         for (int i = 0; i < 4; ++i) {
-            // TEMPORARY!!
-            //compensator->apply(i, corners[i], srcBuff[i][time % BUFF_SIZE].full_warped_image, warpedMasks[i]);
+            compensator->apply(i, corners[i], srcBuff[i][time % BUFF_SIZE].full_warped_image, warpedMasks[i]);
         }
 
         Mat channels[4][3];
@@ -341,10 +343,6 @@ void KilobotTracker::iterateLoop()
         //qDebug() << "Main" << time << QTime::currentTime();
 
         switch (this->stage) {
-        case ASSIGN:
-            //this->assignKilobotIDs();
-            this->assignKilobotIDsBase4();
-            break;
         case TRACK:
             this->trackKilobots();
             break;
@@ -380,7 +378,7 @@ void KilobotTracker::getInitialKilobotStates()
     }
 }
 
-void KilobotTracker::findKilobots()
+void KilobotTracker::SETUPfindKilobots()
 {
 
     if (this->finalImage.empty()) return;
@@ -431,394 +429,19 @@ void KilobotTracker::findKilobots()
     // generate kilobots
     this->kilos.clear();
 
-    kilobot_colour col = {0,0,0};
+    kilobot_colour col = OFF;
 
     for( size_t i = 0; i < circles.size(); i++ ) {
 
-        this->kilos.push_back(new Kilobot(UNASSIGNED_ID,circles[i][0],circles[i][1],col,0));
+        this->kilos.push_back(new Kilobot(i,QPointF(circles[i][0],circles[i][1]),QPointF(1,1),col));
 
     }
 
     this->kiloHeadings.clear();
     this->kiloHeadings.resize(this->kilos.size());
 
-    // clear samples
-    this->samples.clear();
-
-    // take initial samples
-    if (this->trackType == SAMPLE_MATCH)
-    {
-        float maxDist = 1.2f*this->kbMaxSize;
-
-        for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
-            Rect bb;
-            bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
-            bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
-            bb.width = cvRound(maxDist*2.0f);
-            bb.height = cvRound(maxDist*2.0f);
-
-            bb.x = bb.x > 0 ? bb.x : 0;
-            bb.x = bb.x + bb.width < this->finalImage.size().width ? bb.x :  this->finalImage.size().width - bb.width - 1;
-            bb.y = bb.y > 0 ? bb.y : 0;
-            bb.y = bb.y + bb.height < this->finalImage.size().height ? bb.y :  this->finalImage.size().height - bb.height - 1;
-
-            Mat temp = this->finalImage(bb);
-
-            Mat cp;
-            temp.copyTo(cp);
-            this->samples.push_back(cp);
-        }
-    }
-
 }
 
-void KilobotTracker::assignKilobotIDs()
-{
-    Mat display;
-    cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
-
-    for (int i = 0; i < kilos.size(); ++i) {
-        Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
-        if (kilos[i]->getID() == UNASSIGNED_ID) {
-            // not id'd
-            if (i == (int) currentID)
-                circle( display, center, 3, Scalar(0,255,0), 3, 8, 0 );
-            else
-                circle( display, center, 3, Scalar(255,0,0), 3, 8, 0 );
-        } else {
-            // id'd
-           circle( display, center, 3, Scalar(0,0,255), 3, 8, 0 );
-        }
-    }
-
-    this->showMat(display);
-
-    //emit broadcastMessage(20,0);
-
-    // setup thresholds for LEDs
-    if (time < 30) {
-        //if (time == 0) emit broadcastMessage(1,0);
-
-        for (int i = 0; i < kilos.size(); ++i) {
-            Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
-
-            Mat temp[3];
-
-            // switch source depending on position...
-            if (bb.x < 2000/2 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
-            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
-            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
-            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
-            }
-
-            kiloLight light = this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
-
-        }
-
-    }
-
-    // slow us down
-    if (time % 5) return;
-
-
-
-    if (this->aStage == START) {
-
-        // upload prog...
-
-        // set on packet
-        //emit broadcastMessage(1,0);
-
-        this->aStage = TEST;
-        this->currentID = 0;
-
-    } else if (this->aStage == CHOOSE) {
-
-        //emit broadcastMessage(3,0);
-        this->aStage = TEST;
-
-    } else if (this->aStage == TEST) {
-
-        // find col of the identified robot
-        // get bounding box
-        Rect bb = this->getKiloBotBoundingBox(currentID, 1.1f);
-
-        Mat temp[3];
-
-        // switch source depending on position...
-        if (bb.x < 2000/2 && bb.y < 2000/2) {
-            for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
-        } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-            for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
-        } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-            for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
-        } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-            for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
-        }
-
-        kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),currentID);
-
-        if (light.col != OFF) {
-            // turn off other cols and choose again
-            int colOff = 1;
-            if (light.col == RED) colOff = 2;
-            if (light.col == GREEN) colOff = 1;
-            //emit broadcastMessage(2,colOff);
-            this->aStage = CHOOSE;
-        }
-
-        int numOn = 0;
-
-        // test if only one light
-        for (int i = 0; i < kilos.size(); ++i) {
-            Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
-
-            Mat temp[3];
-
-            // switch source depending on position...
-            if (bb.x < 2000/2 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
-            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
-            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
-            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
-            }
-
-            kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
-
-            if (light.col != OFF) ++numOn;
-        }
-
-        if (numOn == (int) currentID+1) {
-            //emit broadcastMessage(4,currentID);
-            kilos[currentID]->setID(currentID);
-            this->aStage = NEXTID;
-        }
-
-    } else if (this->aStage == NEXTID) {
-
-        // if done
-        if ((int) this->currentID > this->kilos.size() - 2) {
-            this->aStage = COMPLETE;
-            return;
-        }
-
-        // otherwise
-        this->currentID++;
-
-        //emit broadcastMessage(10,0);
-        this->aStage = CHOOSE;
-
-    }
-
-
-
-}
-
-
-void KilobotTracker::assignKilobotIDsBase4()
-{
-    Mat display;
-    cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
-
-    for (int i = 0; i < kilos.size(); ++i) {
-
-        Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
-        if (kilos[i]->getID() == UNASSIGNED_ID) {
-            // not id'd
-           circle( display, center, 3, Scalar(255,0,0), 3, 8, 0 );
-        } else {
-            // id'd
-           circle( display, center, 3, Scalar(0,0,255), 3, 8, 0 );
-        }
-    }
-
-    this->showMat(display);
-
-    //emit broadcastMessage(20,0);
-
-    // setup thresholds for LEDs
-    if (time < 30) {
-        if (time == 0) {
-            //emit broadcastMessage(10,0);
-            this->kiloTempIDs.clear();
-            this->kiloTempIDs.resize(this->kilos.size());
-        }
-
-        for (int i = 0; i < kilos.size(); ++i) {
-            Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
-
-            Mat temp[3];
-
-            // switch source depending on position...
-            if (bb.x < 2000/2 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
-            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
-            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
-            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
-            }
-
-            kiloLight light = this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
-
-        }
-        return;
-
-    }
-
-    // slow us down
-    //if (time % 5) return;
-
-
-
-    if (this->aStage == START) {
-
-        // set on packet
-        //emit broadcastMessage(1,0);
-        this->assignTimer.start();
-
-        this->aStage = TEST;
-        this->currentID = 0;
-        this->numFound = 0;
-        for (int i = 0; i < kiloTempIDs.size(); ++i) {
-
-            // reset dupes
-            if (kiloTempIDs[i] == DUPE) this->kiloTempIDs[i] = 0;
-
-             //emit broadcastMessage(2,this->kiloTempIDs[numFound]+4096);
-            ++numFound;
-            if (numFound > kiloTempIDs.size() - 1) {
-                this->aStage = COMPLETE;
-            }
-
-        }
-
-    } else if (this->aStage == CHOOSE) {
-
-        if (assignTimer.elapsed() > 1000) {
-            if (this->kiloTempIDs[numFound] != DUPE && this->kiloTempIDs[numFound] != ASSIGNED) {
-                QVector<uint8_t> data;
-                data.resize(9);
-                // current temp ID
-                data[0] = (this->kiloTempIDs[numFound] >> 8)&0xFF;
-                data[1] = this->kiloTempIDs[numFound]&0xFF;
-                // UID to set
-                data[2] = (numFound >> 8)&0xFF;
-                data[3] = numFound&0xFF;
-                emit broadcastMessageFull(2,data);
-                this->kilos[numFound]->setID(numFound);
-                this->kiloTempIDs[numFound] = ASSIGNED; // set as assigned
-            }
-            ++numFound;
-            if (numFound > kiloTempIDs.size() - 1) {
-                if (found == 1) {
-                    this->aStage = NEXTID;
-                } else {
-                    this->aStage = COMPLETE;
-                    this->startStopLoop(ASSIGN);
-                }
-            }
-        }
-
-        //emit broadcastMessage(3,0);
-        //this->aStage = TEST;
-
-    } else if (this->aStage == TEST) {
-
-        if (assignTimer.elapsed() < 200) {
-            // get next seg
-            //emit broadcastMessage(4,0);
-        }
-
-        //
-        if (assignTimer.elapsed() > 1000*(numFound+1)+1000) {
-
-            // get next seg
-            //emit broadcastMessage(4,0);
-
-            // check colours
-            for (int i = 0; i < kilos.size(); ++i) {
-
-                if (kilos[i]->getID() != UNASSIGNED_ID) continue;
-
-                Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
-
-                Mat temp[3];
-
-                // switch source depending on position...
-                if (bb.x < 2000/2 && bb.y < 2000/2) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
-                } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
-                } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
-                } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
-                }
-
-                kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
-
-                this->kiloTempIDs[i] += int(light.col) * baseFourMultipliers[numFound];
-
-            }
-
-            ++numFound;
-
-            if (numFound > 5) {
-                for (int i = 0; i < kilos.size(); ++i) {
-                    qDebug() << i << ":" << this->kiloTempIDs[i];
-                }
-                found = 0;
-                // work out if we have have duplicates, if so fix them
-                for (int i = 0; i < this->kiloTempIDs.size(); ++i) {
-                    // if we haven't already been identified as a dupe, or assigned
-                    if (kiloTempIDs[i] != DUPE && kiloTempIDs[i] != ASSIGNED) {
-                        // already compared to ones below
-                        int temp = kiloTempIDs[i];
-                        for (uint j = i+1; j < this->kiloTempIDs.size(); ++j) {
-                            if (temp == kiloTempIDs[j]) {
-                                kiloTempIDs[i] = DUPE;
-                                kiloTempIDs[j] = DUPE;
-                                // signal dupes
-                                found = 1;
-                            }
-                        }
-                    }
-                }
-
-                this->aStage = CHOOSE;
-
-                numFound = 0;
-                assignTimer.restart();
-            }
-
-            //qDebug() << "loop...";
-        }
-
-
-    } else if (this->aStage == NEXTID) {
-
-        // reset the dupes
-        //emit broadcastMessage(3,0);
-
-        // repeat process
-        numFound = 0;
-        //emit broadcastMessage(10,0);
-        this->aStage = START;
-
-    }
-
-
-
-}
 
 void KilobotTracker::identifyKilobots()
 {
@@ -826,23 +449,39 @@ void KilobotTracker::identifyKilobots()
     Mat display;
     cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
 
-    if (found == 0) {
-        found = IDENTIFY_TIMEOUT;
-        ++currentID;
-
-        if (currentID > KILOBOT_MAX_ID) {
-            this->stopThreads();
-        } else {
-            emit identifyKilo(currentID);
-            // skip this iteration
-            return;
-        }
+    if (time == 0)
+    {
+        currentID = 0;
+        identifyKilobot(currentID);
+        qDebug() << "Try ID" << currentID;
     }
 
-    for (uint i = 0; i < (uint) kilos.size(); ++i) {
+    if (time % 10 != 9) {
+        for (uint i = 0; i < (uint) kilos.size(); ++i) {
 
-        // if unassigned
-        if (kilos[i]->getID() == UNASSIGNED_ID) {
+            // get bounding box
+            Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
+
+            Mat temp[3];
+
+            // switch source depending on position...
+            if (bb.x < 2000/2 && bb.y < 2000/2) {
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
+            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
+            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
+            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
+            }
+            this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
+        }
+    }
+    else
+    {
+
+        for (uint i = 0; i < (uint) kilos.size(); ++i) {
+
             // get bounding box
             Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
 
@@ -861,27 +500,34 @@ void KilobotTracker::identifyKilobots()
 
             kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
 
-            if (light.col != OFF) {
+            if (light.col == GREEN) {
+                qDebug() << "Found ID" << currentID;
                 kilos[i]->setID((uint8_t) currentID);
-                found = 0;
-                return;
             }
-        }
 
-        Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
-        if (kilos[i]->getID() == UNASSIGNED_ID) {
-            // not id'd
-           circle( display, center, 3, Scalar(255,0,0), 3, 8, 0 );
-        } else {
-            // id'd
-           circle( display, center, 3, Scalar(0,255,0), 3, 8, 0 );
         }
-
+        // next id
+        ++currentID;
+        identifyKilobot(currentID);
+        qDebug() << "Try ID" << currentID;
     }
 
     this->showMat(display);
 
-    --found;
+}
+
+void KilobotTracker::identifyKilobot(int id)
+{
+
+    // decompose id
+    uint8_t data[9] = {0,0,0,0,0,0,0,0,0};
+    data[0] = id >> 8;
+    data[1] = id & 0xFF;
+
+    kilobot_broadcast msg;
+    msg.type = 120;
+    msg.data = data;
+    emit this->broadcastMessage(msg);
 
 }
 
@@ -895,200 +541,211 @@ void KilobotTracker::trackKilobots()
     switch (this->trackType) {
     {
     case CIRCLES_NAIVE:
-
-            vector<Vec3f> circles;
-            HoughCircles(this->finalImage,circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/,this->kbMaxSize-1/* circle distance*/,this->cannyThresh /* Canny threshold*/,this->houghAcc /*cicle algorithm accuracy*/,this->kbMinSize/* min circle size*/,this->kbMaxSize/* max circle size*/);
-
-            qDebug() << "Found" << circles.size() << "circles";
-
-            float maxDist = this->kbMaxSize-2.0f;
-
-            // find kilobots
-            for( size_t i = 0; i < (uint) kilos.size(); i++ )
-            {
-                for (uint j = 0; j < circles.size(); ++j) {
-
-                    Point centerK(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
-                    Point centerC(cvRound(circles[j][0]), cvRound(circles[j][1]));
-                    Point diff = centerK - centerC;
-                    double dist = cv::sqrt(diff.x*diff.x + diff.y*diff.y);
-                    // check
-                    if (dist < maxDist) {
-                        kilos[i]->updateState(centerC.x, centerC.y,kilos[i]->getLedColour(),0);
-                    }
-
-                }
-            }
-
-
-            for( size_t i = 0; i < (uint) kilos.size(); i++ )
-            {
-                 Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
-                 circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
-            }
-
-            break;
-
+        break;
     }
     {
     case CIRCLES_LOCAL:
 
-
+            // setup the tracking region around each KB's last known position
             float maxDist = 1.2f*this->kbMaxSize;
 
             vector < Rect > bbs;
 
-            // try and update each kilobot
+            // get the bounding box info for all KB
             for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
                 bbs.push_back(this->getKiloBotBoundingBox(i, 1.2f));
             }
 
+
             for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
 
-                Rect bb = bbs[i];
 
+                Rect bb = bbs[i];
                 Mat temp[3];
 
-                // switch source depending on position...
-                if (bb.x < 2000/2 && bb.y < 2000/2) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
-                } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
-                } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
-                } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                    for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
-                }
+                // setup temp pars with previous KB state
+                kiloLight light;
+                light.col = kilos[i]->getLedColour();
+                QPointF newPos = this->kilos[i]->getPosition();
+                QPointF newVel = this->kilos[i]->getVelocity();
 
-                kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
+                // track light
+                if (this->t_type & LED || this->t_type & ADAPTIVE_LED) {
 
-                float ang = qAtan2(light.pos.y,light.pos.x)/M_PI*180.0;
+                    // switch cam/vid source depending on position...
+                    if (bb.x < 2000/2 && bb.y < 2000/2) {
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
+                    } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
+                    } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
+                    } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
+                    }
 
-                float angDiff = kiloHeadings[i] - ang;
-                angDiff = (angDiff > 180) ? angDiff - 360 : angDiff;
-                angDiff = (angDiff < -180) ? angDiff + 360 : angDiff;
+                    if (this->t_type & ADAPTIVE_LED) {
+                        light = this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
+                    } else if (this->t_type & LED){
+                        light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
+                    }
 
-                /*kiloHeadings[i] = kiloHeadings[i]*0.5 + angDiff*0.5;
-                kiloHeadings[i] = (kiloHeadings[i] > 180) ? kiloHeadings[i] - 360 : kiloHeadings[i];
-                kiloHeadings[i] = (kiloHeadings[i] < -180) ? kiloHeadings[i] + 360 : kiloHeadings[i];*/
-                kiloHeadings[i] = ang;
+                    // TEMP
+                    /*if (i == 0) {
+                        if (t_type & ADAPTIVE_LED) {
+                            Mat t;
+                            cv::resize(this->testAdap,t,Size(),4,4,INTER_NEAREST);
+                            cv::cvtColor(t, t, CV_GRAY2RGB);
+                            t = t*20.0f;
+                            t.copyTo(display(Rect(0,0,t.size[1],t.size[0])));
 
-                Point boxCentre(bb.x+bb.width/2,bb.y+bb.height/2);
-                Point heading(qCos(kiloHeadings[i]*M_PI/180.0)*bb.width/2.0+boxCentre.x,qSin(kiloHeadings[i]*M_PI/180.0)*bb.height/2.0+boxCentre.y);
-
-                // plot
-                switch (light.col) {
-                case RED:
-                    line(display,boxCentre,heading,Scalar(255,0,0),3);
-                    break;
-                case GREEN:
-                    line(display,boxCentre,heading,Scalar(0,255,0),3);
-                    break;
-                case BLUE:
-                    line(display,boxCentre,heading,Scalar(0,0,255),3);
-                    break;
-                case OFF:
-                    break;
+                        }
+                    }*/
                 }
 
 
-                bool no_match = true;
-                int circle_acc = 30;
+                if (this->t_type & POS) {
 
-                vector<Vec3f> circles;
+                    bool no_match = true;
+                    int circle_acc = 30;
 
-                while (no_match && circle_acc > 10) {
+                    vector<Vec3f> circles;
 
-                    // try fixed pars
-                    int minS = this->kbMinSize;//9;
-                    int maxS = this->kbMaxSize;//25;
+                    while (no_match && circle_acc > 10) {
 
-                    HoughCircles(temp[0],circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/,1.0/*maxS-1.0 circle distance*/,this->cannyThresh /* Canny threshold*/,circle_acc /*cicle algorithm accuracy*/,minS/* min circle size*/,maxS/* max circle size*/);
+                        // try fixed pars
+                        int minS = this->kbMinSize;//9;
+                        int maxS = this->kbMaxSize;//25;
 
-                    if (circles.size() > 0) no_match = false;
+                        HoughCircles(temp[0],circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/,1.0/*maxS-1.0 circle distance*/,this->cannyThresh /* Canny threshold*/,circle_acc /*cicle algorithm accuracy*/,minS/* min circle size*/,maxS/* max circle size*/);
 
-                    circle_acc -= 2;
+                        if (circles.size() > 0) no_match = false;
 
-                }
+                        circle_acc -= 2;
+
+                    }
 
 
-                if (circles.size() > 0) {
-                    // take the nearest one
+                    if (circles.size() > 0) {
+                        // take the nearest one
 
-                    float reduceMaxSpeed = 10.0;
+                        float reduceMaxSpeed = 10.0;
 
-                    int best_index = 0;
-                    for (uint k = 0; k < circles.size(); ++k) {
+                        int best_index = 0;
+                        for (uint k = 0; k < circles.size(); ++k) {
 
-                        bool oops = false;
+                            bool oops = false;
 
-                        // full exclusion
-                        for (uint l = 0; l < (uint) this->kilos.size(); ++l) {
+                            // full exclusion
+                            for (uint l = 0; l < (uint) this->kilos.size(); ++l) {
 
-                            if (l == i) continue;
+                                if (l == i) continue;
 
-                            Point cCent(circles[k][0]-bb.width/2+kilos[i]->getXPosition(), circles[k][1]-bb.height/2+kilos[i]->getYPosition());
+                                Point cCent(circles[k][0]-bb.width/2+kilos[i]->getPosition().x(), circles[k][1]-bb.height/2+kilos[i]->getPosition().y());
 
-                            if ( qPow(cCent.x - kilos[l]->getXPosition(),2) + qPow(cCent.y - kilos[l]->getYPosition(),2) \
-                                   <  qPow(circles[k][0]-bb.width/2,2) + qPow(circles[k][1]-bb.height/2,2) ) {
-                                circles.erase(circles.begin()+k);
-                                --k;
-                                oops = true;
-                                break;
+                                if ( qPow(cCent.x - kilos[l]->getPosition().x(),2) + qPow(cCent.y - kilos[l]->getPosition().y(),2) \
+                                       <  qPow(circles[k][0]-bb.width/2,2) + qPow(circles[k][1]-bb.height/2,2) ) {
+                                    circles.erase(circles.begin()+k);
+                                    --k;
+                                    oops = true;
+                                    break;
+                                }
+
+                            }
+
+                            if (oops) continue;
+
+                            best_index = (this->kbMaxSize-reduceMaxSpeed)*(this->kbMaxSize-reduceMaxSpeed) \
+                                    > (circles[k][0]-bb.width/2)*(circles[k][0]-bb.width/2)+(circles[k][1]-bb.height/2)*(circles[k][1]-bb.height/2) \
+                                    && (circles[k][0]-bb.width/2)*(circles[k][0]-bb.width/2)+(circles[k][1]-bb.height/2)*(circles[k][1]-bb.height/2) \
+                                    < (circles[best_index][0]-bb.width/2)*(circles[best_index][0]-bb.width/2)+(circles[best_index][1]-bb.height/2)*(circles[best_index][1]-bb.height/2) ? i : best_index;
+
+                        }
+
+                        if (circles.size() != 0) {
+
+                            // if we haven't moved too far
+                            if ((this->kbMaxSize-reduceMaxSpeed)*(this->kbMaxSize-reduceMaxSpeed) > (circles[best_index][0]-bb.width/2)*(circles[best_index][0]-bb.width/2)+(circles[best_index][1]-bb.height/2)*(circles[best_index][1]-bb.height/2))
+                            {
+
+                                float smooth_fact = 0.5;
+
+                                int new_x = float(bb.x+circles[best_index][0])*(1.0-smooth_fact) + float(kilos[i]->getPosition().x())*smooth_fact;
+                                int new_y = float(bb.y+circles[best_index][1])*(1.0-smooth_fact) + float(kilos[i]->getPosition().y())*smooth_fact;
+
+                                // update velocity
+                                QPointF prevPos = this->kilos[i]->getPosition();
+                                QPointF prevVel = this->kilos[i]->getVelocity();
+
+                                newPos = QPointF(new_x,new_y);
+                                newVel = prevVel*(2.0f/3.0f) + (newPos - prevPos)*(1.0f/3.0f);
+
                             }
 
                         }
 
-                        if (oops) continue;
-
-                        best_index = (this->kbMaxSize-reduceMaxSpeed)*(this->kbMaxSize-reduceMaxSpeed) \
-                                > (circles[k][0]-bb.width/2)*(circles[k][0]-bb.width/2)+(circles[k][1]-bb.height/2)*(circles[k][1]-bb.height/2) \
-                                && (circles[k][0]-bb.width/2)*(circles[k][0]-bb.width/2)+(circles[k][1]-bb.height/2)*(circles[k][1]-bb.height/2) \
-                                < (circles[best_index][0]-bb.width/2)*(circles[best_index][0]-bb.width/2)+(circles[best_index][1]-bb.height/2)*(circles[best_index][1]-bb.height/2) ? i : best_index;
-
                     }
+                } // END POS
 
-                    if (circles.size() != 0) {
+                if (this->t_type & ROT && (this->t_type & LED || this->t_type & ADAPTIVE_LED)) {
 
-                        // if we haven't moved too far
-                        if ((this->kbMaxSize-reduceMaxSpeed)*(this->kbMaxSize-reduceMaxSpeed) > (circles[best_index][0]-bb.width/2)*(circles[best_index][0]-bb.width/2)+(circles[best_index][1]-bb.height/2)*(circles[best_index][1]-bb.height/2))
-                        {
+                    QLineF lightLine = QLineF(QPointF(0,0),QPointF(light.pos.x,light.pos.y));
+                    QLineF velLine = QLineF(QPointF(0,0),newVel);
 
-                            float smooth_fact = 0.5;
+                    // if we have a light
+                    if (light.col != OFF) {
 
-                            int new_x = float(bb.x+circles[best_index][0])*(1.0-smooth_fact) + float(kilos[i]->getXPosition())*smooth_fact;
-                            int new_y = float(bb.y+circles[best_index][1])*(1.0-smooth_fact) + float(kilos[i]->getYPosition())*smooth_fact;
-                            this->kilos[i]->updateState(new_x,new_y,kilos[i]->getLedColour(),0);
-
+                        if (velLine.length() < 1.0f) {
+                            lightLine.setLength(0.9f);
+                            lightLine.setAngle(lightLine.angle() + 20.0f);
+                            newVel = lightLine.p2();
+                        } else {
+                            // combine LED and velocity estimates
+                            lightLine.setLength(velLine.length());
+                            // align to forward
+                            lightLine.setAngle(lightLine.angle() + 20.0f);
+                            newVel = (lightLine.p2() + velLine.p2())*0.5f;
                         }
 
                     }
-
                 }
 
+                // put in any new data
+                this->kilos[i]->updateState(newPos,newVel,light.col);
 
-            }
-
-
-
-            for( size_t i = 0; i < (uint) kilos.size(); i++ )
-            {
-
-                 Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
-                 if (kilos[i]->getID() == UNASSIGNED_ID) {
-
+                // DRAW
+                Point center(round(kilos[i]->getPosition().x()), round(kilos[i]->getPosition().y()));
+                if (kilos[i]->getID() == UNASSIGNED_ID) {
                      // not id'd
                     circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
-                 } else {
+                } else {
                      // id'd
                     circle( display, center, 1, Scalar(0,255,0), 3, 8, 0 );
-                 }
+                }
+                // plot
+                QLineF currVel = QLineF(QPointF(0,0),this->kilos[i]->getVelocity());
+                currVel.setLength(currVel.length()*10.0f+20.0f);
+                QPointF hdQpt = currVel.p2() + this->kilos[i]->getPosition();
+                Point heading(hdQpt.x(), hdQpt.y());
+                switch (light.col) {
+                case RED:
+                     line(display,center,heading,Scalar(255,0,0),3);
+                     break;
+                case GREEN:
+                     line(display,center,heading,Scalar(0,255,0),3);
+                     break;
+                case BLUE:
+                     line(display,center,heading,Scalar(0,0,255),3);
+                     break;
+                case OFF:
+                     line(display,center,heading,Scalar(255,255,255),3);
+                     break;
+                }
             }
 
             if (kilos.size() > 0) {
                 Rect bb;
-                bb.x = cvRound(this->kilos[0]->getXPosition() - maxDist);
-                bb.y = cvRound(this->kilos[0]->getYPosition() - maxDist);
+                bb.x = cvRound(this->kilos[0]->getPosition().x() - maxDist);
+                bb.y = cvRound(this->kilos[0]->getPosition().y() - maxDist);
                 bb.width = cvRound(maxDist*2.0f);
                 bb.height = cvRound(maxDist*2.0f);
                 rectangle(display, bb, Scalar(0,0,255),3);
@@ -1097,99 +754,9 @@ void KilobotTracker::trackKilobots()
             break;
     }
     {
-    case PARTICLE_FILTER:
-
-            break;
-    }
-    {
-    case SAMPLE_MATCH:
-
-            // for now we ignore rotation, and simply deal with translation in the hope that rotation will be taken care of
-            // by the updating of the sample, and translation samples are cheap!
-
-            int num_samples = 30;
-            int max_dist = 10;
-            float maxDist = 1.2f*this->kbMaxSize;
-
-            Mat test;
-
-            // abort if we don't have samples
-            if (this->samples.size() != this->kilos.size()) return;
-
-            // loop through kilos
-            for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
-                Point offset(0,0);
-                // test for no movement
-                Rect bb;
-                bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
-                bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
-                bb.width = cvRound(maxDist*2.0f);
-                bb.height = cvRound(maxDist*2.0f);
-
-                bb.x = bb.x > 0 ? bb.x : 0;
-                bb.x = bb.x + bb.width < this->finalImage.size().width ? bb.x :  this->finalImage.size().width - bb.width - 1;
-                bb.y = bb.y > 0 ? bb.y : 0;
-                bb.y = bb.y + bb.height < this->finalImage.size().height ? bb.y :  this->finalImage.size().height - bb.height - 1;
-
-                test = this->finalImage(bb);
-
-                float diff = cv::sum(cv::abs(test-this->samples[i])).val[0];
-
-                // draw samples and test
-                for (uint j = 0; j < (uint) num_samples; ++j) {
-
-                    Point tempOff((qrand() % (2*max_dist)) - max_dist, (qrand() % (2*max_dist)) - max_dist);
-
-                    // test
-                    bb.x = cvRound(this->kilos[i]->getXPosition() + tempOff.x - maxDist);
-                    bb.y = cvRound(this->kilos[i]->getYPosition() + tempOff.y - maxDist);
-                    bb.width = cvRound(maxDist*2.0f);
-                    bb.height = cvRound(maxDist*2.0f);
-
-                    bb.x = bb.x > 0 ? bb.x : -1;
-                    bb.width = bb.x + bb.width < this->finalImage.size().width ? bb.width :  -1;
-                    bb.y = bb.y > 0 ? bb.y : -1;
-                    bb.height = bb.y + bb.height < this->finalImage.size().height ? bb.height : -1;
-
-                    if (bb.x < 0 || bb.y < 0 || bb.width < 0 || bb.height < 0) {
-                        // we don't have a square, try again
-                        j -= 1;
-                        continue;
-                    }
-                    //qDebug() << bb.x << bb.y << bb.height << bb.width;
-
-                    test = this->finalImage(bb);
-
-                    float tempDiff = cv::sum(cv::abs(test-this->samples[i])).val[0];
-
-                    offset = tempDiff < diff ? tempOff : offset;
-                    diff = tempDiff < diff ? tempDiff : diff;
-
-
-                }
-
-                // move kilobot
-                this->kilos[i]->updateState(this->kilos[i]->getXPosition()+offset.x, this->kilos[i]->getYPosition()+offset.y,this->kilos[i]->getLedColour(), 0);
-
-                // move sample
-                bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
-                bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
-                bb.width = cvRound(maxDist*2.0f);
-                bb.height = cvRound(maxDist*2.0f);
-
-                Mat temp = this->finalImage(bb);
-
-                temp.copyTo(this->samples[i]);
-
-            }
-
-             for( size_t i = 0; i < (uint) kilos.size(); i++ )
-             {
-                  Point center(round(kilos[i]->getXPosition()), round(kilos[i]->getYPosition()));
-                  circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
-             }
-
-            break;
+    case MY_HAPPY_OTHER_TRACKER:
+        // GIOVANNI IS WRITING THIS
+        break;
     }
     }
 
@@ -1204,8 +771,8 @@ Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
     float maxDist = scale*this->kbMaxSize;
 
     Rect bb;
-    bb.x = cvRound(this->kilos[i]->getXPosition() - maxDist);
-    bb.y = cvRound(this->kilos[i]->getYPosition() - maxDist);
+    bb.x = cvRound(this->kilos[i]->getPosition().x() - maxDist);
+    bb.y = cvRound(this->kilos[i]->getPosition().y() - maxDist);
     bb.width = cvRound(maxDist*2.0f);
     bb.height = cvRound(maxDist*2.0f);
 
@@ -1287,10 +854,10 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
     kiloLight light;
     light.pos = Point(-1,-1);
 
-    Mat temp[3];
+    vector < Mat > temp(3);
     Scalar sums[3];
 
-    float tooBig = 10000.0f;
+    float tooBig = 2000.0f;//10000.0f
     int step = 5;
 
     uint maxIndex = 0;
@@ -1307,7 +874,7 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
         kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
     }
     if (sums[maxIndex][0] < 1.0f) {
-        kilos[index]->lightThreshold = kilos[index]->lightThreshold - step > 180 ? kilos[index]->lightThreshold - step : kilos[index]->lightThreshold;
+        kilos[index]->lightThreshold = kilos[index]->lightThreshold - step > 100 ? kilos[index]->lightThreshold - step : kilos[index]->lightThreshold;
 
         maxIndex = 0;
 
@@ -1337,13 +904,24 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
 
     }
 
-    //qDebug() << kilos[index]->lightThreshold;
+
+
+    /*if (index == 0) {
+
+        cv::hconcat(temp, this->testAdap);
+        qDebug() << kilos[index]->lightThreshold;
+
+        if (light.col == RED) qDebug() << "RED";
+        if (light.col == BLUE) qDebug() << "BLUE";
+        if (light.col == GREEN) qDebug() << "GREEN";
+        if (light.col == OFF) qDebug() << "OFF";
+    }*/
 
     return light;
 
 }
 
-void KilobotTracker::loadCalibration()
+void KilobotTracker::SETUPloadCalibration()
 {
 
     // Load the calibration data
@@ -1391,12 +969,12 @@ void KilobotTracker::loadCalibration()
     lastDirectory.cdUp();
     settings.setValue ("lastDirOut", lastDirectory.absolutePath());
 
-    this->setupStitcher();
+    this->SETUPstitcher();
 
     // load first images
 
     // launch threads
-    this->launchThreads();
+    this->THREADSlaunch();
 
     if (!this->compensator) {
         // calculate to compensate for exposure
@@ -1417,10 +995,10 @@ void KilobotTracker::loadCalibration()
 
     // run stitcher once
     this->loadFirstIm = true;
-    this->iterateLoop();
+    this->LOOPiterate();
     this->loadFirstIm = false;
 
-    this->stopThreads();
+    this->THREADSstop();
 
     this->time = 0;
 
@@ -1428,7 +1006,7 @@ void KilobotTracker::loadCalibration()
 
 }
 
-void KilobotTracker::setupStitcher()
+void KilobotTracker::SETUPstitcher()
 {
 
     // initial config
@@ -1478,7 +1056,7 @@ void KilobotTracker::setupStitcher()
 
 }
 
-void KilobotTracker::launchThreads()
+void KilobotTracker::THREADSlaunch()
 {
     for (uint i = 0; i < 4; ++i)
     {
@@ -1504,7 +1082,7 @@ void KilobotTracker::launchThreads()
     }
 }
 
-void KilobotTracker::stopThreads()
+void KilobotTracker::THREADSstop()
 {
 
     // stop the timer
@@ -1530,6 +1108,7 @@ void KilobotTracker::stopThreads()
         srcFree[i].release(BUFF_SIZE);
     }
 
+
 }
 
 void KilobotTracker::showMat(Mat &display)
@@ -1546,10 +1125,10 @@ void KilobotTracker::showMat(Mat &display)
     // assign to a QPixmap (may copy)
     QPixmap pix = QPixmap::fromImage(qimg);
 
-    setStitchedImage(pix);
+    emit setStitchedImage(pix);
 }
 
-void KilobotTracker::setCamOrder()
+void KilobotTracker::SETUPsetCamOrder()
 {
 
     int temp[4];
@@ -1577,34 +1156,5 @@ void KilobotTracker::setCamOrder()
 
 }
 
-void KilobotTracker::setKbMax(int val)
-{
-    this->kbMaxSize = val;
-}
 
-void KilobotTracker::setKbMin(int val)
-{
-    this->kbMinSize = val;
-}
-
-void KilobotTracker::setHoughAcc(int val)
-{
-    this->houghAcc = val;
-}
-
-void KilobotTracker::setCannyThresh(int val)
-{
-    this->cannyThresh = val;
-}
-
-void KilobotTracker::setSourceType(bool val)
-{
-    if (val) this->srcType = CAMERA;
-    else this->srcType = VIDEO;
-}
-
-void KilobotTracker::setVideoDir(QString dir)
-{
-    this->videoPath = dir;
-}
 
