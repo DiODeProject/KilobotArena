@@ -73,6 +73,7 @@ public:
     void updateExperiment();
 
     int lightThreshold = 230;
+    int vsensorValue = 0;
 
 signals:
     void sendUpdateToHardware(Kilobot);

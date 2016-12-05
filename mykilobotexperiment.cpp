@@ -1,13 +1,18 @@
 #include "mykilobotexperiment.h"
 #include "mykilobotenvironment.h"
-#include <QDebug>
 
+#include "math.h"
+
+#include <QDebug>
 #include <QVector>
 #include <QLineF>
 
 //#include "kilobot.h"
+#include <QPainter>
 
-//mykilobotenvironment myenviron1;
+
+using namespace cv;
+using namespace std;
 
 mykilobotexperiment::mykilobotexperiment(QObject *parent) : KilobotExperiment(parent) {
 
@@ -28,24 +33,28 @@ void mykilobotexperiment::initialise(bool isResume) {
     if (!isResume) {
         // init stuff
         emit getInitialKilobotStates();
-//        qDebug() << "I am making it here.";
+        //        qDebug() << "I am making it here.";
     } else {
         // probably nothing
     }
 
     // Assign Kilobot IDs here?
-//    assignKilobotIDs(mykilobot); // correct this
+    //    assignKilobotIDs(mykilobot); // correct this
 
 
-//    // some random code for now:
-//    int num_kbs = 100;
-//    qDebug() << num_kbs ;
-//    num_kbs = mykilobot.size(); // Size of kilobots
-//    qDebug() << num_kbs ;
+    //    // some random code for now:
+    //    int num_kbs = 100;
+    //    qDebug() << num_kbs ;
+    //    num_kbs = mykilobot.size(); // Size of kilobots
+    //    qDebug() << num_kbs ;
 
 
     // Assign Kilobots to Environments - 1 or 2 at random here for now:
-//    setupInitialKilobotEnvironment(mykilobot); // randomly assigns kilobots to 1 of 2 enviroments - correct this
+    // Update Kilobot States:
+    for (int i = 0; i < this->mykilobot.size(); ++i) {
+//        setupInitialKilobotEnvironment(mykilobot[i]); // randomly assigns kilobots to 1 of 2 enviroments - correct this
+//        updateKilobotVS(mykilobot[i]);
+    }
 
     // Setup Overhead Control:
     myohc.initialiseOHC(); // Does nothing at the moment - correct this
@@ -72,7 +81,7 @@ void mykilobotexperiment::run() {
 
     // Update Kilobot States:
     for (int i = 0; i < this->mykilobot.size(); ++i) {
-        //        updateKilobotVS(mykilobot[i]); // update kilobot position and led color
+//        updateKilobotVS(mykilobot[i]); // update kilobot position and led color
     }
     //    updateKilobotVS(mykilobot[i]);
     //    emit updateKilobotStates();
@@ -104,10 +113,10 @@ void mykilobotexperiment::setupInitialKilobotEnvironment(Kilobot kilobotCopy) {
 // Update the Kilobots' Environments:
 //   This is run once for each kilobot after emitting updateKilobotStates() signal
 void mykilobotexperiment::updateKilobotEnvironment(Kilobot kilobotCopy) {
-    // update envs - can be blank if not required
-    if (kilobotCopy.getLedColour().r > 200) {
-        this->setCurrentKilobotEnvironment(this->environments[0]);
-    }
+    //    // update envs - can be blank if not required
+    //    if (kilobotCopy.getLedColour().r > 200) {
+    //        this->setCurrentKilobotEnvironment(this->environments[0]);
+    //    }
 
 }
 
@@ -115,19 +124,41 @@ void mykilobotexperiment::updateKilobotEnvironment(Kilobot kilobotCopy) {
 //   This is based on current environmental setup:
 void mykilobotexperiment::updateKilobotVS(Kilobot kilobotCopy) {
 
-    Q_UNUSED(kilobotCopy)
+    //    Q_UNUSED(kilobotCopy)
 
     // Update the Kilobot virtual sensor readings here. Get kilobot position and led colour.
-    // Return bool value for type/s and goal/s and 3-bit value for sensor/s,
-
-    bool type_val = false;
-    bool goal_val;
-
-
-    //    // lalala
-    //    QPoint kbPos = QPoint(kilobot.getXPosition(), kilobot.getYPosition());
+    QPoint kbPos = QPoint(kilobotCopy.getXPosition(), kilobotCopy.getYPosition());
     //    int dist = QLineF(kbPos, this->target).length();
 
+    // Convert sensor value to a virtual sensor reading between 1 and 128:
+    int minDist = 0; // distance in mm
+    int maxDist = 3000; // distance in mm
+
+    double kbDist;
+    kbDist = sqrt((kbPos.x())^2 + (kbPos.x())^2); // Should be distance from the kilobot's environment goals.
+
+    double kbVSval;
+    kbVSval = 127*kbDist/(maxDist-minDist);
+
+    int finVSval;
+    finVSval = (int)round(kbVSval);
+
+    kilobotCopy.vsensorValue = finVSval;
+
+    int xval = finVSval;
+
+    vector<int> ret;
+    while(xval) {
+      if (xval&1)
+        ret.push_back(1);
+      else
+        ret.push_back(0);
+      xval>>=1;
+    }
+    reverse(ret.begin(),ret.end());
+//    return ret;
+
+    qDebug() << ret ;
 
 }
 
@@ -151,17 +182,21 @@ void mykilobotexperiment::setupEnvironment1( ) {
     // Replace this whole function which interates with GUI and gets user input on number and location of goals:
     if (myenviron1.numGoal == 1)
     {
-        myenviron1.goal_locx[0] = 1100; // define goal 1
-        myenviron1.goal_locy[0] = 1100; // define goal 1
+        myenviron1.goal_locx[0] = 150; // define goal 1
+        myenviron1.goal_locy[0] = 450; // define goal 1
+        myenviron1.goal_locr[0] = 50;
 
         qDebug() << "Env 1 Setup with 1 Goal: Each creates binary VS. Location: (" << myenviron1.goal_locx[0] << "," << myenviron1.goal_locy[0] << ")." ;
     }
     else if (myenviron1.numGoal == 2)
     {
-        myenviron1.goal_locx[0] = 1650; // define goal 1
-        myenviron1.goal_locy[0] = 1650; // define goal 1
-        myenviron1.goal_locx[1] = 550; // define goal 2
-        myenviron1.goal_locy[1] = 550; // define goal 2
+        myenviron1.goal_locx[0] = 150; // define goal 1
+        myenviron1.goal_locy[0] = 450; // define goal 1
+        myenviron1.goal_locr[0] = 50;
+
+        myenviron1.goal_locx[1] = 450; // define goal 2
+        myenviron1.goal_locy[1] = 150; // define goal 2
+        myenviron1.goal_locr[1] = 50;
 
         qDebug() << "Env 1 Setup with 2 Goals: Each creates binary VS. Location 1: (" << myenviron1.goal_locx[0] << "," << myenviron1.goal_locy[0] << "). Location 2: (" << myenviron1.goal_locx[1] << "," << myenviron1.goal_locy[1] << ")." ;
     }
@@ -172,17 +207,21 @@ void mykilobotexperiment::setupEnvironment1( ) {
 
     if (myenviron1.numHome == 1)
     {
-        myenviron1.home_locx[0] = 1100; // define goal 1
-        myenviron1.home_locy[0] = 1100; // define goal 1
+        myenviron1.home_locx[0] = 150; // define goal 1
+        myenviron1.home_locy[0] = 450; // define goal 1
+        myenviron1.home_locr[0] = 50;
 
         qDebug() << "Env 1 Setup with 1 Home: Each creates binary VS. Location: (" << myenviron1.home_locx[0] << "," << myenviron1.home_locy[0] << ")." ;
     }
     else if (myenviron1.numHome == 2)
     {
-        myenviron1.home_locx[0] = 1650; // define goal 1
-        myenviron1.home_locy[0] = 1650; // define goal 1
-        myenviron1.home_locx[1] = 550; // define goal 2
-        myenviron1.home_locy[1] = 550; // define goal 2
+        myenviron1.home_locx[0] = 150; // define goal 1
+        myenviron1.home_locy[0] = 450; // define goal 1
+        myenviron1.home_locr[0] = 50;
+
+        myenviron1.home_locx[1] = 450; // define goal 2
+        myenviron1.home_locy[1] = 150; // define goal 2
+        myenviron1.home_locr[1] = 50;
 
         qDebug() << "Env 1 Setup with 2 Homes: Each creates binary VS. Location 1: (" << myenviron1.home_locx[0] << "," << myenviron1.home_locy[0] << "). Location 2: (" << myenviron1.home_locx[1] << "," << myenviron1.home_locy[1] << ")." ;
     }
@@ -191,9 +230,7 @@ void mykilobotexperiment::setupEnvironment1( ) {
         qDebug() << "Env 1 Setup with No Homes.";
     }
 
-    // Plot the home/goal locations
-
-
+    //    plotEnvironment(&myenviron1);
 }
 
 // Setup Environment 2:
@@ -205,17 +242,21 @@ void mykilobotexperiment::setupEnvironment2( ) {
     // Replace this whole function which interates with GUI and gets user input on number and location of goals:
     if (myenviron2.numGoal == 1)
     {
-        myenviron2.goal_locx[0] = 1100; // define goal 1
-        myenviron2.goal_locy[0] = 1100; // define goal 1
+        myenviron2.goal_locx[0] = 150; // define goal 1
+        myenviron2.goal_locy[0] = 150; // define goal 1
+        myenviron2.goal_locr[0] = 50;
 
         qDebug() << "Env 2 Setup with 1 Goal: Each creates binary VS. Location: (" << myenviron2.goal_locx[0] << "," << myenviron2.goal_locy[0] << ")." ;
     }
     else if (myenviron2.numGoal == 2)
     {
-        myenviron2.goal_locx[0] = 550; // define goal 1
-        myenviron2.goal_locy[0] = 1650; // define goal 1
-        myenviron2.goal_locx[1] = 1650; // define goal 2
-        myenviron2.goal_locy[1] = 550; // define goal 2
+        myenviron2.goal_locx[0] = 150; // define goal 1
+        myenviron2.goal_locy[0] = 150; // define goal 1
+        myenviron2.goal_locr[0] = 50;
+
+        myenviron2.goal_locx[1] = 450; // define goal 2
+        myenviron2.goal_locy[1] = 450; // define goal 2
+        myenviron2.goal_locr[1] = 50;
 
         qDebug() << "Env 2 Setup with 2 Goals: Each creates binary VS. Location 1: (" << myenviron2.goal_locx[0] << "," << myenviron2.goal_locy[0] << "). Location 2: (" << myenviron2.goal_locx[1] << "," << myenviron2.goal_locy[1] << ")." ;
     }
@@ -226,17 +267,21 @@ void mykilobotexperiment::setupEnvironment2( ) {
 
     if (myenviron2.numHome == 1)
     {
-        myenviron2.home_locx[0] = 1100; // define goal 1
-        myenviron2.home_locy[0] = 1100; // define goal 1
+        myenviron2.home_locx[0] = 150; // define goal 1
+        myenviron2.home_locy[0] = 150; // define goal 1
+        myenviron2.home_locr[0] = 50;
 
         qDebug() << "Env 2 Setup with 1 Home: Each creates binary VS. Location: (" << myenviron2.home_locx[0] << "," << myenviron2.home_locy[0] << ")." ;
     }
     else if (myenviron2.numHome == 2)
     {
-        myenviron2.home_locx[0] = 550; // define goal 1
-        myenviron2.home_locy[0] = 1650; // define goal 1
-        myenviron2.home_locx[1] = 1650; // define goal 2
-        myenviron2.home_locy[1] = 550; // define goal 2
+        myenviron2.home_locx[0] = 150; // define goal 1
+        myenviron2.home_locy[0] = 150; // define goal 1
+        myenviron2.home_locr[0] = 50;
+
+        myenviron2.home_locx[1] = 450; // define goal 2
+        myenviron2.home_locy[1] = 450; // define goal 2
+        myenviron2.home_locr[1] = 50;
 
         qDebug() << "Env 2 Setup with 2 Homes: Each creates binary VS. Location 1: (" << myenviron2.home_locx[0] << "," << myenviron2.home_locy[0] << "). Location 2: (" << myenviron2.home_locx[1] << "," << myenviron2.home_locy[1] << ")." ;
     }
@@ -245,7 +290,123 @@ void mykilobotexperiment::setupEnvironment2( ) {
         qDebug() << "Env 2 Setup with No Homes.";
     }
 
+    plotEnvironment(&myenviron2);
+
 }
+
+// Plot Environment on frame:
+void mykilobotexperiment::plotEnvironment(mykilobotenvironment *myenvironcopy) {
+
+    // Plot the home/goal locations
+    String imagefilename( "/home/chelseas/Pictures/kilobot_arena.jpg" ); // by default
+    finalImage = imread( imagefilename, IMREAD_COLOR ); // load something into finalimage of correct size
+
+    // Check for Valid Input:
+    if (this->finalImage.empty()){
+        qDebug() << "Empty Image Error";
+        return;
+    }
+
+    Mat res2;
+    Mat display;
+    this->finalImage.copyTo(display);
+    res2 = this->finalImage;
+
+    // the *2 is an assumption - should always be true...
+    //        cv::cvtColor(display, display, CV_GRAY2RGB);
+
+    cv::resize(display,display,Size(this->smallImageSize.x()*2, this->smallImageSize.y()*2));
+
+    // convert to C header for easier mem ptr addressing
+    IplImage imageIpl = display;
+
+    // create a QImage container pointing to the image data
+    QImage qimg((uchar *) imageIpl.imageData,imageIpl.width,imageIpl.height,QImage::Format_RGB888);
+
+    // assign to a QPixmap (may copy)
+    QPixmap pix = QPixmap::fromImage(qimg);
+
+
+    // Copy Pixmap and draw environment:
+    //    qDebug() << pix.size() ;
+    QPixmap pix1(pix.size());
+    pix1 = pix;
+
+    QPainter painter(&pix1);
+    QPen Red((QColor(255,50,100)),5);
+    QPen Green((QColor(100,255,50)),5);
+    QPen Blue((QColor(100,50,255)),5);
+
+    // Other random drawing stuff for now:
+    //    painter.setPen(Red);
+    //    painter.drawLine(50,50,500,50);
+    //    painter.setPen(Blue);
+    //    painter.drawLine(200,200,500,200);
+    //    painter.setPen(Green);
+    //    painter.drawLine(300,400,500,400);
+
+    //    painter.setPen(Qt::blue);
+    //    painter.setFont(QFont("Arial", 30));
+    //    painter.drawText(rect(), Qt::AlignCenter, "Qt");
+
+    // Setup Circles to Draw:
+    vector<vector<int>> env_circles1(10, vector<int>(3));
+    vector<vector<int>> env_circles2(10, vector<int>(3));
+
+    //    // Copy circles from environment 1:
+    //    //    env_circles[0] = {300,300,100};
+    //    int num_circles = myenvironcopy->numGoal;
+    //    //    int num_circles = myenvironcopy->numGoal + myenvironcopy->numHome;
+    //    for (int i = 0; i < myenvironcopy->numGoal; i++){
+    //        env_circles[i] = {myenvironcopy->goal_locx[i],myenvironcopy->goal_locy[i],myenvironcopy->goal_locr[i]};
+    //    }
+    //    //    for (int i = 0; i < myenvironcopy->numHome; i++){
+    //    //        env_circles[i] = {myenvironcopy->home_locx[i],myenvironcopy->home_locy[i],myenvironcopy->home_locr[i]};
+    //    //    }
+
+    //    qDebug() << "Found" <<  num_circles << "circles";
+
+    //    // Draw Circles:
+    //    for( int i = 0; i < num_circles; i++ ) {
+    //        painter.setPen(Blue);
+    //        painter.drawEllipse(env_circles[i][0],env_circles[i][1],env_circles[i][2],env_circles[i][2]);
+    //    }
+
+
+
+    // Copy circles from environment 1:
+    //    env_circles[0] = {300,300,100};
+    int num_circles1 = myenviron1.numGoal;
+    //    int num_circles = myenvironcopy->numGoal + myenvironcopy->numHome;
+    for (int i = 0; i < myenviron1.numGoal; i++){
+        env_circles1[i] = {myenviron1.goal_locx[i],myenviron1.goal_locy[i],myenviron1.goal_locr[i]};
+    }
+
+    // Draw Circles for Environment 1:
+    for( int i = 0; i < num_circles1; i++ ) {
+        painter.setPen(Blue);
+        painter.drawEllipse(env_circles1[i][0],env_circles1[i][1],env_circles1[i][2],env_circles1[i][2]);
+    }
+
+    // Copy circles from environment 2:
+    //    env_circles[0] = {300,300,100};
+    int num_circles2 = myenviron2.numGoal;
+    //    int num_circles = myenvironcopy->numGoal + myenvironcopy->numHome;
+    for (int i = 0; i < myenviron2.numGoal; i++){
+        env_circles2[i] = {myenviron2.goal_locx[i],myenviron2.goal_locy[i],myenviron2.goal_locr[i]};
+    }
+
+    // Draw Circles for Environment 2:
+    for( int i = 0; i < num_circles2; i++ ) {
+        painter.setPen(Red);
+        painter.drawEllipse(env_circles2[i][0],env_circles2[i][1],env_circles2[i][2],env_circles2[i][2]);
+    }
+
+    qDebug() << "I drew circles!";
+
+    setExptImage(pix1);
+}
+
 
 
 // ********** GUI Interface Code Here ********** //
@@ -327,80 +488,4 @@ void mykilobotexperiment::setupExperiment() {
 
     // Initialize environments, kilobots, OHC, IDs, etc:
     initialise(0);
-
-
-    //    // Given number of types, goals, and sensors, setup environment:
-    //    environ_setup[1] = numKBtype1;
-    //    environ_setup[2] = numGoal1;
-    //    environ_setup[3] = numHome1;
-
-    //    // Message setup for Kilobots
-    ////    int maxbits = 8; // maximum number of bits in a message
-    ////    bool message_temp[maxbits] = {true}; // temporary message data
-    //    int homebits; // number of bits for each home
-    //    int typebits; // number of bits needed for KB types
-    //    int goalbits; // number of bits needed for goals
-
-    //    // Set initial types for the environment:
-    //    if (environ_setup[1] == 1) {
-
-    //        typebits = 0;
-
-    //        type_setup = 0;  // If it's just 1 environment, set KB to type 1.
-
-    //    } else if (environ_setup[1] == 2) {
-
-    //        typebits = 1;
-    //        if (envID1 == 2)
-    //        {
-    //             type_setup = 1; // If it's environment 2, set KB to type 2.
-    //        } else
-    //        {
-    //             type_setup = 0; // If it's environment 1, set KB to type 1.
-    //        }
-
-    //    } else {
-    //        typebits = 0;
-    //    }
-
-    //    if (environ_setup[2] == 1) {
-
-    //        goalbits = 1;
-    //        goal_setup[0] = 1;
-    //        setupGoals(environ_setup[2]);
-
-    //    } else if (environ_setup[2] == 2) {
-
-    //        goalbits = 2;
-
-    //        if (envID1 == 2) {
-    ////            goal_setup[0] = 1;
-    //            goal_setup[1] = 1;
-    //            setupGoals(environ_setup[2]);
-    //        } else {
-    //            goal_setup[0] = 1;
-    ////            goal_setup[1] = 1;
-    //            setupGoals(environ_setup[2]);
-    //        }
-
-    //    } else {
-    //        goalbits = 0;
-    //        setupGoals(0);
-    //    }
-
-    //    if (environ_setup[3] == 1) {
-
-    //        homebits = 3;
-    //        home_setup[0] = 1;
-
-    //    } else if (environ_setup[3] == 2) {
-
-    //        homebits = 6;
-    //        home_setup[0] = 1;
-    //        home_setup[1] = 1;
-
-    //    } else {
-    //        homebits = 0;
-    //    }
-
 }

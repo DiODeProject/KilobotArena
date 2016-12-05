@@ -392,14 +392,15 @@ void KilobotTracker::findKilobots()
     res2 = this->finalImage;
 
     vector<Vec3f> circles;
-    HoughCircles(res2,circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/ \
-                 ,this->kbMaxSize-1/* circle distance*/ \
-                 ,cannyThresh /* Canny threshold*/ \
-                 ,houghAcc /*cicle algorithm accuracy*/ \
-                 ,kbMinSize/* min circle size*/ \
-                 ,kbMaxSize/* max circle size*/);
 
-    qDebug() << "Found" << circles.size() << "circles";
+//    HoughCircles(res2,circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/ \
+//                 ,this->kbMaxSize-1/* circle distance*/ \
+//                 ,cannyThresh /* Canny threshold*/ \
+//                 ,houghAcc /*cicle algorithm accuracy*/ \
+//                 ,kbMinSize/* min circle size*/ \
+//                 ,kbMaxSize/* max circle size*/);
+
+//    qDebug() << "Found" << circles.size() << "circles";
 
     // the *2 is an assumption - should always be true...
     cv::cvtColor(display, display, CV_GRAY2RGB);

@@ -12,14 +12,14 @@
 //#include <opencv2/features2d/features2d.hpp>
 //#include <opencv2/stitching/stitcher.hpp>
 
-//using namespace cv;
-
 // Project includes
 #include "kilobot.h"
 #include "kilobottracker.h"
 #include "kilobotoverheadcontroller.h"
 #include "kilobotexperiment.h"
 #include "kilobotenvironment.h"
+
+#include "dragzoomqlabel.h"
 
 #include "mykilobotenvironment.h"
 
@@ -30,14 +30,16 @@ public:
     explicit mykilobotexperiment(QObject *parent = 0);
 
     QVector < Kilobot * > mykilobot;
+    void plotEnvironment(mykilobotenvironment * myenvironcopy);
 
 signals:
     void errorMessage(QString);
+    void setExptImage(QPixmap);
 
 public slots:
     void initialise(bool);
     void run();
-//    void broadcastMessage(kilobot_message);
+    //    void broadcastMessage(kilobot_message);
 
     void setKBtype1(int);
     void setGoal1(int);
@@ -52,12 +54,12 @@ public slots:
 private:
     void setupInitialKilobotEnvironment(Kilobot kilobotCopy);
     void updateKilobotEnvironment(Kilobot kilobotCopy);
-    void updateKilobotVS(Kilobot kilobotCopy);
 
     //
     void setupEnvironment1();
     void setupEnvironment2();
     void assignKilobotIDs(Kilobot kilobotCopy);
+    void updateKilobotVS(Kilobot kilobotCopy);
 
     //
     KilobotTracker mytracker;
@@ -65,8 +67,17 @@ private:
     mykilobotenvironment myenviron1;
     mykilobotenvironment myenviron2;
 
+    dragZoomQLabel mydraw;
+
     //
     int exptID = 0;
+    Mat finalImage;
+
+    /*!
+     * \brief smallImageSize
+     * Assigned in the constructor
+     */
+    QPoint smallImageSize = QPoint(300,300);
 
 };
 

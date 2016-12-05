@@ -37,14 +37,17 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
     connect(&this->ohc,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
-    connect(&this->myexpt,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
-    connect(&this->myenv,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
 
     connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
     connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_message_type,kilobot_message_data)), &this->ohc, SLOT(broadcastMessage(kilobot_message_type,kilobot_message_data)));
-    connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
+//    connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap))); // comment out for now only
 
     connect(ui->load_calib, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(loadCalibration()));
+
+    // For now
+    connect(&this->myexpt, SIGNAL(setExptImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap))); // for now
+    connect(&this->myexpt,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
+    connect(&this->myenv,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
 
 
     QSignalMapper *mapper = new QSignalMapper(this);

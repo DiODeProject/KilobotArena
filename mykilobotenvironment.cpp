@@ -32,8 +32,8 @@ void mykilobotenvironment::generateEnvironment()
 
 
     // Don't do this anymore.... do something else/code below:
-//    setEnvironment1( );
-//    setEnvironment2( );
+    //    setEnvironment1( );
+    //    setEnvironment2( );
 
 
 
@@ -52,9 +52,9 @@ void mykilobotenvironment::setupGoal(int goal_ind)
 
     // Replace with something that is GUi-friendly and can be added by user with a click for the loc?
 
-//    qDebug() << "Setup Goals" ;
+    //    qDebug() << "Setup Goals" ;
 
-//    emit errorMessage("Setup Goals");
+    //    emit errorMessage("Setup Goals");
 
 }
 
@@ -63,8 +63,16 @@ void mykilobotenvironment::setupHome(int home_ind)
 
     // Replace with something that is GUi-friendly and can be added by user with a click for the loc?
 
-//    qDebug() << "Setup Home Bases" ;
+    //    qDebug() << "Setup Home Bases" ;
 
-//    emit errorMessage("Setup Home Bases");
+    //    emit errorMessage("Setup Home Bases");
 
 }
+
+
+
+
+
+
+
+

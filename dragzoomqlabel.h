@@ -10,6 +10,10 @@ class dragZoomQLabel : public QLabel
 public:
     dragZoomQLabel(QWidget *parent = 0);
 
+public slots:
+    void drawCircle(int x_cen, int y_cen, int rad, QPaintEvent *);
+
+
 protected slots:
     void mousePressEvent(QMouseEvent *ev);
     void mouseMoveEvent(QMouseEvent *ev);

@@ -30,8 +30,10 @@ using namespace cv;
 #include "kilobotexperiment.h"
 #include "kilobotenvironment.h"
 
+// CS includes
 #include "mykilobotenvironment.h"
 #include "mykilobotexperiment.h"
+#include "dragzoomqlabel.h"
 
 class UserThread;
 
@@ -68,8 +70,10 @@ private:
     KilobotTracker kbtracker;
     KilobotOverheadController ohc;
     UserThread * thread;
+
     mykilobotexperiment myexpt;
     mykilobotenvironment myenv;
+    dragZoomQLabel mydraw;
 };
 
 #endif // MAINWINDOW_H
