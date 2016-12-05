@@ -132,8 +132,11 @@ void MainWindow::getExperiment()
 
     QSettings settings;
     QString lastDir = settings.value("exptLastDir", QDir::homePath()).toString();
+#ifdef Q_OS_WIN
+    QString fileName = QFileDialog::getOpenFileName(this, tr("Load experiment"), lastDir, tr("LIB files (*.dll);; All files (*)"));
+#else
     QString fileName = QFileDialog::getOpenFileName(this, tr("Load experiment"), lastDir, tr("LIB files (*.so);; All files (*)"));
-
+#endif
     if (fileName.isEmpty()) {
         ui->error_label->setText("No file selected");
     }
