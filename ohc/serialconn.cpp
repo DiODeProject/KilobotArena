@@ -26,7 +26,8 @@ enum {
     MODE_DOWNLOAD = 0x02
 };
 
-SerialConnection::SerialConnection(QObject *parent, QString _portname): QObject(parent), portname(_portname), context(NULL), mode(MODE_NORMAL) { }
+SerialConnection::SerialConnection(QObject *parent, QString _portname): QObject(parent), portname(_portname), context(NULL), mode(MODE_NORMAL)
+{ delay.start(); }
 
 QVector<QString> SerialConnection::enumerate() {
     QVector<QString> ports;
@@ -178,6 +179,9 @@ void SerialConnection::open() {
 }
 
 void SerialConnection::sendCommand(QByteArray cmd) {
+    while (delay.elapsed() < 2) {
+        usleep(200);
+    }
 #ifdef _WIN32
     DWORD bytes_sent;
 #endif
@@ -194,6 +198,7 @@ void SerialConnection::sendCommand(QByteArray cmd) {
     } else {
         emit error("cannot send command if disconnected from usb device.");
     }
+    delay.restart(); // AJC - we've sent a command - wait before sending another
 }
 
 void SerialConnection::sendProgram(QString file) {

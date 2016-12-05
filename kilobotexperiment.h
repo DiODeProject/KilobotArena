@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QDebug>
+#include <QLayout>
 #include <kilobotenvironment.h>
 #include <kilobot.h>
 
@@ -18,6 +19,8 @@ public:
     int serviceInterval = 100; // ms
     QVector <KilobotEnvironment *> environments;
 
+    virtual QWidget * createGUI() {return NULL;}
+
 signals:
     void updateKilobotStates();
     void getInitialKilobotStates();
@@ -27,9 +30,13 @@ signals:
     void broadcastMessage(kilobot_broadcast);
     void setTrackingType(int);
 
+    // drawing
+   // void drawCircle(QPointF pos, float r, QColor col);
+
 public slots:
     virtual void initialise(bool) = 0;
     virtual void run() {}
+
 
     /*!
      * \brief updateStateRequiredCode
@@ -76,7 +83,7 @@ protected:
     void setCurrentKilobotEnvironment(KilobotEnvironment * environment) {
         if (currKilobot != NULL && environment != NULL) {
             QObject::disconnect(currKilobot,SIGNAL(sendUpdateToHardware(Kilobot)), 0, 0);
-            QObject::connect(currKilobot,SIGNAL(sendUpdateToHardware(Kilobot)), environment, SLOT(generateEnvironment(Kilobot)));
+            QObject::connect(currKilobot,SIGNAL(sendUpdateToHardware(Kilobot)), environment, SLOT(updateVirtualSensor(Kilobot)));
         }
     }
 

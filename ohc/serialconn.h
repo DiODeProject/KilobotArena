@@ -18,6 +18,7 @@ private:
     int mode;
     int page;
     int page_total;
+    QVector < QByteArray > cmds;
 
 public:
     SerialConnection(QObject *p=0, QString="");

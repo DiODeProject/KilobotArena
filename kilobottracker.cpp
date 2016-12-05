@@ -15,6 +15,7 @@
 #include <QSettings>
 #include <QFileDialog>
 #include <QtMath>
+//#include <opencv2/gpu/gpumat.hpp>
 
 //#define TEST_WITHOUT_CAMERAS
 
@@ -68,6 +69,12 @@ private:
      * The execution method for the thread, performing the stitching process
      */
     void run() {
+
+        QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
+
+        if (ocl::haveOpenCL()) {
+            ocl::setUseOpenCL(true);
+        }
 
         uint time = 0;
         Mat image;
@@ -149,16 +156,25 @@ private:
 
                 // only do this if we are not loading calibration
                 if (!(this->corner.x == -1 && this->corner.y == -1)) {
+
                     // create full image
-                    Mat temp(fullSize.height,fullSize.width, CV_8UC3, Scalar(0,0,0));
-                    Mat temp2;
+                    UMat temp(fullSize.height,fullSize.width, CV_8UC3, Scalar(0,0,0));
+                    UMat temp2;
                     cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp2, Size(size.width-10,size.height-10));
                     temp2.copyTo(temp(Rect(corner.x-fullCorner.x,corner.y-fullCorner.y,size.width-10, size.height-10)));
 
-                    cv::resize(temp, temp,Size(1536,1536));
+                    cv::resize(temp, temp2,Size(1536,1536));
 
                     Mat M = getPerspectiveTransform(this->arenaCorners,outputQuad);
-                    warpPerspective(temp, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(2000,2000));
+
+                    warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(2000,2000));
+
+                }
+
+                if (false) {
+
+                    // test without big Mats
+
 
                 }
 
@@ -168,6 +184,7 @@ private:
             }
 
         }
+        QThread::currentThread()->setPriority(QThread::NormalPriority);
 
     }
 };
@@ -208,10 +225,6 @@ void KilobotTracker::LOOPstartstop(int stage)
 
     this->stage = (stageType) stage;
 
-    /*Kilobot * kilo = new Kilobot;
-
-    emit testtesttest(kilo, *kilo);*/
-
     // check if running
     if (this->threads[0] && this->threads[0]->isRunning()) {
 
@@ -225,9 +238,13 @@ void KilobotTracker::LOOPstartstop(int stage)
         // Stop the experiment
         emit stopExperiment();
 
+        QThread::currentThread()->setPriority(QThread::NormalPriority);
+
         return;
 
     }
+
+    QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
 
     // only if we have calib data
     if (!this->haveCalibration) {
@@ -314,7 +331,9 @@ void KilobotTracker::LOOPiterate()
         // move full images from threads
         for (uint i = 0; i < 4; ++i) {
 
-            cv::split(srcBuff[i][time % BUFF_SIZE].full_warped_image, channels[i]);
+            Mat temp;
+            srcBuff[i][time % BUFF_SIZE].full_warped_image.copyTo(temp);
+            cv::split(temp, channels[i]);
             this->fullImages[i][0] = channels[i][0];
             this->fullImages[i][1] = channels[i][1];
             this->fullImages[i][2] = channels[i][2];
@@ -331,6 +350,14 @@ void KilobotTracker::LOOPiterate()
         this->fullImages[clData.inds[1]][0](Rect(1000,0,1000,1000)).copyTo(result(Rect(1000,0,1000,1000)));
         this->fullImages[clData.inds[2]][0](Rect(0,1000,1000,1000)).copyTo(result(Rect(0,1000,1000,1000)));
         this->fullImages[clData.inds[3]][0](Rect(1000,1000,1000,1000)).copyTo(result(Rect(1000,1000,1000,1000)));
+
+        if (false) {
+            Mat top;
+            hconcat(this->fullImages[clData.inds[0]][0],this->fullImages[clData.inds[1]][0],top);
+            Mat bottom;
+            hconcat(this->fullImages[clData.inds[2]][0],this->fullImages[clData.inds[3]][0],bottom);
+            vconcat(top,bottom,result);
+        }
 
         srcFree[0].release();
         srcFree[1].release();
@@ -547,7 +574,7 @@ void KilobotTracker::trackKilobots()
     case CIRCLES_LOCAL:
 
             // setup the tracking region around each KB's last known position
-            float maxDist = 1.2f*this->kbMaxSize;
+            float maxDist = 31.0f*1.2f;//*this->kbMaxSize; // FIXED FOR NOW
 
             vector < Rect > bbs;
 
@@ -760,7 +787,19 @@ void KilobotTracker::trackKilobots()
     }
     }
 
+    this->drawOverlay(display);
     this->showMat(display);
+
+}
+
+void KilobotTracker::drawOverlay(Mat &)
+{
+
+    //for (uint i = 0; i < this->circsToDraw.size(); ++i) {
+
+        //cv::circle(display,this->circsToDraw[i].pos,this->circsToDraw[i].r,Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()));
+
+    //}
 
 }
 

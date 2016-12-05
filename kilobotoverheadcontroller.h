@@ -7,6 +7,7 @@
 #include "kilobot.h"
 #include <QList>
 #include <QPushButton>
+#include<QTimer>
 
 // Include for communication with the OHC
 #include <stdint.h>
@@ -44,10 +45,14 @@ public slots:
     void sleepKilobots();
     void runKilobots();
     void stopSending();
+    void checkVoltage();
 
     // program loading
     void chooseProgramFile();
     void uploadProgram();
+
+    // timed messages
+    void sendBatch();
 
 private:
 
@@ -71,6 +76,8 @@ private:
     void sendDataMessage(uint8_t *, uint8_t);
 
     QVector < kilobot_message > message_q;
+
+    QTimer timer;
 
 };
 

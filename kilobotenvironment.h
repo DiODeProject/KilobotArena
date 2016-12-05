@@ -11,7 +11,7 @@ class KilobotEnvironment : public QObject
 public:
     explicit KilobotEnvironment(QObject *) {}
     KilobotEnvironment() {}
-    virtual QVector <uint8_t> getEnvironmentValue(QPointF) { QVector <uint8_t> temp; return temp;}
+//    virtual QVector <uint8_t> getEnvironmentValue(QPointF) { QVector <uint8_t> temp; return temp;} // Don't need?
 
 signals:
     void transmitKiloState(kilobot_message);
@@ -19,7 +19,7 @@ signals:
 
 public slots:
     virtual void update() {}
-    virtual void generateEnvironment(Kilobot) {}
+    virtual void updateVirtualSensor(Kilobot) {} // Call this updateVirtualSensor(...)
 
 
 };

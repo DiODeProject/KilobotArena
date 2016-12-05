@@ -10,6 +10,7 @@
 //#include "mykilobotexperiment.h" //user edit
 #include "kilobotexperiment.h"
 #include "kilobotidassignment.h"
+#include "kilobotcalibrate.h"
 
 #include "kilobottracker.h"
 #include "kilobotoverheadcontroller.h"
@@ -28,8 +29,8 @@ public:
 
          // add the kilobot ID assignment experiment
          this->expts.push_back(new KilobotIDAssignment);
-
-         this->connectExpt(0);
+         this->currExpt = expts.size()-1;
+         this->connectExpt(this->currExpt);
 
     }
     QTimer timer;
@@ -45,6 +46,7 @@ public:
 
 signals:
     void setLibName(QString);
+    void setGUILayout(QWidget *);
 
 private:
     QVector < KilobotExperiment * > expts;
@@ -91,17 +93,22 @@ public slots:
             }
         }
 
-        void switchExperiments(int num) {
-            // disconnect all expts
-            for (int i = 0; i < this->expts.size(); ++i) {
-                expts[i]->blockSignals(true);
-                for (int j = 0; j < expts[i]->environments.size(); ++j) {
-                    expts[i]->environments[j]->blockSignals(true);
+        void chooseInternalExperiments(int num) {
+            if (num < 2) {
+                while (this->expts.size() > 0) {
+                    this->expts[0]->deleteLater();
+                    this->expts.pop_front();
                 }
-            }
-            expts[num]->blockSignals(false);
-            for (int j = 0; j < expts[num]->environments.size(); ++j) {
-                expts[num]->environments[j]->blockSignals(false);
+                if (num == 0) { // assign IDs
+                    this->expts.push_back(new KilobotIDAssignment);
+                    this->currExpt = expts.size()-1;
+                    this->connectExpt(this->currExpt);
+                }
+                if (num == 1) { // calibrate
+                    this->expts.push_back(new KilobotCalibrate);
+                    this->currExpt = expts.size()-1;
+                    this->connectExpt(this->currExpt);
+                }
             }
         }
 
@@ -124,7 +131,10 @@ public slots:
                 // set as current experiment for now
                 this->currExpt = expts.size()-1;
                 this->connectExpt(this->currExpt);
-                //this->switchExperiments(this->currExpt);
+
+                // setup GUI
+                emit setGUILayout(expts[this->currExpt]->createGUI());
+
 
             } else {
                 emit setLibName(QString("<load failed: ") + library.errorString() + QString(">"));

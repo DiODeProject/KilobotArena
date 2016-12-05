@@ -18,6 +18,7 @@
 #include <QSettings>
 #include <QDebug>
 
+
 // OHC data structures & defs
 typedef struct {
     const char *name;
@@ -58,6 +59,10 @@ KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(
     // Start thread and open connections
     thread->start();
     serial_conn->open();
+
+    timer.setInterval(50);
+    connect(&timer,SIGNAL(timeout()), this, SLOT(sendBatch()));
+    timer.start();
 }
 
 KilobotOverheadController::~KilobotOverheadController()
@@ -81,29 +86,63 @@ void KilobotOverheadController::signalKilobot(kilobot_message message)
     // NOTES: -type goes from 0-127 for user defined types and is 8bit unsigned int (128+ reserved for system types)
     //        -data must be an array of 9 unsigned 8bit ints
 
+    // push message onto queue for sending (QTimer will send)
     this->message_q.push_back(message);
 
-    while (message_q.size() > 2) {
-        // we have enough queued messages to make a packet
+}
 
-        uint8_t type = 0; // reserved for three-in-one messages
-        uint8_t data[9] = {0,0,0,0,0,0,0,0,0}; // intialise to zero
+void KilobotOverheadController::sendBatch()
+{
+    while (message_q.size() > 0) {
+        if (message_q.size() > 2) {
+            uint8_t type = 0; // reserved for three-in-one messages
+            uint8_t data[9] = {0,0,0,0,0,0,0,0,0}; // intialise to zero
 
-        // pack data into buffer for each of the three messages (3 bytes for each message, 9 bytes total)
-        for (int i = 0; i < 3; ++i) {
-            data[i*3] = data[i*3] | (this->message_q.front().id >> 2);
-            data[1+i*3] = data[1+i*3] | (this->message_q.front().id << 6);
-            data[1+i*3] = data[1+i*3] | (this->message_q.front().type << 2);
-            data[1+i*3] = data[1+i*3] | (this->message_q.front().data >> 8);
-            data[2+i*3] = data[2+i*3] | this->message_q.front().data;
-            // remove message from queue
-            this->message_q.pop_front();
+            // pack data into buffer for each of the three messages (3 bytes for each message, 9 bytes total)
+            for (int i = 0; i < 3; ++i) {
+                data[i*3] = data[i*3] | (this->message_q.front().id >> 2);
+                data[1+i*3] = data[1+i*3] | (this->message_q.front().id << 6);
+                data[1+i*3] = data[1+i*3] | (this->message_q.front().type << 2);
+                data[1+i*3] = data[1+i*3] | (this->message_q.front().data >> 8);
+                data[2+i*3] = data[2+i*3] | this->message_q.front().data;
+                // remove message from queue
+                this->message_q.pop_front();
+            }
+
+            // send message
+            this->sendDataMessage(data, type);
+
+
+        } else if (message_q.size() > 0) {
+            uint8_t type = 0; // reserved for three-in-one messages
+            uint8_t data[9] = {0,0,0,0,0,0,0,0,0}; // intialise to zero
+
+            for (int i = 0; i < 3; ++i) {
+                if (message_q.size() > 0) {
+                    data[i*3] = data[i*3] | (this->message_q.front().id >> 2);
+                    data[1+i*3] = data[1+i*3] | (this->message_q.front().id << 6);
+                    data[1+i*3] = data[1+i*3] | (this->message_q.front().type << 2);
+                    data[1+i*3] = data[1+i*3] | (this->message_q.front().data >> 8);
+                    data[2+i*3] = data[2+i*3] | this->message_q.front().data;
+                    // remove message from queue
+                    this->message_q.pop_front();
+                } else {
+                    kilobot_message msg;
+                    msg.id = 1023;
+                    msg.type = 0;
+                    msg.data = 0;
+                    data[i*3] = data[i*3] | (msg.id >> 2);
+                    data[1+i*3] = data[1+i*3] | (msg.id << 6);
+                    data[1+i*3] = data[1+i*3] | (msg.type << 2);
+                    data[1+i*3] = data[1+i*3] | (msg.data >> 8);
+                    data[2+i*3] = data[2+i*3] | msg.data;
+                }
+            }
+
+            // send message
+            this->sendDataMessage(data, type);
         }
-
-        // send message
-        this->sendDataMessage(data, type);
     }
-
 }
 
 void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
@@ -282,6 +321,11 @@ void KilobotOverheadController::sleepKilobots()
 void KilobotOverheadController::runKilobots()
 {
     sendMessage(RUN);
+}
+
+void KilobotOverheadController::checkVoltage()
+{
+    sendMessage(VOLTAGE);
 }
 
 //void KilobotOverheadController::setSerial()

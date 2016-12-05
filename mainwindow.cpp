@@ -25,6 +25,8 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    ui->find_details_frame->setVisible(false);
+
     // thread for usercode
     this->thread = new UserThread(&kbtracker, &ohc);
 
@@ -50,7 +52,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QSignalMapper *mapper = new QSignalMapper(this);
     mapper->setMapping(ui->run, TRACK);
     mapper->setMapping(ui->identify, IDENTIFY);
-    connect(ui->run, SIGNAL(clicked(bool)), mapper, SLOT(map()));
+    connect(ui->run, SIGNAL(clicked(bool)), this, SLOT(runExpt()));
     connect(ui->identify, SIGNAL(clicked(bool)), mapper, SLOT(map()));
     connect(mapper, SIGNAL(mapped(int)), &this->kbtracker, SLOT(LOOPstartstop(int)));
 
@@ -66,6 +68,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->ohc_sleep, SIGNAL(toggled(bool)), &this->ohc, SLOT(sleepKilobots()));
     connect(ui->ohc_run, SIGNAL(toggled(bool)), &this->ohc, SLOT(runKilobots()));
     connect(ui->ohc_stop, SIGNAL(toggled(bool)), &this->ohc, SLOT(stopSending()));
+    connect(ui->ohc_volt, SIGNAL(toggled(bool)), &this->ohc, SLOT(checkVoltage()));
     connect(ui->ohc_set_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(chooseProgramFile()));
     connect(ui->ohc_upload_prog, SIGNAL(clicked(bool)), &this->ohc, SLOT(uploadProgram()));
 
@@ -79,15 +82,26 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // USERTHREAD -> UI
     connect(this->thread, SIGNAL(setLibName(QString)), ui->expt_msg, SLOT(setText(QString)));
+    connect(this->thread, SIGNAL(setGUILayout(QWidget*)), this, SLOT(setGUILayout(QWidget*)));
 
     // UI -> this
     connect(ui->load_expt, SIGNAL(clicked(bool)), this, SLOT(getExperiment()));
+    connect(ui->assignIDs, SIGNAL(clicked(bool)), this, SLOT(assignIDs()));
+    connect(ui->calibrate, SIGNAL(clicked(bool)), this, SLOT(calibrate()));
 
     // TESTING
     connect(ui->left, SIGNAL(clicked(bool)), this, SLOT(left()));
     connect(ui->right, SIGNAL(clicked(bool)), this, SLOT(right()));
     connect(ui->straight, SIGNAL(clicked(bool)), this, SLOT(straight()));
     connect(ui->test, SIGNAL(clicked(bool)), this, SLOT(test_id()));
+
+    // some nicety
+    QSettings settings;
+    this->userExpt = settings.value("lastLib", "").toString();
+    if (!this->userExpt.isEmpty()) {
+        // load previous expt
+        this->thread->loadLibrary(userExpt);
+    }
 }
 
 MainWindow::~MainWindow()
@@ -127,9 +141,35 @@ void MainWindow::getExperiment()
     // load
     this->thread->loadLibrary(fileName);
 
+    this->userExpt = fileName;
+    settings.setValue ("lastLib", fileName);
+
     QDir lastDirectory (fileName);
     lastDirectory.cdUp();
     settings.setValue ("exptLastDir", lastDirectory.absolutePath());
+}
+
+void MainWindow::assignIDs() {
+    this->thread->chooseInternalExperiments(0);
+    this->kbtracker.LOOPstartstop(TRACK);
+}
+
+void MainWindow::calibrate() {
+    this->thread->chooseInternalExperiments(1);
+    this->kbtracker.LOOPstartstop(TRACK);
+}
+
+void MainWindow::runExpt() {
+    if (!this->userExpt.isEmpty()) {
+        this->thread->loadLibrary(userExpt);
+        this->kbtracker.LOOPstartstop(TRACK);
+    }
+}
+
+void MainWindow::setGUILayout(QWidget * lay) {
+
+    ui->userGUI->setWidget(lay);
+
 }
 
 void MainWindow::left()

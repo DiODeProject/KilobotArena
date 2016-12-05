@@ -11,15 +11,15 @@
 #include <vector>
 
 // OpenCV 2 includes
-#include <opencv2/highgui/highgui.hpp>
+/*#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/videostab/videostab.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/stitching/stitcher.hpp>
-#include <opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>*/
 // OpenCV 3 :
-/*
+
  #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
 #include <opencv2/imgproc.hpp>
@@ -32,12 +32,13 @@
 #include <opencv2/tracking.hpp>
 #include <opencv2/tracking/tracker.hpp>
 #include <opencv2/videoio.hpp>
-*/
-
+#include <opencv2/core/ocl.hpp>
 
 // allow easy addressing of OpenCV functions
 using namespace cv;
 using namespace std;
+
+
 
 // Qt base include
 #include <QObject>
@@ -48,16 +49,17 @@ using namespace std;
 #include <QTimer>
 #include <QElapsedTimer>
 #include <QTime>
+//#include <QColor>
 
 #include "kilobot.h"
 
 // buffers and semaphores
 struct srcBuffer {
-    Mat warped_image;
-    Mat warped_mask;
+    UMat warped_image;
+    UMat warped_mask;
     Point corner;
     Size size;
-    Mat full_warped_image;
+    UMat full_warped_image;
 };
 
 #define BUFF_SIZE 2
@@ -93,11 +95,18 @@ enum stageType {
 };
 
 
-
 struct circlesLocalTrackerData {
     // mappings from the image indices to the quadrants
     int inds[4];
 };
+
+// DRAWABLES:
+/*
+struct drawnCircle {
+    Point pos;
+    int r;
+    QColor col;
+};*/
 
 class acquireThread;
 class KilobotExperiment;
@@ -241,6 +250,8 @@ private:
 
     void identifyKilobot(int);
 
+    void drawOverlay(Mat &);
+
 
     // INTERNAL VARIABLES
 
@@ -250,8 +261,8 @@ private:
 
     Mat fullImages[4][3];
 
-    vector < Mat > warpedImages;
-    vector < Mat > warpedMasks;
+    vector < UMat > warpedImages;
+    vector < UMat > warpedMasks;
     vector < Point > corners;
     vector < Size > sizes;
 
@@ -307,6 +318,8 @@ private:
     stageType stage = TRACK;
 
     Mat testAdap;
+
+   // QVector < drawnCircle > circsToDraw;
 
 };
 
