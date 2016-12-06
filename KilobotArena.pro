@@ -11,6 +11,9 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = KilobotArena
 TEMPLATE = app
 
+# switch between OpenCV2 and 3
+#CONFIG += use_opencv3
+
 
 SOURCES += main.cpp\
         mainwindow.cpp \
@@ -49,10 +52,19 @@ FORMS    += mainwindow.ui
 
 linux {
 
-//CONFIG += link_pkgconfig
-# PKGCONFIG += libftdi1
-# PKGCONFIG += libusb
-#PKGCONFIG += opencv
+
+
+!use_opencv3 {
+
+# use pkgconfig instead
+CONFIG += link_pkgconfig
+PKGCONFIG += opencv
+
+}
+
+use_opencv3 {
+
+DEFINES += USE_OPENCV3
 
 # OpenCV 3
 INCLUDEPATH += /opt/local/include/
@@ -82,7 +94,7 @@ LIBS += -L/opt/local/lib \
         -lopencv_videoio \
         -lopencv_imgcodecs \
         -lz
-
+}
 
 
 #     -lusb

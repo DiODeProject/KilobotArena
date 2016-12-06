@@ -15,7 +15,7 @@
 #include <QSettings>
 #include <QFileDialog>
 #include <QtMath>
-//#include <opencv2/gpu/gpumat.hpp>
+//#include <opencv2/gpu/gpMAT_TYPE.hpp>
 
 //#define TEST_WITHOUT_CAMERAS
 
@@ -72,9 +72,11 @@ private:
 
         QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
 
+        #ifdef USE_OPENCV3
         if (ocl::haveOpenCL()) {
             ocl::setUseOpenCL(true);
         }
+        #endif
 
         uint time = 0;
         Mat image;
@@ -158,8 +160,8 @@ private:
                 if (!(this->corner.x == -1 && this->corner.y == -1)) {
 
                     // create full image
-                    UMat temp(fullSize.height,fullSize.width, CV_8UC3, Scalar(0,0,0));
-                    UMat temp2;
+                    MAT_TYPE temp(fullSize.height,fullSize.width, CV_8UC3, Scalar(0,0,0));
+                    MAT_TYPE temp2;
                     cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp2, Size(size.width-10,size.height-10));
                     temp2.copyTo(temp(Rect(corner.x-fullCorner.x,corner.y-fullCorner.y,size.width-10, size.height-10)));
 

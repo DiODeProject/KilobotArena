@@ -2,14 +2,17 @@
 #define MAINWINDOW_H
 #include <ios>
 
+#ifndef USE_OPENCV3
 // OpenCV includes
-/*#include <opencv2/core/core.hpp>
+#include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/videostab/videostab.hpp>
 #include <opencv2/features2d/features2d.hpp>
-#include <opencv2/stitching/stitcher.hpp>*/
+#include <opencv2/stitching/stitcher.hpp>
+
+#else
 
 // OpenCV 3:
 #include <opencv2/core.hpp>
@@ -19,6 +22,8 @@
 #include <opencv2/videostab.hpp>
 #include <opencv2/features2d.hpp>
 #include <opencv2/stitching.hpp>
+
+#endif
 
 using namespace cv;
 

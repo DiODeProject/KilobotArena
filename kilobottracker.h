@@ -10,17 +10,23 @@
 #include <ios>
 #include <vector>
 
+#ifndef USE_OPENCV3
+
 // OpenCV 2 includes
-/*#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/videostab/videostab.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/stitching/stitcher.hpp>
-#include <opencv2/opencv.hpp>*/
-// OpenCV 3 :
+#include <opencv2/opencv.hpp>
 
- #include <opencv2/highgui.hpp>
+#define MAT_TYPE Mat
+
+#else
+
+// OpenCV 3 :
+#include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videostab.hpp>
@@ -33,6 +39,10 @@
 #include <opencv2/tracking/tracker.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/ocl.hpp>
+
+#define MAT_TYPE UMat
+
+#endif
 
 // allow easy addressing of OpenCV functions
 using namespace cv;
@@ -55,11 +65,11 @@ using namespace std;
 
 // buffers and semaphores
 struct srcBuffer {
-    UMat warped_image;
-    UMat warped_mask;
+    MAT_TYPE warped_image;
+    MAT_TYPE warped_mask;
     Point corner;
     Size size;
-    UMat full_warped_image;
+    MAT_TYPE full_warped_image;
 };
 
 #define BUFF_SIZE 2
@@ -261,8 +271,8 @@ private:
 
     Mat fullImages[4][3];
 
-    vector < UMat > warpedImages;
-    vector < UMat > warpedMasks;
+    vector < MAT_TYPE > warpedImages;
+    vector < MAT_TYPE > warpedMasks;
     vector < Point > corners;
     vector < Size > sizes;
 
