@@ -24,6 +24,8 @@ public:
     explicit UserThread(KilobotTracker * kbtracker, KilobotOverheadController * ohc, QObject *parent = 0)
     {
 
+        Q_UNUSED(parent)
+
          this->ohc = ohc;
          this->kbtracker = kbtracker;
 
@@ -69,20 +71,30 @@ public slots:
                 this->currExpt = num;
 
                 // join signals / slots
+
+                // expt -> tracker
                 connect(expts[currExpt],SIGNAL(updateKilobotStates()), kbtracker, SLOT(updateKilobotStates()));
                 connect(expts[currExpt],SIGNAL(getInitialKilobotStates()), kbtracker, SLOT(getInitialKilobotStates()));
                 connect(expts[currExpt],SIGNAL(setTrackingType(int)), kbtracker, SLOT(setTrackingType(int)));
 
-                this->timer.setInterval(expts[currExpt]->serviceInterval);
-                connect(&this->timer, SIGNAL(timeout()), this->expts[currExpt], SLOT(run()));
-                connect(kbtracker, SIGNAL(startExperiment(bool)), this->expts[currExpt], SLOT(initialise(bool)));
-                connect(kbtracker, SIGNAL(startExperiment(bool)), &this->timer, SLOT(start()));
-                connect(kbtracker, SIGNAL(stopExperiment()), &this->timer, SLOT(stop()));
                 if (mapper != NULL) mapper->deleteLater();
                 mapper = new QSignalMapper(this);
                 mapper->setMapping(this->expts[currExpt], TRACK);
                 connect(this->expts[currExpt], SIGNAL(experimentComplete()), mapper, SLOT(map()));
                 connect(mapper, SIGNAL(mapped(int)), kbtracker, SLOT(LOOPstartstop(int)));
+
+                // drawing signal / slots
+                connect(expts[currExpt], SIGNAL(drawCircle(QPointF,float,QColor)), this->kbtracker, SLOT(drawCircle(QPointF,float,QColor)));
+                connect(expts[currExpt], SIGNAL(clearDrawings()), this->kbtracker, SLOT(clearDrawings()));
+
+                // clock for experiment
+                this->timer.setInterval(expts[currExpt]->serviceInterval);
+                connect(&this->timer, SIGNAL(timeout()), this->expts[currExpt], SLOT(run()));
+
+                // tracker outputs
+                connect(kbtracker, SIGNAL(startExperiment(bool)), this->expts[currExpt], SLOT(initialise(bool)));
+                connect(kbtracker, SIGNAL(startExperiment(bool)), &this->timer, SLOT(start()));
+                connect(kbtracker, SIGNAL(stopExperiment()), &this->timer, SLOT(stop()));
 
                 // ohc
                 connect(this->expts[currExpt], SIGNAL(broadcastMessage(kilobot_broadcast)), this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));

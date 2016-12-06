@@ -93,7 +93,7 @@ void KilobotIDAssignment::run()
                         if (tempIDs[i] != DUPE && !this->isAssigned[i]) {
                             // already compared to ones below
                             int temp = tempIDs[i];
-                            for (uint j = i+1; j < this->tempIDs.size(); ++j) {
+                            for (int j = i+1; j < this->tempIDs.size(); ++j) {
                                 if (temp == tempIDs[j]) {
                                     tempIDs[i] = DUPE;
                                     tempIDs[j] = DUPE;

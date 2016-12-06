@@ -111,12 +111,12 @@ struct circlesLocalTrackerData {
 };
 
 // DRAWABLES:
-/*
+
 struct drawnCircle {
     Point pos;
     int r;
     QColor col;
-};*/
+};
 
 class acquireThread;
 class KilobotExperiment;
@@ -193,6 +193,21 @@ public slots:
      * If the camera order does not match the calibration order, alter
      */
     void SETUPsetCamOrder();
+
+    // drawing slots
+    void drawCircle(QPointF pos, float r, QColor col) {
+
+        int r_int = r;
+        this->circsToDraw.push_back(drawnCircle {Point(pos.x(),pos.y()), r_int, col});
+
+    }
+
+    void clearDrawings() {
+
+        this->circsToDraw.clear();
+
+    }
+
 
     // accessors - docs not required??
     void setSourceType(bool val) {if (val) this->srcType = CAMERA; else this->srcType = VIDEO;}
@@ -329,7 +344,7 @@ private:
 
     Mat testAdap;
 
-   // QVector < drawnCircle > circsToDraw;
+    QVector < drawnCircle > circsToDraw;
 
 };
 

@@ -6,6 +6,7 @@
 #include <QLayout>
 #include <kilobotenvironment.h>
 #include <kilobot.h>
+#include <QColor>
 
 class KilobotExperiment : public QObject
 {
@@ -31,7 +32,8 @@ signals:
     void setTrackingType(int);
 
     // drawing
-   // void drawCircle(QPointF pos, float r, QColor col);
+    void drawCircle(QPointF pos, float r, QColor col);
+    void clearDrawings();
 
 public slots:
     virtual void initialise(bool) = 0;
@@ -87,8 +89,8 @@ protected:
         }
     }
 
-    virtual void updateKilobotState(Kilobot kilobotCopy) {} // provided in derived class to implement experiment logic for Kilobot state updates
-    virtual void setupInitialKilobotState(Kilobot kilobotCopy) {}
+    virtual void updateKilobotState(Kilobot) {} // provided in derived class to implement experiment logic for Kilobot state updates
+    virtual void setupInitialKilobotState(Kilobot) {}
 
 private:
     Kilobot * currKilobot = NULL;

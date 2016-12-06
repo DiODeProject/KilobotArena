@@ -27,7 +27,7 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
     //
     QLineF kilobot_vect = QLineF(kilobot.getPosition(), kilobot.getPosition() + kilobot.getVelocity());
 
-    bool first = false;
+    //bool first = false;
 
     if (kilobot.getID() > this->left_right.size() - 1) {
         this->left_right.resize(kilobot.getID()+1);
@@ -44,7 +44,7 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
         this->commandLog[kilobot.getID()] = STOP;
         count[kilobot.getID()] = 0;
         times[kilobot.getID()].start();
-        first = true;
+        //first = true;
     }
 
     if (stage == 0) {
@@ -179,7 +179,7 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
                         num_done = 0;
                         this->rotDone = true;
                         count[kilobot.getID()] = 2;
-                        for (uint i = 0; i < this->times.size(); ++i) {
+                        for (int i = 0; i < this->times.size(); ++i) {
                             this->times[i].start();
                         }
                         qDebug() << "RIGHT DONE" << this->left_right[kilobot.getID()].y();

@@ -43,6 +43,7 @@ void KilobotCalibrate::run()
     }
 
     // required to change kilobot virtual sensory data / environment...
+    emit clearDrawings();
     emit updateKilobotStates();
 
     if (((KilobotCalibrateEnv *)this->environments[0])->rotDone) {
@@ -65,7 +66,7 @@ void KilobotCalibrate::run()
 }
 
 // run once for each kilobot after emitting getInitialKilobotStates() signal
-void KilobotCalibrate::setupInitialKilobotState(Kilobot kilobotCopy)
+void KilobotCalibrate::setupInitialKilobotState(Kilobot /*kilobotCopy*/)
 {
 
     this->setCurrentKilobotEnvironment(this->environments[0]);
@@ -77,5 +78,7 @@ void KilobotCalibrate::setupInitialKilobotState(Kilobot kilobotCopy)
 // run once for each kilobot after emitting updateKilobotStates() signal
 void KilobotCalibrate::updateKilobotState(Kilobot kilobotCopy)
 {
+
+    emit drawCircle(kilobotCopy.getPosition(), 20, QColor(255,0,0));
 
 }

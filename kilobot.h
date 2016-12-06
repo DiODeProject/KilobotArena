@@ -71,13 +71,13 @@ typedef lightColour kilobot_colour;
 class Kilobot : public QObject {
     Q_OBJECT
 public:
-    Kilobot(uint8_t identifier, QPointF position, QPointF velocity, kilobot_colour colourValues);
+    Kilobot(kilobot_id identifier, QPointF position, QPointF velocity, kilobot_colour colourValues);
     Kilobot() {}
     ~Kilobot();
     // copy constructor
     Kilobot(const Kilobot& other);
-    uint8_t getID();
-    void setID(uint8_t);
+    kilobot_id getID();
+    void setID(kilobot_id);
     QPointF getPosition();
     QPointF getVelocity();
     kilobot_colour getLedColour();

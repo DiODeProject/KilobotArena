@@ -11,7 +11,7 @@
 #include <assert.h>
 #include <math.h>
 
-Kilobot::Kilobot(uint8_t identifier, QPointF position, QPointF velocity, kilobot_colour colourValues) {
+Kilobot::Kilobot(kilobot_id identifier, QPointF position, QPointF velocity, kilobot_colour colourValues) {
     // TODO Auto-generated constructor stub
     //assert(id <= pow(2, uint8_t_LENGTH) - 1); // we don't need these now we have a bitfield structure ;-)
     id = identifier;
@@ -74,12 +74,12 @@ kilobot_colour Kilobot::getLedColour()
     return this->col;
 }
 
-uint8_t Kilobot::getID()
+kilobot_id Kilobot::getID()
 {
     return this->id;
 }
 
-void Kilobot::setID(uint8_t id)
+void Kilobot::setID(kilobot_id id)
 {
     this->id = id;
 }

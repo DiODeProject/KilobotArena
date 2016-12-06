@@ -159,6 +159,7 @@ private:
                 // only do this if we are not loading calibration
                 if (!(this->corner.x == -1 && this->corner.y == -1)) {
 
+#ifdef SLOW_WARP
                     // create full image
                     MAT_TYPE temp(fullSize.height,fullSize.width, CV_8UC3, Scalar(0,0,0));
                     MAT_TYPE temp2;
@@ -170,14 +171,29 @@ private:
                     Mat M = getPerspectiveTransform(this->arenaCorners,outputQuad);
 
                     warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(2000,2000));
-
-                }
-
-                if (false) {
-
+#else
                     // test without big Mats
+#define ADJ 10
+                    MAT_TYPE temp2;
+#ifdef ADJ
+                    MAT_TYPE temp;
+                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-ADJ,size.height-ADJ));
+                    cv::resize(temp, temp2,Size((1536*(size.width-ADJ))/fullSize.width,(1536*(size.height-ADJ))/fullSize.height));
+#else
+                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp2,Size((1536*(size.width-ADJ))/fullSize.width,(1536*(size.height-ADJ))/fullSize.height));
+#endif
 
+                    Point2f arenaCorners_adj[4];
+                    Point2f outputQuad_adj[4];
+                    for (int i = 0; i < 4; ++i) {
+                        arenaCorners_adj[i] = arenaCorners[i] - Point2f(((corner.x-fullCorner.x)*1536)/fullSize.width,((corner.y-fullCorner.y)*1536)/fullSize.height);
+                        outputQuad_adj[i] = outputQuad[i] - Point2f((corner.x>300)*1000, (corner.y-fullCorner.y>300)*1000);
+                    }
 
+                    Mat M = getPerspectiveTransform(arenaCorners_adj,outputQuad_adj);
+
+                    warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1100,1100));
+#endif
                 }
 
                 srcUsed[index].release();
@@ -346,20 +362,20 @@ void KilobotTracker::LOOPiterate()
             //srcBuff[i][time % BUFF_SIZE].full_warped_image.copyTo(this->fullImages[i]);
         }
 
-
+#ifdef SLOW_WARP
         Mat result(2000,2000, CV_8UC1, Scalar(0,0,0));
         this->fullImages[clData.inds[0]][0](Rect(0,0,1000,1000)).copyTo(result(Rect(0,0,1000,1000)));
         this->fullImages[clData.inds[1]][0](Rect(1000,0,1000,1000)).copyTo(result(Rect(1000,0,1000,1000)));
         this->fullImages[clData.inds[2]][0](Rect(0,1000,1000,1000)).copyTo(result(Rect(0,1000,1000,1000)));
         this->fullImages[clData.inds[3]][0](Rect(1000,1000,1000,1000)).copyTo(result(Rect(1000,1000,1000,1000)));
-
-        if (false) {
-            Mat top;
-            hconcat(this->fullImages[clData.inds[0]][0],this->fullImages[clData.inds[1]][0],top);
-            Mat bottom;
-            hconcat(this->fullImages[clData.inds[2]][0],this->fullImages[clData.inds[3]][0],bottom);
-            vconcat(top,bottom,result);
-        }
+#else
+        Mat result;
+        Mat top;
+        hconcat(this->fullImages[clData.inds[0]][0](Rect(0,0,1000,1000)),this->fullImages[clData.inds[1]][0](Rect(0,0,1000,1000)),top);
+        Mat bottom;
+        hconcat(this->fullImages[clData.inds[2]][0](Rect(0,0,1000,1000)),this->fullImages[clData.inds[3]][0](Rect(0,0,1000,1000)),bottom);
+        vconcat(top,bottom,result);
+#endif
 
         srcFree[0].release();
         srcFree[1].release();
@@ -497,11 +513,18 @@ void KilobotTracker::identifyKilobots()
             if (bb.x < 2000/2 && bb.y < 2000/2) {
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
             } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.x = bb_adj.x -1000;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
             } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.y = bb_adj.y -1000;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
             } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.x = bb_adj.x -1000;
+                bb_adj.y = bb_adj.y -1000;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
             }
             this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
         }
@@ -516,15 +539,21 @@ void KilobotTracker::identifyKilobots()
 
             Mat temp[3];
 
-            // switch source depending on position...
             if (bb.x < 2000/2 && bb.y < 2000/2) {
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
             } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.x = bb_adj.x -1000;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
             } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.y = bb_adj.y -1000;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
             } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.x = bb_adj.x -1000;
+                bb_adj.y = bb_adj.y -1000;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
             }
 
             kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
@@ -605,11 +634,18 @@ void KilobotTracker::trackKilobots()
                     if (bb.x < 2000/2 && bb.y < 2000/2) {
                         for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
                     } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb);
+                        Rect bb_adj = bb;
+                        bb_adj.x = bb_adj.x -1000;
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
                     } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb);
+                        Rect bb_adj = bb;
+                        bb_adj.y = bb_adj.y -1000;
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
                     } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb);
+                        Rect bb_adj = bb;
+                        bb_adj.x = bb_adj.x -1000;
+                        bb_adj.y = bb_adj.y -1000;
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
                     }
 
                     if (this->t_type & ADAPTIVE_LED) {
@@ -794,14 +830,14 @@ void KilobotTracker::trackKilobots()
 
 }
 
-void KilobotTracker::drawOverlay(Mat &)
+void KilobotTracker::drawOverlay(Mat & display)
 {
 
-    //for (uint i = 0; i < this->circsToDraw.size(); ++i) {
+    for (int i = 0; i < this->circsToDraw.size(); ++i) {
 
-        //cv::circle(display,this->circsToDraw[i].pos,this->circsToDraw[i].r,Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()));
+        cv::circle(display,this->circsToDraw[i].pos,this->circsToDraw[i].r,Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()),2);
 
-    //}
+    }
 
 }
 
@@ -838,7 +874,6 @@ kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, in
     Scalar sums[3];
 
     float tooBig = 10000.0f;
-    int step = 5;
 
     uint maxIndex = 0;
 
@@ -849,27 +884,6 @@ kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, in
         sums[i] = cv::sum(temp[i]);
         maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
     }
-
-    /*if (sums[maxIndex][0] > tooBig) {
-        kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
-    }
-    if (sums[maxIndex][0] < 1.0f) {
-        kilos[index]->lightThreshold = kilos[index]->lightThreshold - step > 180 ? kilos[index]->lightThreshold - step : kilos[index]->lightThreshold;
-
-        maxIndex = 0;
-
-        // move back up if we hit a bit prob
-        for (uint i = 0; i < 3; ++i) {
-            cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
-            temp[i] = temp[i] - kilos[index]->lightThreshold;
-            sums[i] = cv::sum(temp[i]);
-            maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
-        }
-
-        if (sums[maxIndex][0] > tooBig) {
-            kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
-        }
-    }*/
 
     // set the light colour (OFF = 0, RED = 1, GREEN = 2, BLUE = 3)
     light.col = sums[maxIndex][0] > 0.0f && sums[maxIndex][0] < tooBig ? (lightColour) (maxIndex+1) : OFF;
