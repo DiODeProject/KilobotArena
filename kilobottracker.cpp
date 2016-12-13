@@ -173,7 +173,7 @@ private:
                     warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(2000,2000));
 #else
                     // test without big Mats
-#define ADJ 10
+#define ADJ 10 // adjustment used to compensate for placing calibration images on table, and not at kilobot height
                     MAT_TYPE temp2;
 #ifdef ADJ
                     MAT_TYPE temp;
