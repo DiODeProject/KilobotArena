@@ -163,7 +163,7 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
     case EVALUATING_REV_SPEED:{
         if (timeInterval > 2500){
             int lastVal = 0;
-            for (uint i = this->posLog[kilobot.getID()].size(); i > 0; --i) {
+            for (uint i = this->posLog[kilobot.getID()].size() - 1; i > 0; --i) {
                 if (timeInterval - this->posLogTimes[kilobot.getID()][i] > 2500) {
                     lastVal = i;
                     break;

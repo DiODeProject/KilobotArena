@@ -10,6 +10,8 @@ KilobotIDAssignment::KilobotIDAssignment()
 void KilobotIDAssignment::initialise(bool)
 {
 
+    emit clearDrawings();
+
     // calibrate LEDs
     emit setTrackingType(ADAPTIVE_LED);
     emit getInitialKilobotStates();
@@ -58,11 +60,6 @@ void KilobotIDAssignment::run()
 
                 // reset dupes
                 if (this->tempIDs[i] == DUPE) this->tempIDs[i] = 0;
-
-                /*++numFound;
-                if (numFound > this->tempIDs.size() - 1) {
-                    this->stage = COMPLETE;
-                }*/
 
             }
             // get num
@@ -116,10 +113,8 @@ void KilobotIDAssignment::run()
             if (lastTime > 1.0f*float(numSegments+1)+0.21f) {
 
                 ++numSegments;
-                qDebug() << "CHECKA" << lastTime << t.elapsed();
                 emit updateKilobotStates();
                 this->switchSegment = true;
-                qDebug() << "CHECKB" << lastTime << t.elapsed();
 
             }
 
@@ -142,7 +137,6 @@ void KilobotIDAssignment::run()
                     msg.type = 2;
                     msg.data = &data[0];
                     emit broadcastMessage(msg);
-                    //this->kilos[numFound]->setID(numFound);
                     this->isAssigned[numFound] = true; // set as assigned
                 }
                 ++numFound;

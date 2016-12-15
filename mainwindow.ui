@@ -213,7 +213,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>2</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="page_src">
      <property name="geometry">
@@ -366,7 +366,7 @@
      <attribute name="label">
       <string>Setup</string>
      </attribute>
-     <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,1,1,0">
+     <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,1,1,0,0,0">
       <property name="leftMargin">
        <number>0</number>
       </property>
@@ -401,7 +401,7 @@
           <rect>
            <x>0</x>
            <y>10</y>
-           <width>121</width>
+           <width>241</width>
            <height>21</height>
           </rect>
          </property>
@@ -409,19 +409,34 @@
           <string>Find Kilobots</string>
          </property>
         </widget>
-        <widget class="QCheckBox" name="find_details">
-         <property name="geometry">
-          <rect>
-           <x>180</x>
-           <y>10</y>
-           <width>61</width>
-           <height>20</height>
-          </rect>
-         </property>
-         <property name="text">
-          <string>details</string>
-         </property>
-        </widget>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="identify">
+        <property name="text">
+         <string>Identify Kilobots</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="assignIDs">
+        <property name="text">
+         <string>Assign IDs</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="calibrate">
+        <property name="text">
+         <string>Calibrate</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="find_details">
+        <property name="text">
+         <string>details</string>
+        </property>
        </widget>
       </item>
       <item>
@@ -429,13 +444,13 @@
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>130</height>
+          <height>170</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>130</height>
+          <height>170</height>
          </size>
         </property>
         <property name="frameShape">
@@ -678,27 +693,54 @@
           <enum>Qt::Horizontal</enum>
          </property>
         </widget>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="identify">
-        <property name="text">
-         <string>Identify Kilobots</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="assignIDs">
-        <property name="text">
-         <string>Assign IDs</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="calibrate">
-        <property name="text">
-         <string>Calibrate</string>
-        </property>
+        <widget class="QLabel" name="label_7">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>120</y>
+           <width>61</width>
+           <height>20</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>Hght adj:</string>
+         </property>
+        </widget>
+        <widget class="QSlider" name="arena_height_slider">
+         <property name="geometry">
+          <rect>
+           <x>60</x>
+           <y>120</y>
+           <width>161</width>
+           <height>20</height>
+          </rect>
+         </property>
+         <property name="minimum">
+          <number>0</number>
+         </property>
+         <property name="maximum">
+          <number>20</number>
+         </property>
+         <property name="value">
+          <number>10</number>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+        <widget class="QLabel" name="arena_height_label">
+         <property name="geometry">
+          <rect>
+           <x>230</x>
+           <y>120</y>
+           <width>31</width>
+           <height>16</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>10</string>
+         </property>
+        </widget>
        </widget>
       </item>
       <item>
@@ -1064,6 +1106,22 @@
     <hint type="destinationlabel">
      <x>755</x>
      <y>685</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>arena_height_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>arena_height_label</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>770</x>
+     <y>387</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>875</x>
+     <y>385</y>
     </hint>
    </hints>
   </connection>

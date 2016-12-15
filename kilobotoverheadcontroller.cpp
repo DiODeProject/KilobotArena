@@ -60,7 +60,7 @@ KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(
     thread->start();
     serial_conn->open();
 
-    timer.setInterval(50);
+    timer.setInterval(20);
     connect(&timer,SIGNAL(timeout()), this, SLOT(sendBatch()));
     timer.start();
 }
@@ -257,7 +257,7 @@ void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) 
     sending = true;
 
 
-    serial_conn->sendCommand(packet);
+    serial_conn->queueCommand(packet);
 }
 
 void KilobotOverheadController::chooseProgramFile() {

@@ -92,7 +92,10 @@ enum trackerType {
     MY_HAPPY_OTHER_TRACKER,
 };
 
-
+struct indexPair {
+    int a;
+    int b;
+};
 
 struct kiloLight {
     lightColour col;
@@ -208,6 +211,12 @@ public slots:
 
     }
 
+    void saveImage(QString file) {
+        if (!finalImageCol.empty()) {
+            cv::imwrite(file.toStdString(),this->finalImageCol);
+        }
+    }
+
 
     // accessors - docs not required??
     void setSourceType(bool val) {if (val) this->srcType = CAMERA; else this->srcType = VIDEO;}
@@ -262,7 +271,14 @@ private:
     kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox, int index);
     kiloLight getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index);
 
-
+    /*!
+     * \brief getKiloBotBoundingBox
+     * \param index
+     * \param scale
+     * \return
+     *
+     * For a single Kilobot obtain an openCV Rect of the bounding box around the kilobot
+     */
     Rect getKiloBotBoundingBox(int index, float scale);
 
     /*!
@@ -283,6 +299,8 @@ private:
     int t_type = POS | ADAPTIVE_LED | ROT;
 
     Mat finalImage;
+
+    Mat finalImageCol;
 
     Mat fullImages[4][3];
 
@@ -327,6 +345,8 @@ private:
     QVector < Kilobot * > kilos;
 
     QVector < float > kiloHeadings;
+
+    QVector < QPointF > kiloOldPos;
 
     QVector < QVector < int > > exclusionTestsIndices;
 

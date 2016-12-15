@@ -180,13 +180,11 @@ void MainWindow::left()
 
     robcomm[ui->test_id->text().toInt()] = 1;
 
-    kilobot_message msg;
-    for (int i = 0; i < 3; ++i) {
-        msg.id = i;
-        msg.type = 0;
-        msg.data = robcomm[i];
-        ohc.signalKilobot(msg);
-    }
+
+    kilobot_broadcast msg;
+    msg.type = 2;
+    msg.data = 0;
+    ohc.broadcastMessage(msg);
 
 }
 
@@ -194,37 +192,30 @@ void MainWindow::right()
 {
     robcomm[ui->test_id->text().toInt()] = 2;
 
-    kilobot_message msg;
-    for (int i = 0; i < 3; ++i) {
-        msg.id = i;
-        msg.type = 0;
-        msg.data = robcomm[i];
-        ohc.signalKilobot(msg);
-    }
+    kilobot_broadcast msg;
+    msg.type = 3;
+    msg.data = 0;
+    ohc.broadcastMessage(msg);
+
 }
 
 void MainWindow::straight()
 {
     robcomm[ui->test_id->text().toInt()] = 0;
 
-    kilobot_message msg;
-    for (int i = 0; i < 3; ++i) {
-        msg.id = i;
-        msg.type = 0;
-        msg.data = robcomm[i];
-        ohc.signalKilobot(msg);
-    }
+
+    kilobot_broadcast msg;
+    msg.type = 1;
+    msg.data = 0;
+    ohc.broadcastMessage(msg);
 }
 
 void MainWindow::test_id()
 {
     robcomm[ui->test_id->text().toInt()] = 3;
 
-    kilobot_message msg;
-    for (int i = 0; i < 3; ++i) {
-        msg.id = i;
-        msg.type = 0;
-        msg.data = robcomm[i];
-        ohc.signalKilobot(msg);
-    }
+    kilobot_broadcast msg;
+    msg.type = 4;
+    msg.data = 0;
+    ohc.broadcastMessage(msg);
 }

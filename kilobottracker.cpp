@@ -59,6 +59,8 @@ public:
 
     bool keepRunning = true;
 
+    int height_adj = 10;
+
     srcDataType type = CAMERA;
 
     cv::VideoCapture cap;
@@ -104,6 +106,7 @@ private:
 
                 // get data
                 if (type == IMAGES) {
+                    // NOTE: need to decide on format for imagevideos
                     image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_00200_")+QString::number(index)+QString(".jpg")).toStdString());
                 }
                 else if (type == CAMERA) {
@@ -120,7 +123,6 @@ private:
                             continue;
                         }
                     }
-                    //qDebug() << "Thread" << index << time << QTime::currentTime();
                     if (cap.isOpened()) {
                         // exhaust buffer
                         cap.grab();
@@ -139,8 +141,9 @@ private:
                     }
 
                 } else if (type == VIDEO) {
-                    image = imread((QString("/home/alex/Downloads/study-table-bias-r1/frame_%1_%2").arg(time+1, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
-                    if (image.empty()) continue;
+                    // NOT USED
+                    //image = imread((QString("/home/alex/Downloads/study-table-bias-r1/frame_%1_%2").arg(time+1, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
+                    //if (image.empty()) continue;
                 }
 
                 // Prepare images masks
@@ -159,26 +162,13 @@ private:
                 // only do this if we are not loading calibration
                 if (!(this->corner.x == -1 && this->corner.y == -1)) {
 
-#ifdef SLOW_WARP
-                    // create full image
-                    MAT_TYPE temp(fullSize.height,fullSize.width, CV_8UC3, Scalar(0,0,0));
-                    MAT_TYPE temp2;
-                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp2, Size(size.width-10,size.height-10));
-                    temp2.copyTo(temp(Rect(corner.x-fullCorner.x,corner.y-fullCorner.y,size.width-10, size.height-10)));
-
-                    cv::resize(temp, temp2,Size(1536,1536));
-
-                    Mat M = getPerspectiveTransform(this->arenaCorners,outputQuad);
-
-                    warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(2000,2000));
-#else
                     // test without big Mats
 #define ADJ 10 // adjustment used to compensate for placing calibration images on table, and not at kilobot height
                     MAT_TYPE temp2;
 #ifdef ADJ
                     MAT_TYPE temp;
-                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-ADJ,size.height-ADJ));
-                    cv::resize(temp, temp2,Size((1536*(size.width-ADJ))/fullSize.width,(1536*(size.height-ADJ))/fullSize.height));
+                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-height_adj,size.height-height_adj));
+                    cv::resize(temp, temp2,Size((1536*(size.width-height_adj))/fullSize.width,(1536*(size.height-height_adj))/fullSize.height));
 #else
                     cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp2,Size((1536*(size.width-ADJ))/fullSize.width,(1536*(size.height-ADJ))/fullSize.height));
 #endif
@@ -187,13 +177,14 @@ private:
                     Point2f outputQuad_adj[4];
                     for (int i = 0; i < 4; ++i) {
                         arenaCorners_adj[i] = arenaCorners[i] - Point2f(((corner.x-fullCorner.x)*1536)/fullSize.width,((corner.y-fullCorner.y)*1536)/fullSize.height);
-                        outputQuad_adj[i] = outputQuad[i] - Point2f((corner.x>300)*1000, (corner.y-fullCorner.y>300)*1000);
+                        // shift the location for all but the first camera, and add 100 pixel overlap around the images
+                        outputQuad_adj[i] = outputQuad[i] - Point2f((corner.x-fullCorner.x>300)*1000-100, ((corner.y-fullCorner.y)>300)*1000-100);
                     }
 
                     Mat M = getPerspectiveTransform(arenaCorners_adj,outputQuad_adj);
+                    // 1200 x 1200 output includes 100 pixel overlap aound entire image
+                    warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1200,1200));
 
-                    warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1100,1100));
-#endif
                 }
 
                 srcUsed[index].release();
@@ -346,12 +337,15 @@ void KilobotTracker::LOOPiterate()
 
         Mat channels[4][3];
 
+        Mat saveIm[4];
+
         // move full images from threads
         for (uint i = 0; i < 4; ++i) {
 
             Mat temp;
             srcBuff[i][time % BUFF_SIZE].full_warped_image.copyTo(temp);
             cv::split(temp, channels[i]);
+            saveIm[i] = temp;
             this->fullImages[i][0] = channels[i][0];
             this->fullImages[i][1] = channels[i][1];
             this->fullImages[i][2] = channels[i][2];
@@ -362,20 +356,17 @@ void KilobotTracker::LOOPiterate()
             //srcBuff[i][time % BUFF_SIZE].full_warped_image.copyTo(this->fullImages[i]);
         }
 
-#ifdef SLOW_WARP
-        Mat result(2000,2000, CV_8UC1, Scalar(0,0,0));
-        this->fullImages[clData.inds[0]][0](Rect(0,0,1000,1000)).copyTo(result(Rect(0,0,1000,1000)));
-        this->fullImages[clData.inds[1]][0](Rect(1000,0,1000,1000)).copyTo(result(Rect(1000,0,1000,1000)));
-        this->fullImages[clData.inds[2]][0](Rect(0,1000,1000,1000)).copyTo(result(Rect(0,1000,1000,1000)));
-        this->fullImages[clData.inds[3]][0](Rect(1000,1000,1000,1000)).copyTo(result(Rect(1000,1000,1000,1000)));
-#else
+
         Mat result;
         Mat top;
-        hconcat(this->fullImages[clData.inds[0]][0](Rect(0,0,1000,1000)),this->fullImages[clData.inds[1]][0](Rect(0,0,1000,1000)),top);
+        hconcat(this->fullImages[clData.inds[0]][0](Rect(100,100,1000,1000)),this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)),top);
         Mat bottom;
-        hconcat(this->fullImages[clData.inds[2]][0](Rect(0,0,1000,1000)),this->fullImages[clData.inds[3]][0](Rect(0,0,1000,1000)),bottom);
+        hconcat(this->fullImages[clData.inds[2]][0](Rect(100,100,1000,1000)),this->fullImages[clData.inds[3]][0](Rect(100,100,1000,1000)),bottom);
         vconcat(top,bottom,result);
-#endif
+
+        hconcat(saveIm[clData.inds[0]](Rect(100,100,1000,1000)),saveIm[clData.inds[1]](Rect(100,100,1000,1000)),top);
+        hconcat(saveIm[clData.inds[2]](Rect(100,100,1000,1000)),saveIm[clData.inds[3]](Rect(100,100,1000,1000)),bottom);
+        vconcat(top,bottom,this->finalImageCol);
 
         srcFree[0].release();
         srcFree[1].release();
@@ -499,9 +490,17 @@ void KilobotTracker::identifyKilobots()
         currentID = 0;
         identifyKilobot(currentID);
         qDebug() << "Try ID" << currentID;
+        this->circsToDraw.clear();
     }
 
-    if (time % 10 != 9) {
+    bool adaptiveLED = false;
+
+    // adapt for 30 frames
+    if (time < 30) {
+        adaptiveLED = true;
+    }
+
+    if (time % 4 != 3 || adaptiveLED) {
         for (uint i = 0; i < (uint) kilos.size(); ++i) {
 
             // get bounding box
@@ -511,25 +510,30 @@ void KilobotTracker::identifyKilobots()
 
             // switch source depending on position...
             if (bb.x < 2000/2 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.x = bb_adj.x +100;
+                bb_adj.y = bb_adj.y +100;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
             } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
                 Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -1000;
+                bb_adj.x = bb_adj.x -900;
+                bb_adj.y = bb_adj.y +100;
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
             } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
                 Rect bb_adj = bb;
-                bb_adj.y = bb_adj.y -1000;
+                bb_adj.x = bb_adj.x +100;
+                bb_adj.y = bb_adj.y -900;
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
             } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
                 Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -1000;
-                bb_adj.y = bb_adj.y -1000;
+                bb_adj.x = bb_adj.x -900;
+                bb_adj.y = bb_adj.y -900;
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
             }
             this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
         }
     }
-    else
+    else if (time % 4 == 3)
     {
 
         for (uint i = 0; i < (uint) kilos.size(); ++i) {
@@ -540,19 +544,24 @@ void KilobotTracker::identifyKilobots()
             Mat temp[3];
 
             if (bb.x < 2000/2 && bb.y < 2000/2) {
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
+                Rect bb_adj = bb;
+                bb_adj.x = bb_adj.x +100;
+                bb_adj.y = bb_adj.y +100;
+                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
             } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
                 Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -1000;
+                bb_adj.x = bb_adj.x -900;
+                bb_adj.y = bb_adj.y +100;
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
             } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
                 Rect bb_adj = bb;
-                bb_adj.y = bb_adj.y -1000;
+                bb_adj.x = bb_adj.x +100;
+                bb_adj.y = bb_adj.y -900;
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
             } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
                 Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -1000;
-                bb_adj.y = bb_adj.y -1000;
+                bb_adj.x = bb_adj.x -900;
+                bb_adj.y = bb_adj.y -900;
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
             }
 
@@ -561,6 +570,11 @@ void KilobotTracker::identifyKilobots()
             if (light.col == GREEN) {
                 qDebug() << "Found ID" << currentID;
                 kilos[i]->setID((uint8_t) currentID);
+                this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0)});
+                if (this->circsToDraw.size() == kilos.size()) {
+                    // all found
+                    this->LOOPstartstop(IDENTIFY);
+                }
             }
 
         }
@@ -569,6 +583,8 @@ void KilobotTracker::identifyKilobots()
         identifyKilobot(currentID);
         qDebug() << "Try ID" << currentID;
     }
+
+    this->drawOverlay(display);
 
     this->showMat(display);
 
@@ -605,7 +621,7 @@ void KilobotTracker::trackKilobots()
     case CIRCLES_LOCAL:
 
             // setup the tracking region around each KB's last known position
-            float maxDist = 31.0f*1.2f;//*this->kbMaxSize; // FIXED FOR NOW
+            float maxDist = 1.2f*this->kbMaxSize;
 
             vector < Rect > bbs;
 
@@ -632,19 +648,24 @@ void KilobotTracker::trackKilobots()
 
                     // switch cam/vid source depending on position...
                     if (bb.x < 2000/2 && bb.y < 2000/2) {
-                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb);
+                        Rect bb_adj = bb;
+                        bb_adj.x = bb_adj.x +100;
+                        bb_adj.y = bb_adj.y +100;
+                        for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
                     } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
                         Rect bb_adj = bb;
-                        bb_adj.x = bb_adj.x -1000;
+                        bb_adj.x = bb_adj.x -900;
+                        bb_adj.y = bb_adj.y +100;
                         for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
                     } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
                         Rect bb_adj = bb;
-                        bb_adj.y = bb_adj.y -1000;
+                        bb_adj.x = bb_adj.x +100;
+                        bb_adj.y = bb_adj.y -900;
                         for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
                     } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
                         Rect bb_adj = bb;
-                        bb_adj.x = bb_adj.x -1000;
-                        bb_adj.y = bb_adj.y -1000;
+                        bb_adj.x = bb_adj.x -900;
+                        bb_adj.y = bb_adj.y -900;
                         for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
                     }
 
@@ -654,17 +675,6 @@ void KilobotTracker::trackKilobots()
                         light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
                     }
 
-                    // TEMP
-                    /*if (i == 0) {
-                        if (t_type & ADAPTIVE_LED) {
-                            Mat t;
-                            cv::resize(this->testAdap,t,Size(),4,4,INTER_NEAREST);
-                            cv::cvtColor(t, t, CV_GRAY2RGB);
-                            t = t*20.0f;
-                            t.copyTo(display(Rect(0,0,t.size[1],t.size[0])));
-
-                        }
-                    }*/
                 }
 
 
@@ -749,6 +759,42 @@ void KilobotTracker::trackKilobots()
                         }
 
                     }
+
+                    // FIND ISSUES
+                    if (time % 10 == 0 && false) {
+                        // we want to find tags that haven't moved, and tags too close together
+
+                        QVector < indexPair > closeIndexPairs;
+
+                        // too close
+                        for (int i = 0; i < this->kilos.size(); ++i) {
+                            for (int j = i; j < kilos.size(); ++j) {
+                                QLineF dist(kilos[i]->getPosition(), kilos[j]->getPosition());
+                                if (dist.length() < this->kbMinSize-2.0f) {
+                                    closeIndexPairs.push_back(indexPair{i,j});
+                                }
+                            }
+                        }
+
+                        QVector < int > notMovedIndices;
+
+                        // not moved
+                        //for (int i = 0; i < this->kilos.size(); ++i) {
+
+                        if (closeIndexPairs.length() > 0 || notMovedIndices.length() > 0) {
+
+                            // re-acquire
+
+                            // pause experiment
+
+                            // identify kilobots
+
+
+                        }
+
+
+                    }
+
                 } // END POS
 
                 if (this->t_type & ROT && (this->t_type & LED || this->t_type & ADAPTIVE_LED)) {
@@ -843,7 +889,6 @@ void KilobotTracker::drawOverlay(Mat & display)
 
 Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
 {
-
 
     float maxDist = scale*this->kbMaxSize;
 
@@ -958,20 +1003,6 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
         light.pos = centreOfLight - centreOfBox;
 
     }
-
-
-
-    /*if (index == 0) {
-
-        cv::hconcat(temp, this->testAdap);
-        qDebug() << kilos[index]->lightThreshold;
-
-        if (light.col == RED) qDebug() << "RED";
-        if (light.col == BLUE) qDebug() << "BLUE";
-        if (light.col == GREEN) qDebug() << "GREEN";
-        if (light.col == OFF) qDebug() << "OFF";
-    }*/
-
     return light;
 
 }
@@ -1206,6 +1237,7 @@ void KilobotTracker::SETUPsetCamOrder()
         if (haveIndex[0] && haveIndex[1] && haveIndex[2] && haveIndex[3])
         {
             for (int i = 0; i < 4; ++i) camOrder[i] = temp[i];
+            qDebug() << "Cam order set";
         }
     }
 

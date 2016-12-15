@@ -87,6 +87,9 @@ public slots:
                 connect(expts[currExpt], SIGNAL(drawCircle(QPointF,float,QColor)), this->kbtracker, SLOT(drawCircle(QPointF,float,QColor)));
                 connect(expts[currExpt], SIGNAL(clearDrawings()), this->kbtracker, SLOT(clearDrawings()));
 
+                // save image
+                connect(expts[currExpt], SIGNAL(saveImage(QString)), this->kbtracker, SLOT(saveImage(QString)));
+
                 // clock for experiment
                 this->timer.setInterval(expts[currExpt]->serviceInterval);
                 connect(&this->timer, SIGNAL(timeout()), this->expts[currExpt], SLOT(run()));

@@ -32,6 +32,8 @@ signals:
     void error(QString);
 
 public slots:
+    void queueCommand(QByteArray);
+    void sendQueuedCommand();
     void sendCommand(QByteArray);
     void sendProgram(QString);
     void open();

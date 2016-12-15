@@ -27,7 +27,9 @@ enum {
 };
 
 SerialConnection::SerialConnection(QObject *parent, QString _portname): QObject(parent), portname(_portname), context(NULL), mode(MODE_NORMAL)
-{ delay.start(); }
+{ delay.start();
+
+}
 
 QVector<QString> SerialConnection::enumerate() {
     QVector<QString> ports;
@@ -178,10 +180,28 @@ void SerialConnection::open() {
     emit status(status_msg);
 }
 
-void SerialConnection::sendCommand(QByteArray cmd) {
-    while (delay.elapsed() < 2) {
-        usleep(200);
+void SerialConnection::queueCommand(QByteArray cmd) {
+    cmds.push_back(cmd);
+    QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+}
+
+void SerialConnection::sendQueuedCommand() {
+    if (delay.elapsed() < 5) {
+        usleep(100);
+        QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+    } else {
+        // send next q'd command
+        if (this->cmds.size() > 0) {
+            // send
+            this->sendCommand(this->cmds[0]);
+            cmds.pop_front();
+            delay.restart(); // AJC - we've sent a command - wait before sending another
+            QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+        }
     }
+}
+
+void SerialConnection::sendCommand(QByteArray cmd) {
 #ifdef _WIN32
     DWORD bytes_sent;
 #endif
@@ -198,7 +218,7 @@ void SerialConnection::sendCommand(QByteArray cmd) {
     } else {
         emit error("cannot send command if disconnected from usb device.");
     }
-    delay.restart(); // AJC - we've sent a command - wait before sending another
+
 }
 
 void SerialConnection::sendProgram(QString file) {

@@ -22,6 +22,8 @@ KilobotCalibrate::KilobotCalibrate()
 void KilobotCalibrate::initialise(bool isResume)
 {
 
+    emit clearDrawings();
+
     if (!isResume) {
         // init stuff
         emit getInitialKilobotStates();
