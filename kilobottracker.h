@@ -10,6 +10,10 @@
 #include <ios>
 #include <vector>
 
+#define USE_CUDA true
+
+
+
 #ifndef USE_OPENCV3
 
 // OpenCV 2 includes
@@ -20,10 +24,21 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/stitching/stitcher.hpp>
 #include <opencv2/opencv.hpp>
+//GPU stuff
+#include <opencv2/gpu/gpu.hpp>
+#include <opencv2/gpu/gpumat.hpp>
 
-#define MAT_TYPE Mat
+#ifdef USE_CUDA
+    #define MAT_TYPE cuda::GpuMat
+    #define CV_NS cv::cuda::
+#else
+    #define MAT_TYPE Mat
+    #define CV_NS cv::
+#endif
 
 #else
+
+using namespace std;
 
 // OpenCV 3 :
 #include <opencv2/highgui.hpp>
@@ -35,18 +50,29 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
-#include <opencv2/tracking.hpp>
-#include <opencv2/tracking/tracker.hpp>
+//#include <opencv2/tracking.hpp>
+//#include <opencv2/tracking/tracker.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/gpu/gpu.hpp>
+#include <opencv2/cudaarithm.hpp>
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudafeatures2d.hpp>
+#include <opencv2/cudawarping.hpp>
 
-#define MAT_TYPE UMat
+#ifdef USE_CUDA
+    #define MAT_TYPE cuda::GpuMat
+    #define CV_NS cv::cuda::
+#else
+    #define MAT_TYPE UMat
+    #define CV_NS cv::
+#endif
 
 #endif
 
 // allow easy addressing of OpenCV functions
 using namespace cv;
-using namespace std;
+
 
 
 
@@ -268,8 +294,14 @@ private:
      * \return
      * Used to detect the presence, colour, and position of a kiloBot's light and return it
      */
+
+#ifdef USE_CUDA
+    kiloLight getKiloBotLight(cuda::GpuMat  channels[3], Point centreOfBox, int index);
+    kiloLight getKiloBotLightAdaptive(cuda::GpuMat  channels[3], Point centreOfBox, int index);
+#else
     kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox, int index);
     kiloLight getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index);
+#endif
 
     /*!
      * \brief getKiloBotBoundingBox
@@ -298,11 +330,19 @@ private:
 
     int t_type = POS | ADAPTIVE_LED | ROT;
 
-    Mat finalImage;
+
 
     Mat finalImageCol;
 
+#ifdef USE_CUDA
+    cuda::GpuMat finalImage;
+    cuda::GpuMat fullImages[4][3];
+    // make thread safe
+    cuda::Stream stream;
+#else
+    Mat finalImage;
     Mat fullImages[4][3];
+#endif
 
     vector < MAT_TYPE > warpedImages;
     vector < MAT_TYPE > warpedMasks;
@@ -340,7 +380,7 @@ private:
     srcDataType srcType = CAMERA;
     QString videoPath;
 
-    trackerType trackType = CIRCLES_LOCAL;
+    trackerType trackType = CIRCLES_NAIVE;//CIRCLES_LOCAL;
 
     QVector < Kilobot * > kilos;
 
@@ -365,6 +405,11 @@ private:
     Mat testAdap;
 
     QVector < drawnCircle > circsToDraw;
+
+#ifdef USE_CUDA
+    Ptr<cuda::HoughCirclesDetector> hough;
+    cuda::GpuMat kbLocs;
+#endif
 
 };
 

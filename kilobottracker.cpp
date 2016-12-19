@@ -15,7 +15,6 @@
 #include <QSettings>
 #include <QFileDialog>
 #include <QtMath>
-//#include <opencv2/gpu/gpMAT_TYPE.hpp>
 
 //#define TEST_WITHOUT_CAMERAS
 
@@ -80,6 +79,11 @@ private:
         }
         #endif
 
+#ifdef USE_CUDA
+        // if using CUDA we need a stream to make the operations thread safe
+        cuda::Stream stream;
+#endif
+
         uint time = 0;
         Mat image;
         Mat mask;
@@ -112,7 +116,7 @@ private:
                 else if (type == CAMERA) {
 #ifndef TEST_WITHOUT_CAMERAS
                     camUsage.acquire();
-                    if (!cap.isOpened() /*&& camOrder[index]!=3  TEMPORARY!!! */) {
+                    if (!cap.isOpened() && camOrder[index]<1  /*TEMPORARY!!! */) {
                         cap.open(camOrder[index]);
                         // set REZ
                         if (cap.isOpened()) {
@@ -142,8 +146,8 @@ private:
 
                 } else if (type == VIDEO) {
                     // NOT USED
-                    //image = imread((QString("/home/alex/Downloads/study-table-bias-r1/frame_%1_%2").arg(time+1, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
-                    //if (image.empty()) continue;
+                    image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/200, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
+                    if (image.empty()) continue;
                 }
 
                 // Prepare images masks
@@ -155,9 +159,18 @@ private:
                 // check semaphore
                 srcFree[index].acquire();
 
+#ifdef USE_CUDA
+                Mat tempCuda;
+                srcBuff[index][time % BUFF_SIZE].corner = warper->warp(image, K, R, INTER_LINEAR, BORDER_REFLECT, tempCuda);
+                srcBuff[index][time % BUFF_SIZE].warped_image.upload(tempCuda);
+                srcBuff[index][time % BUFF_SIZE].size = srcBuff[index][time % BUFF_SIZE].warped_image.size();
+                warper->warp(mask, K, R, INTER_NEAREST, BORDER_CONSTANT, tempCuda);
+                srcBuff[index][time % BUFF_SIZE].warped_mask.upload(tempCuda);
+#else
                 srcBuff[index][time % BUFF_SIZE].corner = warper->warp(image, K, R, INTER_LINEAR, BORDER_REFLECT, srcBuff[index][time % BUFF_SIZE].warped_image);
                 srcBuff[index][time % BUFF_SIZE].size = srcBuff[index][time % BUFF_SIZE].warped_image.size();
                 warper->warp(mask, K, R, INTER_NEAREST, BORDER_CONSTANT, srcBuff[index][time % BUFF_SIZE].warped_mask);
+#endif
 
                 // only do this if we are not loading calibration
                 if (!(this->corner.x == -1 && this->corner.y == -1)) {
@@ -167,8 +180,13 @@ private:
                     MAT_TYPE temp2;
 #ifdef ADJ
                     MAT_TYPE temp;
+#ifdef USE_CUDA
+                    cv::cuda::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-height_adj,size.height-height_adj),0,0, INTER_LINEAR, stream);
+                    cv::cuda::resize(temp, temp2,Size((1536*(size.width-height_adj))/fullSize.width,(1536*(size.height-height_adj))/fullSize.height),0,0, INTER_LINEAR, stream);
+#else
                     cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-height_adj,size.height-height_adj));
                     cv::resize(temp, temp2,Size((1536*(size.width-height_adj))/fullSize.width,(1536*(size.height-height_adj))/fullSize.height));
+#endif
 #else
                     cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp2,Size((1536*(size.width-ADJ))/fullSize.width,(1536*(size.height-ADJ))/fullSize.height));
 #endif
@@ -183,7 +201,11 @@ private:
 
                     Mat M = getPerspectiveTransform(arenaCorners_adj,outputQuad_adj);
                     // 1200 x 1200 output includes 100 pixel overlap aound entire image
+#ifdef USE_CUDA
+                    cuda::warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1200,1200),INTER_LINEAR,BORDER_CONSTANT,Scalar(),stream);
+#else
                     warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1200,1200));
+#endif
 
                 }
 
@@ -201,6 +223,12 @@ private:
 
 KilobotTracker::KilobotTracker(QPoint smallImageSize, QObject *parent) : QObject(parent)
 {
+    // select cuda device
+#ifdef USE_CUDA
+    qDebug() << "There are" << cuda::getCudaEnabledDeviceCount() << "CUDA devices";
+    cuda::setDevice(cuda::getCudaEnabledDeviceCount()-1);
+#endif
+
     this->smallImageSize = smallImageSize;
     this->tick.setInterval(1);
     connect(&this->tick, SIGNAL(timeout()), this, SLOT(LOOPiterate()));
@@ -252,6 +280,19 @@ void KilobotTracker::LOOPstartstop(int stage)
         return;
 
     }
+
+#ifdef USE_CUDA
+    // setup kb initial locs
+    Mat tempKbLocs(1,kilos.size(), CV_32FC2);
+    float * data = (float *) tempKbLocs.data;
+    for (int i = 0; i < kilos.size(); ++i) {
+        data[i*2] = kilos[i]->getPosition().x();
+        data[i*2+1] = kilos[i]->getPosition().y();
+    }
+    kbLocs.upload(tempKbLocs);
+    
+    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,1024);
+#endif
 
     QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
 
@@ -326,26 +367,41 @@ void KilobotTracker::LOOPiterate()
 
 
         // feed with first frame
+#ifndef USE_CUDA
         if (time == 0) {
             compensator->feed(corners, warpedImages, warpedMasks);
+
         }
 
         // apply compensation
         for (int i = 0; i < 4; ++i) {
             compensator->apply(i, corners[i], srcBuff[i][time % BUFF_SIZE].full_warped_image, warpedMasks[i]);
         }
+#endif
 
-        Mat channels[4][3];
+#ifdef USE_CUDA
+            cuda::GpuMat channels[4][3];
+#else
+            Mat channels[4][3];
+#endif
 
         Mat saveIm[4];
 
         // move full images from threads
         for (uint i = 0; i < 4; ++i) {
 
+#ifdef USE_CUDA
+            cuda::GpuMat temp;
+#else
             Mat temp;
+#endif
             srcBuff[i][time % BUFF_SIZE].full_warped_image.copyTo(temp);
-            cv::split(temp, channels[i]);
+            CV_NS split(temp, channels[i]);
+#ifdef USE_CUDA
+            temp.download(saveIm[i]);
+#else
             saveIm[i] = temp;
+#endif
             this->fullImages[i][0] = channels[i][0];
             this->fullImages[i][1] = channels[i][1];
             this->fullImages[i][2] = channels[i][2];
@@ -356,17 +412,25 @@ void KilobotTracker::LOOPiterate()
             //srcBuff[i][time % BUFF_SIZE].full_warped_image.copyTo(this->fullImages[i]);
         }
 
-
-        Mat result;
         Mat top;
-        hconcat(this->fullImages[clData.inds[0]][0](Rect(100,100,1000,1000)),this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)),top);
         Mat bottom;
+#ifdef USE_CUDA
+        cv::cuda::GpuMat result(2000, 2000, this->fullImages[clData.inds[0]][0].type());
+        this->fullImages[clData.inds[0]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(0,0,1000,1000)));
+        this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(1000,0,1000,1000)));
+        this->fullImages[clData.inds[2]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(0,1000,1000,1000)));
+        this->fullImages[clData.inds[3]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(1000,1000,1000,1000)));
+#else
+        Mat result;
+        hconcat(this->fullImages[clData.inds[0]][0](Rect(100,100,1000,1000)),this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)),top);
         hconcat(this->fullImages[clData.inds[2]][0](Rect(100,100,1000,1000)),this->fullImages[clData.inds[3]][0](Rect(100,100,1000,1000)),bottom);
         vconcat(top,bottom,result);
+#endif
 
         hconcat(saveIm[clData.inds[0]](Rect(100,100,1000,1000)),saveIm[clData.inds[1]](Rect(100,100,1000,1000)),top);
         hconcat(saveIm[clData.inds[2]](Rect(100,100,1000,1000)),saveIm[clData.inds[3]](Rect(100,100,1000,1000)),bottom);
         vconcat(top,bottom,this->finalImageCol);
+
 
         srcFree[0].release();
         srcFree[1].release();
@@ -421,9 +485,14 @@ void KilobotTracker::SETUPfindKilobots()
 
     Mat res2;
     Mat display;
-    this->finalImage.copyTo(display);
 
+#ifdef USE_CUDA
+    this->finalImage.download(display);
+    display.copyTo(res2);
+#else
+    this->finalImage.copyTo(display);
     res2 = this->finalImage;
+#endif
 
     vector<Vec3f> circles;
     HoughCircles(res2,circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/ \
@@ -482,8 +551,14 @@ void KilobotTracker::SETUPfindKilobots()
 void KilobotTracker::identifyKilobots()
 {
 
+#ifdef USE_CUDA
+    Mat display;
+    this->finalImage.download(display);
+    cv::cvtColor(display, display, CV_GRAY2RGB);
+#else
     Mat display;
     cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
+#endif
 
     if (time == 0)
     {
@@ -506,7 +581,11 @@ void KilobotTracker::identifyKilobots()
             // get bounding box
             Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
 
+#ifdef USE_CUDA
+            cuda::GpuMat temp[3];
+#else
             Mat temp[3];
+#endif
 
             // switch source depending on position...
             if (bb.x < 2000/2 && bb.y < 2000/2) {
@@ -541,7 +620,11 @@ void KilobotTracker::identifyKilobots()
             // get bounding box
             Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
 
+#ifdef USE_CUDA
+            cuda::GpuMat temp[3];
+#else
             Mat temp[3];
+#endif
 
             if (bb.x < 2000/2 && bb.y < 2000/2) {
                 Rect bb_adj = bb;
@@ -605,16 +688,125 @@ void KilobotTracker::identifyKilobot(int id)
 
 }
 
+QString type2str(int type) {
+  QString r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
+
 void KilobotTracker::trackKilobots()
 {
 
     // convert for display
+#ifdef USE_CUDA
+    Mat display;
+    this->finalImage.download(display);
+    cv::cvtColor(display, display, CV_GRAY2RGB);
+#else
     Mat display;
     cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
+#endif
 
     switch (this->trackType) {
     {
     case CIRCLES_NAIVE:
+
+                if (this->kilos.size() == 0) break;
+
+                int circle_acc = 25;
+                cuda::GpuMat circlesGpu;
+
+                vector < cuda::GpuMat > circChans;
+                vector < cuda::GpuMat > kbChans;
+
+                this->hough->setVotesThreshold(circle_acc);
+                this->hough->detect(this->finalImage,circlesGpu,stream);
+
+                // get the channels so we can get rid of the sizes and use locations only
+                cuda::split(circlesGpu,circChans);
+                cuda::split(kbLocs,kbChans);
+
+                // create ones
+                cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+                cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+                // expanded mats
+                cuda::GpuMat all_x_c;
+                cuda::GpuMat all_y_c;
+                cuda::GpuMat all_x_kb;
+                cuda::GpuMat all_y_kb;
+
+                if (circChans[0].size().width  > 0) {
+
+
+                    // expand circle x's & y's
+                    vector < cuda::Stream > streams(4);
+                    cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+                    cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+                    // expand kb x's & y's
+                    cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+                    cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+                    // diffs
+                    cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+                    cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+                    // distances
+                    cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+                    double * min = new double;
+                    Point * minLoc = new Point();
+
+                    Mat localDists;
+
+                    all_x_c.download(localDists);
+
+                    //cout << endl << localDists << endl;
+
+                    // download circChans
+                    Mat circChansXCpu;
+                    Mat circChansYCpu;
+
+                    circChans[0].download(circChansXCpu);
+                    circChans[1].download(circChansYCpu);
+
+                    // min
+                    for (int i = 0; i < this->kilos.size(); ++i) {
+                        minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                        // work out if we should update...
+                        if (*min < this->kbMinSize) {
+                            circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
+                            circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
+
+                            //cout << endl << circChansXCpu << endl;
+
+                            // and on the cpu
+                            kilos[i]->updateState(QPointF(circChansXCpu.at<float>((*minLoc).y),circChansYCpu.at<float>((*minLoc).y)),kilos[i]->getVelocity(), kilos[i]->getLedColour());
+                        }
+                    }
+
+                    // recompose kbLocs
+                    cuda::merge(kbChans,kbLocs);
+                }
+
         break;
     }
     {
@@ -635,8 +827,11 @@ void KilobotTracker::trackKilobots()
 
 
                 Rect bb = bbs[i];
-                Mat temp[3];
-
+#ifdef USE_CUDA
+            cuda::GpuMat temp[3];
+#else
+            Mat temp[3];
+#endif
                 // setup temp pars with previous KB state
                 kiloLight light;
                 light.col = kilos[i]->getLedColour();
@@ -683,7 +878,8 @@ void KilobotTracker::trackKilobots()
                     bool no_match = true;
                     int circle_acc = 30;
 
-                    vector<Vec3f> circles;
+                    std::vector<cv::Vec3f> circles;
+                    Mat circlesCpu;
 
                     while (no_match && circle_acc > 10) {
 
@@ -691,7 +887,20 @@ void KilobotTracker::trackKilobots()
                         int minS = this->kbMinSize;//9;
                         int maxS = this->kbMaxSize;//25;
 
+#ifdef USE_CUDA
+                        cuda::GpuMat circlesGpu;
+
+                        this->hough->setVotesThreshold(circle_acc);
+                        this->hough->detect(temp[0],circlesGpu,stream);
+
+                        circlesGpu.download(circlesCpu);
+
+                        circles.assign((float*)circlesCpu.datastart, (float*)circlesCpu.dataend);
+
+
+#else
                         HoughCircles(temp[0],circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/,1.0/*maxS-1.0 circle distance*/,this->cannyThresh /* Canny threshold*/,circle_acc /*cicle algorithm accuracy*/,minS/* min circle size*/,maxS/* max circle size*/);
+#endif
 
                         if (circles.size() > 0) no_match = false;
 
@@ -908,12 +1117,19 @@ Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
 }
 
 
+
+#ifdef USE_CUDA
+kiloLight KilobotTracker::getKiloBotLight(cuda::GpuMat channelsG[3], Point centreOfBox, int index)
+#else
 kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, int index)
+#endif
 {
     // find the location and colour of the light...
 
     kiloLight light;
     light.pos = Point(-1,-1);
+#ifndef USE_CUDA
+
 
     Mat temp[3];
     Scalar sums[3];
@@ -942,17 +1158,24 @@ kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, in
         light.pos = centreOfLight - centreOfBox;
 
     }
-
+#endif
     return light;
 
 }
 
+#ifdef USE_CUDA
+kiloLight KilobotTracker::getKiloBotLightAdaptive(cuda::GpuMat channels[3], Point centreOfBox, int index)
+#else
 kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index)
+#endif
 {
     // find the location and colour of the light...
 
     kiloLight light;
     light.pos = Point(-1,-1);
+
+#ifndef USE_CUDA
+
 
     vector < Mat > temp(3);
     Scalar sums[3];
@@ -964,9 +1187,9 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
 
     // find colour
     for (uint i = 0; i < 3; ++i) {
-        cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+        CV_NS threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
         temp[i] = temp[i] - kilos[index]->lightThreshold;
-        sums[i] = cv::sum(temp[i]);
+        sums[i] = CV_NS sum(temp[i]);
         maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
     }
 
@@ -1003,6 +1226,7 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
         light.pos = centreOfLight - centreOfBox;
 
     }
+    #endif
     return light;
 
 }

@@ -63,6 +63,8 @@ KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(
     timer.setInterval(20);
     connect(&timer,SIGNAL(timeout()), this, SLOT(sendBatch()));
     timer.start();
+
+    qDebug() << serial_conn->enumerate();
 }
 
 KilobotOverheadController::~KilobotOverheadController()

@@ -12,7 +12,7 @@ TARGET = KilobotArena
 TEMPLATE = app
 
 # switch between OpenCV2 and 3
-#CONFIG += use_opencv3
+CONFIG += use_opencv3
 
 
 SOURCES += main.cpp\
@@ -94,6 +94,12 @@ LIBS += -L/opt/local/lib \
         -lopencv_videoio \
         -lopencv_imgcodecs \
         -lz
+# CUDA
+LIBS += -lopencv_cudawarping \
+        -lopencv_cudafeatures2d \
+        -lopencv_cudaimgproc \
+        -lopencv_cudafilters \
+        -lopencv_cudaarithm
 }
 
 

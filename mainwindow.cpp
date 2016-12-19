@@ -78,7 +78,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // TRACKER -> OHC
     connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
-    connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_broadcast)), &this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
+    // connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_broadcast)), &this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
 
     // USERTHREAD -> UI
     connect(this->thread, SIGNAL(setLibName(QString)), ui->expt_msg, SLOT(setText(QString)));
@@ -101,6 +101,13 @@ MainWindow::MainWindow(QWidget *parent) :
     if (!this->userExpt.isEmpty()) {
         // load previous expt
         this->thread->loadLibrary(userExpt);
+    }
+    QString lastDir = settings.value("videoLastDir", QDir::homePath()).toString();
+    if (!lastDir.isEmpty()) {
+        // load previous dir
+        this->kbtracker.setVideoDir(lastDir);
+        ui->vid_path->setText(lastDir);
+        ui->vid_path->setToolTip(lastDir);
     }
 }
 
