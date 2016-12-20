@@ -12,6 +12,8 @@ void KilobotIDAssignment::initialise(bool)
 
     emit clearDrawings();
 
+    this->serviceInterval = 200;
+
     // calibrate LEDs
     emit setTrackingType(ADAPTIVE_LED);
     emit getInitialKilobotStates();

@@ -55,6 +55,9 @@ private:
     KilobotOverheadController * ohc;
     KilobotTracker * kbtracker;
 
+
+    QString currExptFilename;
+
     int currExpt = 0;
 
     void run()
@@ -109,6 +112,7 @@ public slots:
         }
 
         void chooseInternalExperiments(int num) {
+            this->currExptFilename = "";
             if (num < 2) {
                 while (this->expts.size() > 0) {
                     this->expts[0]->deleteLater();
@@ -129,30 +133,35 @@ public slots:
 
         void loadLibrary(QString filename) {
 
-            // load library
-            QLibrary library(filename);
+            if (currExptFilename != filename) {
 
-            // resolve access to class
-            typedef KilobotExperiment* (*createExperimentFunction)();
-            createExperimentFunction createExperiment = (createExperimentFunction)library.resolve("createExpt");
+                currExptFilename = filename;
 
-             if (createExperiment) {
-                 while (this->expts.size() > 0) {
-                     this->expts[0]->deleteLater();
-                     this->expts.pop_front();
-                 }
-                expts.push_back(createExperiment());
-                emit setLibName(filename);
-                // set as current experiment for now
-                this->currExpt = expts.size()-1;
-                this->connectExpt(this->currExpt);
+                // load library
+                QLibrary library(filename);
 
-                // setup GUI
-                emit setGUILayout(expts[this->currExpt]->createGUI());
+                // resolve access to class
+                typedef KilobotExperiment* (*createExperimentFunction)();
+                createExperimentFunction createExperiment = (createExperimentFunction)library.resolve("createExpt");
+
+                 if (createExperiment) {
+                     while (this->expts.size() > 0) {
+                         this->expts[0]->deleteLater();
+                         this->expts.pop_front();
+                     }
+                    expts.push_back(createExperiment());
+                    emit setLibName(filename);
+                    // set as current experiment for now
+                    this->currExpt = expts.size()-1;
+                    this->connectExpt(this->currExpt);
+
+                    // setup GUI
+                    emit setGUILayout(expts[this->currExpt]->createGUI());
 
 
-            } else {
-                emit setLibName(QString("<load failed: ") + library.errorString() + QString(">"));
+                } else {
+                    emit setLibName(QString("<load failed: ") + library.errorString() + QString(">"));
+                }
             }
         }
 };

@@ -186,7 +186,7 @@ void SerialConnection::queueCommand(QByteArray cmd) {
 }
 
 void SerialConnection::sendQueuedCommand() {
-    if (delay.elapsed() < 5) {
+    if (delay.elapsed() < 10) {
         usleep(100);
         QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
     } else {

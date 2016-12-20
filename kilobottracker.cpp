@@ -142,8 +142,10 @@ private:
 
                 } else if (type == VIDEO) {
                     // NOT USED
-                    //image = imread((QString("/home/alex/Downloads/study-table-bias-r1/frame_%1_%2").arg(time+1, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
+                    image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/1, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
                     //if (image.empty()) continue;
+                    //image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_00200_")+QString::number(index)+QString(".jpg")).toStdString());
+
                 }
 
                 // Prepare images masks
@@ -630,6 +632,8 @@ void KilobotTracker::trackKilobots()
                 bbs.push_back(this->getKiloBotBoundingBox(i, 1.2f));
             }
 
+            // array for logging kilobots that seem to be in trouble
+            QVector < int > notMovedIndices;
 
             for (uint i = 0; i < (uint) this->kilos.size(); ++i) {
 
@@ -758,44 +762,16 @@ void KilobotTracker::trackKilobots()
 
                         }
 
+                    } else {
+                        // we have not found this kilobot - is the tracker detached?
+                        //notMovedIndices.push_back(i);
+                        qDebug() << "lost tag!";
                     }
 
-                    // FIND ISSUES
-                    if (time % 10 == 0 && false) {
-                        // we want to find tags that haven't moved, and tags too close together
 
-                        QVector < indexPair > closeIndexPairs;
-
-                        // too close
-                        for (int i = 0; i < this->kilos.size(); ++i) {
-                            for (int j = i; j < kilos.size(); ++j) {
-                                QLineF dist(kilos[i]->getPosition(), kilos[j]->getPosition());
-                                if (dist.length() < this->kbMinSize-2.0f) {
-                                    closeIndexPairs.push_back(indexPair{i,j});
-                                }
-                            }
-                        }
-
-                        QVector < int > notMovedIndices;
-
-                        // not moved
-                        //for (int i = 0; i < this->kilos.size(); ++i) {
-
-                        if (closeIndexPairs.length() > 0 || notMovedIndices.length() > 0) {
-
-                            // re-acquire
-
-                            // pause experiment
-
-                            // identify kilobots
-
-
-                        }
-
-
-                    }
 
                 } // END POS
+
 
                 if (this->t_type & ROT && (this->t_type & LED || this->t_type & ADAPTIVE_LED)) {
 
@@ -850,6 +826,69 @@ void KilobotTracker::trackKilobots()
                 case OFF:
                      line(display,center,heading,Scalar(255,255,255),3);
                      break;
+                }
+            }
+
+            // TRACKER POSITION ISSUES:
+            // 1. LEFT TRACKER: if the kilobot has moved but the tracker remains... see if we can find a
+            // circle with no tracker and a matching tracker with no circle
+            // 2. STOLEN TRACKER: if a tracker has moved to another kilobot - we have two trackers within a
+            // small distance of each other...
+            if (this->t_type & POS) {
+                // FIND ISSUES
+                if (time % 10 == 0 && false) {
+                    // we want to find tags that haven't moved, and tags too close together
+
+                    QVector < indexPair > closeIndexPairs;
+
+                    // too close
+                    for (int i = 0; i < this->kilos.size(); ++i) {
+                        for (int j = i; j < kilos.size(); ++j) {
+                            QLineF dist(kilos[i]->getPosition(), kilos[j]->getPosition());
+                            if (dist.length() < this->kbMinSize-2.0f) {
+                                closeIndexPairs.push_back(indexPair{i,j});
+                            }
+                        }
+                    }
+
+
+                    // not moved
+                    //for (int i = 0; i < this->kilos.size(); ++i) {
+
+                    if (closeIndexPairs.length() > 0 || notMovedIndices.length() > 0) {
+
+                        // re-acquire
+
+                        // pause experiment
+
+                        // identify kilobots
+
+
+                    }
+                }
+
+                // lost tag
+                if (notMovedIndices.size() == 1) {
+
+                    vector<Vec3f> circles;
+
+                    HoughCircles(this->finalImage,circles,CV_HOUGH_GRADIENT,1.0/* rez scaling (1 = full rez, 2 = half etc)*/,1.0/*maxS-1.0 circle distance*/,this->cannyThresh /* Canny threshold*/,this->houghAcc /*cicle algorithm accuracy*/,this->kbMinSize/* min circle size*/,this->kbMaxSize/* max circle size*/);
+
+                    // check for a circle we can't account for
+                    for (int c = 0; c < circles.size(); ++c) {
+                        bool foundCirc = false;
+                        for (int k = 0; k < kilos.size(); ++k) {
+                            if (qAbs(kilos[k]->getPosition().x()-circles[c][0]) < 16 && qAbs(kilos[k]->getPosition().y()-circles[c][1]) < 16) {
+                                foundCirc = true;
+                            }
+                        }
+                        if (!foundCirc) {
+                            // pair up!
+                            kilos[notMovedIndices[0]]->updateState(QPointF(circles[c][0],circles[c][1]),kilos[notMovedIndices[0]]->getVelocity(),kilos[notMovedIndices[0]]->getLedColour());
+                            this->circsToDraw.push_back(drawnCircle {Point(kilos[notMovedIndices[0]]->getPosition().x(),kilos[notMovedIndices[0]]->getPosition().y()), 4, QColor(0,255,0)});
+                            break;
+                        }
+                    }
                 }
             }
 

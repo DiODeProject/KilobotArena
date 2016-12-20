@@ -12,7 +12,7 @@ TARGET = KilobotArena
 TEMPLATE = app
 
 # switch between OpenCV2 and 3
-#CONFIG += use_opencv3
+CONFIG += use_opencv3
 
 
 SOURCES += main.cpp\
