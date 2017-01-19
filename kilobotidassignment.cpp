@@ -3,7 +3,7 @@
 
 KilobotIDAssignment::KilobotIDAssignment()
 {
-
+    this->serviceInterval = 100;
 }
 
 
@@ -12,7 +12,7 @@ void KilobotIDAssignment::initialise(bool)
 
     emit clearDrawings();
 
-    this->serviceInterval = 200;
+
 
     // calibrate LEDs
     emit setTrackingType(ADAPTIVE_LED);
@@ -36,9 +36,12 @@ void KilobotIDAssignment::run()
     this->lastTime += 0.1;
 
     // stop broadcasting (replace)
-    kilobot_broadcast msg;
-    msg.type = 20;
-    emit broadcastMessage(msg);
+    if (t_since > 0) {
+        kilobot_broadcast msg;
+        msg.type = 250;
+        emit broadcastMessage(msg);
+        --t_since;
+    }
 
     if (time > 2.0f && time < 2.15f) {
         // finish adaptation
@@ -68,6 +71,7 @@ void KilobotIDAssignment::run()
             kilobot_broadcast msg;
             msg.type = 1;
             emit broadcastMessage(msg);
+            t_since = 3;
 
             break;
         }
@@ -111,6 +115,7 @@ void KilobotIDAssignment::run()
                 kilobot_broadcast msg;
                 msg.type = 4;
                 emit broadcastMessage(msg);
+                t_since = 3;
             }
             if (lastTime > 1.0f*float(numSegments+1)+0.21f) {
 
@@ -139,6 +144,7 @@ void KilobotIDAssignment::run()
                     msg.type = 2;
                     msg.data = &data[0];
                     emit broadcastMessage(msg);
+                    t_since = 3;
                     this->isAssigned[numFound] = true; // set as assigned
                 }
                 ++numFound;
@@ -159,6 +165,7 @@ void KilobotIDAssignment::run()
             kilobot_broadcast msg;
             msg.type = 3;
             emit broadcastMessage(msg);
+            t_since = 3;
             this->stage = START;
             break;
         }
@@ -205,13 +212,13 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
     if (col == RED) {
         col2 = 0;
     }
-    if (col == BLUE) {
+    else if (col == BLUE) {
         col2 = 1;
     } else {
         qDebug() << "DETECTION ERROR";
     }
 
-    this->tempIDs[kilobotCopy.getID()] += int(col) * binaryMultipliers[numSegments-1];
+    this->tempIDs[kilobotCopy.getID()] += int(col2) * binaryMultipliers[numSegments-1];
     QString colName;
     if (col == OFF) colName = "OFF";
     if (col == RED) colName = "RED";

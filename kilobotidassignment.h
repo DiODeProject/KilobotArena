@@ -44,6 +44,7 @@ private:
 
         bool switchSegment = true;
         QElapsedTimer t;
+        int t_since = 0;
 };
 
 #endif // KILOBOTIDASSIGNMENT_H
