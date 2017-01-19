@@ -81,7 +81,7 @@ void KilobotIDAssignment::run()
                 this->switchSegment = false;
 
                 // when we have all segments
-                if (numSegments > 5) {
+                if (numSegments > 10) {
                     for (int i = 0; i < tempIDs.size(); ++i) {
                         qDebug() << i << ":" << this->tempIDs[i];
                     }
@@ -124,7 +124,7 @@ void KilobotIDAssignment::run()
         }
         case SEND:
         {
-            if (lastTime > 8.0f) {
+            if (lastTime > 16.0f) {
                 qDebug() << "SEND" << lastTime;
                 if (this->tempIDs[numFound] != DUPE && !this->isAssigned[numFound]) {
                     QVector<uint8_t> data;
@@ -200,8 +200,18 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
 
     lightColour col = kilobotCopy.getLedColour();
 
+    int col2 = 0;
 
-    this->tempIDs[kilobotCopy.getID()] += int(col) * baseFourMultipliers[numSegments-1];
+    if (col == RED) {
+        col2 = 0;
+    }
+    if (col == BLUE) {
+        col2 = 1;
+    } else {
+        qDebug() << "DETECTION ERROR";
+    }
+
+    this->tempIDs[kilobotCopy.getID()] += int(col) * binaryMultipliers[numSegments-1];
     QString colName;
     if (col == OFF) colName = "OFF";
     if (col == RED) colName = "RED";
