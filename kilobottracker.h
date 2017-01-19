@@ -268,8 +268,8 @@ private:
      * \return
      * Used to detect the presence, colour, and position of a kiloBot's light and return it
      */
-    kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox, int index);
-    kiloLight getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index);
+    kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox, int index,Mat);
+    kiloLight getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index,Mat);
 
     /*!
      * \brief getKiloBotBoundingBox

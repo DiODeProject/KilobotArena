@@ -532,7 +532,7 @@ void KilobotTracker::identifyKilobots()
                 bb_adj.y = bb_adj.y -900;
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
             }
-            this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
+            this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i, display);
         }
     }
     else if (time % 4 == 3)
@@ -567,7 +567,7 @@ void KilobotTracker::identifyKilobots()
                 for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
             }
 
-            kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
+            kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i, display);
 
             if (light.col == BLUE) {
                 qDebug() << "Found ID" << currentID;
@@ -674,9 +674,9 @@ void KilobotTracker::trackKilobots()
                     }
 
                     if (this->t_type & ADAPTIVE_LED) {
-                        light = this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
+                        light = this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i, display);
                     } else if (this->t_type & LED){
-                        light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
+                        light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i, display);
                     }
 
                 }
@@ -946,8 +946,223 @@ Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
 
 }
 
+kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, int index, Mat display)
+{
 
-kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, int index)
+    // find the location and colour of the light...
+
+   /* kiloLight light;
+    light.pos = Point(-1,-1);
+
+    Mat temp_a[3];
+    Mat temp_b[3];
+    Mat temp[3];
+    Scalar sums[3];
+
+    float tooBig = 10000.0f;
+
+    uint maxIndex = 0;
+
+    // find colour
+    for (uint i = 0; i < 3; ++i) {
+        if (i == 0) {
+            cv::add(channels[1]*0.55,channels[2]*0.55, temp_a[0]);
+            cv::subtract(channels[0], temp_a[0], temp_b[0]);
+        }
+        if (i == 1) {
+            cv::add(channels[0]*0.55,channels[2]*0.55, temp_a[1]);
+            cv::subtract(channels[1], temp_a[1], temp_b[1]);
+        }
+        if (i == 2) {
+            cv::add(channels[1]*0.55,channels[0]*0.55, temp_a[2]);
+            cv::subtract(channels[2], temp_a[2], temp_b[2]);
+        }
+        //cv::threshold(temp_b[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+        //temp[i] = temp[i] - kilos[index]->lightThreshold;
+        sums[i] = cv::sum(temp_b[i]);
+        maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
+    }
+
+    // set the light colour (OFF = 0, RED = 1, GREEN = 2, BLUE = 3)
+    light.col = sums[maxIndex][0] > 0.0f && sums[maxIndex][0] < tooBig ? (lightColour) (maxIndex+1) : OFF;
+
+    cv::Moments m = moments(temp[maxIndex], true);
+    cv::Point centreOfLight(m.m10/m.m00, m.m01/m.m00);
+
+    // calculate the heading:
+    if (centreOfLight.x > -1 && centreOfLight.y > -1) {
+
+        light.pos = centreOfLight - centreOfBox;
+
+    }*/
+
+    Mat moo;
+
+    return getKiloBotLightAdaptive(channels, centreOfBox, index, display);
+
+}
+
+
+kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index, Mat moo)
+{
+    // find the location and colour of the light...
+
+    kiloLight light;
+        light.pos = Point(-1,-1);
+
+        vector < Mat > temp(3);
+        Mat temp_a[3];
+        Mat temp_b[3];
+        Scalar sums[3];
+
+        float tooBig = 10000.0f;//10000.0f
+        int step = 5;
+
+        uint maxIndex = 0;
+
+        // find colour
+        // find colour
+        for (uint i = 0; i < 3; ++i) {
+            if (i == 0) {
+                cv::add(channels[1]*0.65,channels[2]*0.65, temp_a[0]);
+                cv::subtract(channels[0], temp_a[0], temp_b[0]);
+            }
+            if (i == 1) {
+                cv::add(channels[0]*0.65,channels[2]*0.65, temp_a[1]);
+                cv::subtract(channels[1], temp_a[1], temp_b[1]);
+            }
+            if (i == 2) {
+                cv::add(channels[1]*0.65,channels[0]*0.65, temp_a[2]);
+                cv::subtract(channels[2], temp_a[2], temp_b[2]);
+            }
+            //cv::threshold(temp_b[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+            //temp[i] = temp[i] - kilos[index]->lightThreshold;
+            temp_b[i] = temp_b[i].mul(temp_b[i]*0.1);
+
+            //double lightThreshold = 9;
+            //cv::threshold(temp_b[i], temp_b[i], lightThreshold, 255, CV_THRESH_TOZERO);
+
+            sums[i] = cv::sum(temp_b[i]);
+            maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
+        }
+
+
+        /*if (moo.size[0] > 20) {
+                Mat temppy(Size(channels[0].size[0],channels[0].size[1]),CV_8UC3);
+
+                cv::merge(&channels[0],3,temppy);
+                cv::resize(temppy,temppy,Size(500,500));
+                temppy.copyTo(moo(Rect(0,1500,500,500)));
+
+                cv::resize(temp_b[0],temppy,Size(500,500));
+                cv::cvtColor(temppy,temppy,CV_GRAY2RGB);
+                temppy.copyTo(moo(Rect(0,0,500,500)));
+
+                cv::resize(temp_b[1],temppy,Size(500,500));
+                cv::cvtColor(temppy,temppy,CV_GRAY2RGB);
+                temppy.copyTo(moo(Rect(0,500,500,500)));
+
+                cv::resize(temp_b[2],temppy,Size(500,500));
+                cv::cvtColor(temppy,temppy,CV_GRAY2RGB);
+                temppy.copyTo(moo(Rect(0,1000,500,500)));
+        }*/
+
+        //qDebug() << kilos[index]->lightThreshold;
+
+
+        /*if (sums[maxIndex][0] > tooBig) {
+            kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
+        }
+        if (sums[maxIndex][0] < 1.0f) {
+            kilos[index]->lightThreshold = kilos[index]->lightThreshold - step > 100 ? kilos[index]->lightThreshold - step : kilos[index]->lightThreshold;
+
+            maxIndex = 0;
+
+            // move back up if we hit a bit prob
+            for (uint i = 0; i < 3; ++i) {
+                cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+                temp[i] = temp[i] - kilos[index]->lightThreshold;
+                sums[i] = cv::sum(temp[i]);
+                maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
+            }
+
+            if (sums[maxIndex][0] > tooBig) {
+                kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
+            }
+        }*/
+
+        // set the light colour (OFF = 0, RED = 1, GREEN = 2, BLUE = 3)
+        light.col = sums[maxIndex][0] > 0.0f && sums[maxIndex][0] < tooBig*100 ? (lightColour) (maxIndex+1) : OFF;
+
+        cv::Moments m = moments(temp[maxIndex], true);
+        cv::Point centreOfLight(m.m10/m.m00, m.m01/m.m00);
+
+        // calculate the heading:
+        if (centreOfLight.x > -1 && centreOfLight.y > -1) {
+
+            light.pos = centreOfLight - centreOfBox;
+
+        }
+        return light;
+
+    /*kiloLight light;
+    light.pos = Point(-1,-1);
+
+    vector < Mat > temp(3);
+    Scalar sums[3];
+
+    float tooBig = 2000.0f;//10000.0f
+    int step = 5;
+
+    uint maxIndex = 0;
+
+    // find colour
+    for (uint i = 0; i < 3; ++i) {
+        cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+        temp[i] = temp[i] - kilos[index]->lightThreshold;
+        sums[i] = cv::sum(temp[i]);
+        maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
+    }
+
+    if (sums[maxIndex][0] > tooBig) {
+        kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
+    }
+    if (sums[maxIndex][0] < 1.0f) {
+        kilos[index]->lightThreshold = kilos[index]->lightThreshold - step > 100 ? kilos[index]->lightThreshold - step : kilos[index]->lightThreshold;
+
+        maxIndex = 0;
+
+        // move back up if we hit a bit prob
+        for (uint i = 0; i < 3; ++i) {
+            cv::threshold(channels[i], temp[i], kilos[index]->lightThreshold,255,CV_THRESH_TOZERO);
+            temp[i] = temp[i] - kilos[index]->lightThreshold;
+            sums[i] = cv::sum(temp[i]);
+            maxIndex = sums[i][0] > sums[maxIndex][0] ? i : maxIndex;
+        }
+
+        if (sums[maxIndex][0] > tooBig) {
+            kilos[index]->lightThreshold = kilos[index]->lightThreshold + step < 255 ? kilos[index]->lightThreshold + step : kilos[index]->lightThreshold;
+        }
+    }
+
+    // set the light colour (OFF = 0, RED = 1, GREEN = 2, BLUE = 3)
+    light.col = sums[maxIndex][0] > 0.0f && sums[maxIndex][0] < tooBig ? (lightColour) (maxIndex+1) : OFF;
+
+    cv::Moments m = moments(temp[maxIndex], true);
+    cv::Point centreOfLight(m.m10/m.m00, m.m01/m.m00);
+
+    // calculate the heading:
+    if (centreOfLight.x > -1 && centreOfLight.y > -1) {
+
+        light.pos = centreOfLight - centreOfBox;
+
+    }
+    return light;*/
+
+}
+
+
+/*kiloLight KilobotTracker::getKiloBotLight(Mat channels[3], Point centreOfBox, int index)
 {
     // find the location and colour of the light...
 
@@ -1044,7 +1259,7 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
     }
     return light;
 
-}
+}*/
 
 void KilobotTracker::SETUPloadCalibration()
 {
