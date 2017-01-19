@@ -117,7 +117,7 @@ void KilobotIDAssignment::run()
                 emit broadcastMessage(msg);
                 t_since = 3;
             }
-            if (lastTime > 1.0f*float(numSegments+1)+0.21f) {
+            if (lastTime > 1.5f*float(numSegments+1)+0.21f) {
 
                 ++numSegments;
                 emit updateKilobotStates();
@@ -129,7 +129,7 @@ void KilobotIDAssignment::run()
         }
         case SEND:
         {
-            if (lastTime > 16.0f) {
+            if (lastTime > 24.0f) {
                 qDebug() << "SEND" << lastTime;
                 if (this->tempIDs[numFound] != DUPE && !this->isAssigned[numFound]) {
                     QVector<uint8_t> data;
