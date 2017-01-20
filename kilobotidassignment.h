@@ -13,6 +13,8 @@ enum assignStage {
 };
 
 const int baseFourMultipliers[6] = {1,4,16,64,256,1024};
+const int binaryMultipliers[11] = {1,2,4,8,16,32,64,128,256,512,1024};
+
 
 //#define ASSIGNED -INT16_MAX
 #define DUPE UINT16_MAX
@@ -43,6 +45,7 @@ private:
 
         bool switchSegment = true;
         QElapsedTimer t;
+        int t_since;
 };
 
 #endif // KILOBOTIDASSIGNMENT_H

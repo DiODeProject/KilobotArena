@@ -55,6 +55,8 @@ private:
     KilobotOverheadController * ohc;
     KilobotTracker * kbtracker;
 
+    QString currExptFilename;
+
     int currExpt = 0;
 
     void run()
@@ -109,6 +111,7 @@ public slots:
         }
 
         void chooseInternalExperiments(int num) {
+            this->currExptFilename = "";
             if (num < 2) {
                 while (this->expts.size() > 0) {
                     this->expts[0]->deleteLater();
@@ -129,6 +132,8 @@ public slots:
 
         void loadLibrary(QString filename) {
 
+
+
             // load library
             QLibrary library(filename);
 
@@ -137,6 +142,11 @@ public slots:
             createExperimentFunction createExperiment = (createExperimentFunction)library.resolve("createExpt");
 
              if (createExperiment) {
+
+                 if (currExptFilename != filename) {
+                     currExptFilename = filename;
+                 }
+
                  while (this->expts.size() > 0) {
                      this->expts[0]->deleteLater();
                      this->expts.pop_front();

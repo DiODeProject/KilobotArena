@@ -37,6 +37,14 @@ void KilobotIDAssignment::run()
     kilobot_broadcast msg;
     msg.type = 20;
     emit broadcastMessage(msg);
+    if (t_since > 0) {
+        kilobot_broadcast msg;
+        msg.type = 250;
+        emit broadcastMessage(msg);
+        --t_since;
+    }
+
+
 
     if (time > 2.0f && time < 2.15f) {
         // finish adaptation
@@ -66,6 +74,7 @@ void KilobotIDAssignment::run()
             kilobot_broadcast msg;
             msg.type = 1;
             emit broadcastMessage(msg);
+            t_since = 3;
 
             break;
         }
@@ -79,7 +88,7 @@ void KilobotIDAssignment::run()
                 this->switchSegment = false;
 
                 // when we have all segments
-                if (numSegments > 5) {
+                if (numSegments > 10) {
                     for (int i = 0; i < tempIDs.size(); ++i) {
                         qDebug() << i << ":" << this->tempIDs[i];
                     }
@@ -109,6 +118,7 @@ void KilobotIDAssignment::run()
                 kilobot_broadcast msg;
                 msg.type = 4;
                 emit broadcastMessage(msg);
+                t_since = 3;
             }
             if (lastTime > 1.0f*float(numSegments+1)+0.21f) {
 
@@ -122,7 +132,7 @@ void KilobotIDAssignment::run()
         }
         case SEND:
         {
-            if (lastTime > 8.0f) {
+            if (lastTime > 16.0f) {
                 qDebug() << "SEND" << lastTime;
                 if (this->tempIDs[numFound] != DUPE && !this->isAssigned[numFound]) {
                     QVector<uint8_t> data;
@@ -137,6 +147,7 @@ void KilobotIDAssignment::run()
                     msg.type = 2;
                     msg.data = &data[0];
                     emit broadcastMessage(msg);
+                    t_since = 3;
                     this->isAssigned[numFound] = true; // set as assigned
                 }
                 ++numFound;
@@ -157,6 +168,7 @@ void KilobotIDAssignment::run()
             kilobot_broadcast msg;
             msg.type = 3;
             emit broadcastMessage(msg);
+            t_since = 3;
             this->stage = START;
             break;
         }
@@ -199,13 +211,25 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
     lightColour col = kilobotCopy.getLedColour();
 
 
-    this->tempIDs[kilobotCopy.getID()] += int(col) * baseFourMultipliers[numSegments-1];
+    this->tempIDs[kilobotCopy.getID()] += int(col) * binaryMultipliers[numSegments-1];
     QString colName;
     if (col == OFF) colName = "OFF";
     if (col == RED) colName = "RED";
     if (col == GREEN) colName = "GREEN";
     if (col == BLUE) colName = "BLUE";
-    qDebug() << "KB" << kilobotCopy.getID() << "part " << numSegments -1 << " = " << colName << t.elapsed();
+    //qDebug() << "KB" << kilobotCopy.getID() << "part " << numSegments -1 << " = " << colName << t.elapsed();
 
+    int col2 = 0;
+
+    if (col == RED) {
+        col2 = 0;
+    }
+    else if (col == BLUE) {
+        col2 = 1;
+    } else {
+        qDebug() << "DETECTION ERROR";
+    }
+
+    this->tempIDs[kilobotCopy.getID()] += int(col2) * binaryMultipliers[numSegm
 
 }

@@ -157,10 +157,16 @@ void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
         return;
     }
 
-    if (message.type > 127) {
+    if (message.type > 127 && message.type != COMMAND_STOP) {
         qDebug() << "Warning - tried to send a user broadcast message with type in the system message range > 127";
         return;
     }
+
+    if (message.type == COMMAND_STOP) {
+        this->stopSending();
+        return;
+    }
+
 
     if (message.data == 0) {
         uint8_t data[9] = {0,0,0,0,0,0,0,0,0};

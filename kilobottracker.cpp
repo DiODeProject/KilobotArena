@@ -650,7 +650,7 @@ void KilobotTracker::identifyKilobots()
 
             kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
 
-            if (light.col == GREEN) {
+            if (light.col == BLUE) {
                 qDebug() << "Found ID" << currentID;
                 kilos[i]->setID((uint8_t) currentID);
                 this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0)});
