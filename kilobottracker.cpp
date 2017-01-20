@@ -24,7 +24,7 @@ srcBuffer srcBuff[4][BUFF_SIZE];
 QSemaphore srcStop[4];
 QSemaphore camUsage;
 
-int camOrder[4] = {0,1,2,3};
+int camOrder[4] = {1,2,3,0};
 
 /*!
  * \brief The acquireThread class
@@ -116,7 +116,7 @@ private:
                 else if (type == CAMERA) {
 #ifndef TEST_WITHOUT_CAMERAS
                     camUsage.acquire();
-                    if (!cap.isOpened() && camOrder[index]<1  /*TEMPORARY!!! */) {
+                    if (!cap.isOpened() && camOrder[index]<4  /*TEMPORARY!!! */) {
                         cap.open(camOrder[index]);
                         // set REZ
                         if (cap.isOpened()) {
@@ -1460,7 +1460,13 @@ void KilobotTracker::SETUPsetCamOrder()
         }
         if (haveIndex[0] && haveIndex[1] && haveIndex[2] && haveIndex[3])
         {
-            for (int i = 0; i < 4; ++i) camOrder[i] = temp[i];
+            for (int i = 0; i < 4; ++i)
+            {
+                camOrder[i] = temp[i];
+                /*if (this->threads[i]) {
+                    this->threads[i]->index =
+                }*/
+            }
             qDebug() << "Cam order set";
         }
     }
