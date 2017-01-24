@@ -1,6 +1,7 @@
 #include "serialconn.h"
 #include "packet.h"
 #include <QDir>
+#include <QDebug>
 
 #ifdef _WIN32
 // based on http://playground.arduino.cc/Interfacing/CPPWindows
@@ -183,6 +184,7 @@ void SerialConnection::open() {
 void SerialConnection::queueCommand(QByteArray cmd) {
     cmds.push_back(cmd);
     QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+    qDebug() << "Command sent" << delay.currentTime();
 }
 
 void SerialConnection::sendQueuedCommand() {

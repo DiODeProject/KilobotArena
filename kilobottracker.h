@@ -298,6 +298,7 @@ private:
 #ifdef USE_CUDA
     kiloLight getKiloBotLight(cuda::GpuMat  channels[3], Point centreOfBox, int index);
     kiloLight getKiloBotLightAdaptive(cuda::GpuMat  channels[3], Point centreOfBox, int index);
+    void getKiloBotLights(Mat &display);
 #else
     kiloLight getKiloBotLight(Mat channels[3], Point centreOfBox, int index);
     kiloLight getKiloBotLightAdaptive(Mat channels[3], Point centreOfBox, int index);
@@ -336,6 +337,8 @@ private:
 
 #ifdef USE_CUDA
     cuda::GpuMat finalImage;
+    cuda::GpuMat finalImageG;
+    cuda::GpuMat finalImageR;
     cuda::GpuMat fullImages[4][3];
     // make thread safe
     cuda::Stream stream;
@@ -408,6 +411,8 @@ private:
 
 #ifdef USE_CUDA
     Ptr<cuda::HoughCirclesDetector> hough;
+    // RGB Hough
+    Ptr<cuda::HoughCirclesDetector> hough2;
     cuda::GpuMat kbLocs;
 #endif
 

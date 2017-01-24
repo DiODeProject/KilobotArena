@@ -78,7 +78,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // TRACKER -> OHC
     connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
-    // connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_broadcast)), &this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
+    connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_broadcast)), &this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
 
     // USERTHREAD -> UI
     connect(this->thread, SIGNAL(setLibName(QString)), ui->expt_msg, SLOT(setText(QString)));
@@ -190,7 +190,6 @@ void MainWindow::left()
 
     kilobot_broadcast msg;
     msg.type = 2;
-    msg.data = 0;
     ohc.broadcastMessage(msg);
 
 }
@@ -201,7 +200,6 @@ void MainWindow::right()
 
     kilobot_broadcast msg;
     msg.type = 3;
-    msg.data = 0;
     ohc.broadcastMessage(msg);
 
 }
@@ -213,7 +211,6 @@ void MainWindow::straight()
 
     kilobot_broadcast msg;
     msg.type = 1;
-    msg.data = 0;
     ohc.broadcastMessage(msg);
 }
 
@@ -223,6 +220,5 @@ void MainWindow::test_id()
 
     kilobot_broadcast msg;
     msg.type = 4;
-    msg.data = 0;
     ohc.broadcastMessage(msg);
 }

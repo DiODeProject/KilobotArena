@@ -53,7 +53,6 @@ void KilobotCalibrate::run()
         // broadcast to store calib data
         kilobot_broadcast msg;
         msg.type = 110;
-        msg.data = 0;
         emit broadcastMessage(msg);
     }
     if (((KilobotCalibrateEnv *)this->environments[0])->strDone) {
@@ -61,7 +60,6 @@ void KilobotCalibrate::run()
         // broadcast to store calib data
         kilobot_broadcast msg;
         msg.type = 111;
-        msg.data = 0;
         emit broadcastMessage(msg);
     }
 

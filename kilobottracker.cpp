@@ -292,6 +292,7 @@ void KilobotTracker::LOOPstartstop(int stage)
     kbLocs.upload(tempKbLocs);
     
     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,1024);
+    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,2,20,1024);
 #endif
 
     QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
@@ -420,6 +421,16 @@ void KilobotTracker::LOOPiterate()
         this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(1000,0,1000,1000)));
         this->fullImages[clData.inds[2]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(0,1000,1000,1000)));
         this->fullImages[clData.inds[3]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(1000,1000,1000,1000)));
+        cv::cuda::GpuMat resultG(2000, 2000, this->fullImages[clData.inds[0]][0].type());
+        this->fullImages[clData.inds[0]][1](Rect(100,100,1000,1000)).copyTo(resultG(cv::Rect(0,0,1000,1000)));
+        this->fullImages[clData.inds[1]][1](Rect(100,100,1000,1000)).copyTo(resultG(cv::Rect(1000,0,1000,1000)));
+        this->fullImages[clData.inds[2]][1](Rect(100,100,1000,1000)).copyTo(resultG(cv::Rect(0,1000,1000,1000)));
+        this->fullImages[clData.inds[3]][1](Rect(100,100,1000,1000)).copyTo(resultG(cv::Rect(1000,1000,1000,1000)));
+        cv::cuda::GpuMat resultR(2000, 2000, this->fullImages[clData.inds[0]][0].type());
+        this->fullImages[clData.inds[0]][2](Rect(100,100,1000,1000)).copyTo(resultR(cv::Rect(0,0,1000,1000)));
+        this->fullImages[clData.inds[1]][2](Rect(100,100,1000,1000)).copyTo(resultR(cv::Rect(1000,0,1000,1000)));
+        this->fullImages[clData.inds[2]][2](Rect(100,100,1000,1000)).copyTo(resultR(cv::Rect(0,1000,1000,1000)));
+        this->fullImages[clData.inds[3]][2](Rect(100,100,1000,1000)).copyTo(resultR(cv::Rect(1000,1000,1000,1000)));
 #else
         Mat result;
         hconcat(this->fullImages[clData.inds[0]][0](Rect(100,100,1000,1000)),this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)),top);
@@ -439,6 +450,8 @@ void KilobotTracker::LOOPiterate()
 
 
         this->finalImage = result;
+        this->finalImageG = resultG;
+        this->finalImageR = resultR;
 
         //qDebug() << "Main" << time << QTime::currentTime();
 
@@ -568,89 +581,16 @@ void KilobotTracker::identifyKilobots()
         this->circsToDraw.clear();
     }
 
-    bool adaptiveLED = false;
-
-    // adapt for 30 frames
-    if (time < 30) {
-        adaptiveLED = true;
-    }
-
-    if (time % 4 != 3 || adaptiveLED) {
-        for (uint i = 0; i < (uint) kilos.size(); ++i) {
-
-            // get bounding box
-            Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
-
-#ifdef USE_CUDA
-            cuda::GpuMat temp[3];
-#else
-            Mat temp[3];
-#endif
-
-            // switch source depending on position...
-            if (bb.x < 2000/2 && bb.y < 2000/2) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x +100;
-                bb_adj.y = bb_adj.y +100;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
-            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -900;
-                bb_adj.y = bb_adj.y +100;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
-            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x +100;
-                bb_adj.y = bb_adj.y -900;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
-            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -900;
-                bb_adj.y = bb_adj.y -900;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
-            }
-            this->getKiloBotLightAdaptive(temp, Point(bb.width/2,bb.height/2),i);
-        }
-    }
-    else if (time % 4 == 3)
+    if (time % 6 == 5)
     {
 
+        this->getKiloBotLights(display);
+
         for (uint i = 0; i < (uint) kilos.size(); ++i) {
 
-            // get bounding box
-            Rect bb = this->getKiloBotBoundingBox(i, 1.1f);
 
-#ifdef USE_CUDA
-            cuda::GpuMat temp[3];
-#else
-            Mat temp[3];
-#endif
 
-            if (bb.x < 2000/2 && bb.y < 2000/2) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x +100;
-                bb_adj.y = bb_adj.y +100;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
-            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -900;
-                bb_adj.y = bb_adj.y +100;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
-            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x +100;
-                bb_adj.y = bb_adj.y -900;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
-            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-                Rect bb_adj = bb;
-                bb_adj.x = bb_adj.x -900;
-                bb_adj.y = bb_adj.y -900;
-                for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
-            }
-
-            kiloLight light = this->getKiloBotLight(temp, Point(bb.width/2,bb.height/2),i);
-
-            if (light.col == BLUE) {
+            if (kilos[i]->getLedColour() == BLUE) {
                 qDebug() << "Found ID" << currentID;
                 kilos[i]->setID((uint8_t) currentID);
                 this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0)});
@@ -677,7 +617,7 @@ void KilobotTracker::identifyKilobot(int id)
 {
 
     // decompose id
-    uint8_t data[9] = {0,0,0,0,0,0,0,0,0};
+    QVector < uint8_t > data(9);
     data[0] = id >> 8;
     data[1] = id & 0xFF;
 
@@ -792,7 +732,7 @@ void KilobotTracker::trackKilobots()
                     for (int i = 0; i < this->kilos.size(); ++i) {
                         minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                         // work out if we should update...
-                        if (*min < this->kbMinSize) {
+                        if (*min < float(this->kbMinSize)/2.0) {
                             circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
                             circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
 
@@ -806,6 +746,9 @@ void KilobotTracker::trackKilobots()
                     // recompose kbLocs
                     cuda::merge(kbChans,kbLocs);
                 }
+
+                // now we must do the LED detection:
+                this->getKiloBotLights(display);
 
         break;
     }
@@ -1116,6 +1059,233 @@ Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
 
 }
 
+void KilobotTracker::getKiloBotLights(Mat &display) {
+
+
+    // use CUDA to find the kilobot lights...
+
+    // set up three streams to try to get concurrent kernels
+    cuda::Stream stream1;
+    cuda::Stream stream2;
+    cuda::Stream stream3;
+
+    // calculate differences
+    cuda::GpuMat channelRlow;
+    cuda::GpuMat channelGlow;
+    cuda::GpuMat channelBlow;
+    cuda::multiply(finalImageR,0.6,channelRlow,1,-1,stream2);
+    cuda::multiply(finalImageG,0.56,channelGlow,1,-1,stream3);
+    cuda::multiply(finalImage,0.65,channelBlow,1,-1,stream1);
+
+    //cuda::GpuMat channelRhigh;
+    cuda::GpuMat channelGhigh;
+    //cuda::GpuMat channelBhigh;
+    //cuda::multiply(finalImageR,0.55,channelRhigh,1,-1,stream2);
+    cuda::multiply(finalImageG,0.70,channelGhigh,1,-1,stream3);
+    //cuda::multiply(finalImage, 0.55,channelBhigh,1,-1,stream1);*/
+
+    cuda::GpuMat bg;
+    cuda::add(channelBlow,channelGhigh,bg, cuda::GpuMat(),-1,stream1);
+
+    cuda::GpuMat rg;
+    cuda::add(channelRlow,channelGlow,rg, cuda::GpuMat(),-1,stream2);
+
+    cuda::GpuMat br;
+    cuda::add(channelBlow,channelRlow,br, cuda::GpuMat(),-1,stream3);
+
+    cuda::GpuMat b;
+    cuda::GpuMat g;
+    cuda::GpuMat r;
+    cuda::subtract(finalImageR,bg,r,cuda::GpuMat(),-1,stream1);
+    cuda::subtract(finalImageG,br,g,cuda::GpuMat(),-1,stream3);
+    cuda::subtract(finalImage,rg,b,cuda::GpuMat(),-1,stream2);
+
+    cuda::GpuMat yay;
+    cuda::multiply(r,3.0,yay,1,-1,stream2);
+    yay.download(display);
+    cv::cvtColor(display,display,CV_GRAY2RGB);
+
+    int circlyness = 7;
+
+    QVector < bool > isBlue;
+
+    isBlue.resize(this->kilos.size());
+
+    {
+        // BLUE
+
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(b,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                // work out if we should update...
+                if (*min < float(this->kbMaxSize)/2.0) {
+
+                    lightColour col;
+                    col = BLUE;
+                    isBlue[i] = true;
+
+                    // on the cpu
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                }
+            }
+
+        }
+    }
+
+    {
+        // RED
+
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(r,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+        Mat xCpu;
+        Mat yCpu;
+        circChans[0].download(xCpu);
+        circChans[1].download(yCpu);
+
+        for (uint i = 0; i < xCpu.size().width;++i) {
+            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+        }
+
+        //qDebug() << circChans[0].size().width;
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                // work out if we should update...
+                if (*min < float(this->kbMaxSize)/2.0) {
+
+                    lightColour col;
+                    col = RED;
+
+                    if (isBlue[i]){
+                        qDebug() << "  * * * * * WE GOT AN ERROR! (on robot " << i << ") * * * * *";
+                    }
+
+                    // on the cpu
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                }
+            }
+
+        }
+    }
+
+}
 
 
 #ifdef USE_CUDA
@@ -1239,7 +1409,7 @@ void KilobotTracker::SETUPloadCalibration()
     // nicety - load last used directory
     QSettings settings;
     QString lastDir = settings.value("lastDirOut", QDir::homePath()).toString();
-    QString fileName = QFileDialog::getOpenFileName((QWidget *) sender(), tr("Load Calibration"), lastDir, tr("XML files (*.xml);; All files (*)"));
+    QString fileName = QFileDialog::getOpenFileName((QWidget *) sender(), tr("Load Calibration"), lastDir, tr("Calib files (*.xml *.yaml);; All files (*)"));
 
     if (fileName.isEmpty()) {
         emit errorMessage("No file selected");

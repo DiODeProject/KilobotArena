@@ -168,14 +168,15 @@ void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
     }
 
 
-    if (message.data == 0) {
+    if (message.data.isEmpty()) {
         uint8_t data[9] = {0,0,0,0,0,0,0,0,0};
         this->sendDataMessage(data, message.type);
 
     } else {
-        this->sendDataMessage(message.data, message.type);
+        this->sendDataMessage(&message.data[0], message.type);
 
     }
+    qDebug() << "Broadcasting" << message.type << " content" << message.data;
 }
 
 

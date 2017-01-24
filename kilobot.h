@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <QPointF>
+#include <QVector>
 
 enum lightColour {
     OFF,
@@ -27,10 +28,10 @@ typedef struct {
         uint16_t data :10;
 } kilobot_message;
 
-typedef struct {
+struct kilobot_broadcast {
         uint8_t type;
-        uint8_t * data = 0;
-} kilobot_broadcast;
+        QVector < uint8_t > data;
+};
 
 #define uint8_t_LENGTH 10 // in bits
 #define KILOBOT_MESSAGE_TYPE_LENGTH 4 // in bits
