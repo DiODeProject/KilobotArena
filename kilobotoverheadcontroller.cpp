@@ -164,6 +164,7 @@ void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
 
     if (message.type == COMMAND_STOP) {
         this->stopSending();
+        //qDebug() << "STOP!";
         return;
     }
 
@@ -212,8 +213,7 @@ void KilobotOverheadController::toggleConnection() {
 }
 
 void KilobotOverheadController::stopSending() {
-    if (sending)
-        sendMessage(COMMAND_STOP);
+   sendMessage(COMMAND_STOP);
 }
 
 void KilobotOverheadController::sendMessage(int type_int) {
@@ -248,10 +248,10 @@ void KilobotOverheadController::sendMessage(int type_int) {
 }
 
 void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) {
-    if (sending) {
-        emit setStopButton(true);
-        stopSending();
-    }
+    //if (sending) {
+    emit setStopButton(true);
+        //stopSending();
+    //}
 
     QByteArray packet(PACKET_SIZE, 0);
     uint8_t checksum = PACKET_HEADER^PACKET_FORWARDMSG^type;
@@ -263,7 +263,7 @@ void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) 
     }
     packet[11] = type;
     packet[PACKET_SIZE-1] = checksum;
-    sending = true;
+    //sending = true;
 
 
     serial_conn->queueCommand(packet);

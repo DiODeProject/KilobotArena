@@ -116,7 +116,7 @@ private:
                 else if (type == CAMERA) {
 #ifndef TEST_WITHOUT_CAMERAS
                     camUsage.acquire();
-                    if (!cap.isOpened() && camOrder[index]<4  /*TEMPORARY!!! */) {
+                    if (!cap.isOpened() && camOrder[index]<4) {
                         cap.open(camOrder[index]);
                         // set REZ
                         if (cap.isOpened()) {
@@ -528,6 +528,7 @@ void KilobotTracker::SETUPfindKilobots()
          //circle( result, center, 3, Scalar(0,255,0), -1, 8, 0 );
          // draw the circle outline
          circle( display, center, radius, Scalar(0,0,255), 3, 8, 0 );
+         putText(display, to_string(i), center, FONT_HERSHEY_PLAIN, 5, Scalar(0,0,255), 3);
     }
 
     cv::resize(display,display,Size(this->smallImageSize.x()*2, this->smallImageSize.y()*2));
@@ -670,7 +671,7 @@ void KilobotTracker::trackKilobots()
 
                 if (this->kilos.size() == 0) break;
 
-                int circle_acc = 25;
+                int circle_acc = 18;
                 cuda::GpuMat circlesGpu;
 
                 vector < cuda::GpuMat > circChans;
@@ -732,7 +733,7 @@ void KilobotTracker::trackKilobots()
                     for (int i = 0; i < this->kilos.size(); ++i) {
                         minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                         // work out if we should update...
-                        if (*min < float(this->kbMinSize)/2.0) {
+                        if (*min < float(this->kbMinSize)/1.0) { // might be too big - could replace 2 by 3 or 4 or 1
                             circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
                             circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
 
@@ -749,6 +750,13 @@ void KilobotTracker::trackKilobots()
 
                 // now we must do the LED detection:
                 this->getKiloBotLights(display);
+
+                // we add overlay circles */
+                this->clearDrawings();
+                for (int i = 0; i < this->kilos.size(); ++i) {
+                    this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 10, QColor(0,255,0),to_string(i)});
+                }
+                this->drawOverlay(display);
 
         break;
     }
@@ -1034,7 +1042,9 @@ void KilobotTracker::drawOverlay(Mat & display)
     for (int i = 0; i < this->circsToDraw.size(); ++i) {
 
         cv::circle(display,this->circsToDraw[i].pos,this->circsToDraw[i].r,Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()),2);
-
+        if (this->showIDs) {
+            cv::putText(display, this->circsToDraw[i].text, this->circsToDraw[i].pos, FONT_HERSHEY_PLAIN, 5, Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()), 3);
+        }
     }
 
 }
@@ -1100,10 +1110,10 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
     cuda::subtract(finalImageG,br,g,cuda::GpuMat(),-1,stream3);
     cuda::subtract(finalImage,rg,b,cuda::GpuMat(),-1,stream2);
 
-    cuda::GpuMat yay;
-    cuda::multiply(r,3.0,yay,1,-1,stream2);
-    yay.download(display);
-    cv::cvtColor(display,display,CV_GRAY2RGB);
+//    cuda::GpuMat yay;
+//    cuda::multiply(r,3.0,yay,1,-1,stream2);
+//    yay.download(display);
+//    cv::cvtColor(display,display,CV_GRAY2RGB);
 
     int circlyness = 7;
 
@@ -1218,14 +1228,14 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         cuda::GpuMat all_x_kb;
         cuda::GpuMat all_y_kb;
 
-        Mat xCpu;
-        Mat yCpu;
-        circChans[0].download(xCpu);
-        circChans[1].download(yCpu);
+//        Mat xCpu;
+//        Mat yCpu;
+//        circChans[0].download(xCpu);
+//        circChans[1].download(yCpu);
 
-        for (uint i = 0; i < xCpu.size().width;++i) {
-            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
-        }
+//        for (int i = 0; i < xCpu.size().width;++i) {
+//            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+//        }
 
         //qDebug() << circChans[0].size().width;
 
@@ -1274,7 +1284,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                     col = RED;
 
                     if (isBlue[i]){
-                        qDebug() << "  * * * * * WE GOT AN ERROR! (on robot " << i << ") * * * * *";
+                        qDebug() << "  * * * * * WE GOT A POSSIBLE DETECTION ERROR! (on robot " << i << ") * * * * *";
                     }
 
                     // on the cpu

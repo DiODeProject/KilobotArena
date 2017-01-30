@@ -183,21 +183,24 @@ void SerialConnection::open() {
 
 void SerialConnection::queueCommand(QByteArray cmd) {
     cmds.push_back(cmd);
-    QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
-    qDebug() << "Command sent" << delay.currentTime();
+    //QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+    //qDebug() << "Command q'd" << delay.currentTime();// << cmds;
+    this->sendQueuedCommand();
 }
 
 void SerialConnection::sendQueuedCommand() {
-    if (delay.elapsed() < 5) {
-        usleep(100);
+    if (delay.elapsed() < 50) {
         QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+        //qDebug() << "q func called";
     } else {
         // send next q'd command
         if (this->cmds.size() > 0) {
             // send
+            delay.restart(); // AJC - sending a command - wait before sending another
+            //qDebug() << "Command to send" << delay.currentTime();
             this->sendCommand(this->cmds[0]);
+            //qDebug() << "Command from send" << delay.currentTime();
             cmds.pop_front();
-            delay.restart(); // AJC - we've sent a command - wait before sending another
             QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
         }
     }
@@ -213,9 +216,11 @@ void SerialConnection::sendCommand(QByteArray cmd) {
         if (!WriteFile(*((HANDLE*)context), cmd.constData(), cmd.length(), &bytes_sent, 0) || bytes_sent != (DWORD)cmd.length())
             emit error(QString("unable to send command."));
 #else
+        //qDebug() << "Command sending..." << delay.currentTime();
         if (write(*((int*)context), cmd.constData(), cmd.length()) != cmd.length())
             emit error(QString("unable to send command"));
         tcdrain(*((int*)context));
+        //qDebug() << "Command sent" << delay.currentTime();
 #endif
     } else {
         emit error("cannot send command if disconnected from usb device.");

@@ -145,6 +145,7 @@ struct drawnCircle {
     Point pos;
     int r;
     QColor col;
+    std::string text;
 };
 
 class acquireThread;
@@ -264,6 +265,14 @@ public slots:
 
     void setTrackingType(int t_type) {this->t_type = t_type;}
 
+    /*!
+     * \brief showIds
+     * \param toggle
+     *
+     * Accessor to allow drawing of KiloBot IDs
+     */
+    void showIds(bool toggle) {this->showIDs = toggle;}
+
 private:
 
     // PRIVATE METHODS
@@ -377,7 +386,7 @@ private:
 
     int kbMinSize = 10;
     int kbMaxSize = 31;
-    int houghAcc = 25;
+    int houghAcc = 21;
     int cannyThresh = 50;
 
     srcDataType srcType = CAMERA;
@@ -415,6 +424,8 @@ private:
     Ptr<cuda::HoughCirclesDetector> hough2;
     cuda::GpuMat kbLocs;
 #endif
+
+    bool showIDs = true;
 
 };
 

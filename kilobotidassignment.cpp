@@ -20,7 +20,7 @@ void KilobotIDAssignment::initialise(bool)
     emit broadcastMessage(msg);
     this->time = 0.0;
     this->lastTime = 0.0;
-    this->numFound = 0;
+//    this->numFound = 0;
     this->numSegments = 0;
     this->switchSegment = true;
     this->stage = START;
@@ -60,7 +60,7 @@ void KilobotIDAssignment::run()
             this->switchSegment = true;
 
             this->stage = TEST;
-            this->numFound = 0;
+//            this->numFound = 0;
             this->numSegments = 0;
             for (int i = 0; i < tempIDs.size(); ++i) {
 
@@ -72,7 +72,7 @@ void KilobotIDAssignment::run()
             kilobot_broadcast msg;
             msg.type = 1;
             emit broadcastMessage(msg);
-            t_since = 3;
+            t_since = 2;
 
             break;
         }
@@ -116,7 +116,7 @@ void KilobotIDAssignment::run()
                 kilobot_broadcast msg;
                 msg.type = 4;
                 emit broadcastMessage(msg);
-                t_since = 3;
+                t_since = 2;
             }
             if (lastTime > 1.0f*float(numSegments+1)+0.21f) {
 
@@ -132,31 +132,31 @@ void KilobotIDAssignment::run()
         {
             if (lastTime > 14.0f) {
                 if (t_since < 4) {
-                    qDebug() << "SEND" << lastTime;
-                    if (this->tempIDs[numFound] != DUPE && !this->isAssigned[numFound]) {
-                        QVector<uint8_t> data;
-                        data.resize(9);
-                        // current temp ID
-                        data[0] = (this->tempIDs[numFound] >> 8)&0xFF;
-                        data[1] = this->tempIDs[numFound]&0xFF;
-                        // UID to set
-                        data[2] = (numFound >> 8)&0xFF;
-                        data[3] = numFound&0xFF;
-                        kilobot_broadcast msg;
-                        msg.type = 2;
-                        msg.data = data;
-                        emit broadcastMessage(msg);
-                        t_since = 3;
-                        this->isAssigned[numFound] = true; // set as assigned
-                    }
-                    ++numFound;
-                    if (numFound > tempIDs.size() - 1) {
-                        if (dupesFound) {
-                            this->stage = RETRY;
-                        } else {
-                            // end
-                            this->stage = COMPLETE;
+                    for (int id = 0; id < tempIDs.size(); ++id) {
+                        qDebug() << "SEND" << lastTime;
+                        if (this->tempIDs[id] != DUPE && !this->isAssigned[id]) {
+                            QVector<uint8_t> data;
+                            data.resize(9);
+                            // current temp ID
+                            data[0] = (this->tempIDs[id] >> 8)&0xFF;
+                            data[1] = this->tempIDs[id]&0xFF;
+                            // UID to set
+                            data[2] = (id >> 8)&0xFF;
+                            data[3] = id&0xFF;
+                            kilobot_broadcast msg;
+                            msg.type = 2;
+                            msg.data = data;
+                            emit broadcastMessage(msg);
+                            t_since = 2;
+                            this->isAssigned[id] = true; // set as assigned
                         }
+//                        ++numFound;
+                    }
+                    if (dupesFound) {
+                        this->stage = RETRY;
+                    } else {
+                        // end
+                        this->stage = COMPLETE;
                     }
                 }
             }
@@ -168,7 +168,7 @@ void KilobotIDAssignment::run()
             kilobot_broadcast msg;
             msg.type = 3;
             emit broadcastMessage(msg);
-            t_since = 3;
+            t_since = 2;
             this->stage = START;
             break;
         }

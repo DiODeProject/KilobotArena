@@ -213,7 +213,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="page_src">
      <property name="geometry">
@@ -221,7 +221,7 @@
        <x>0</x>
        <y>0</y>
        <width>251</width>
-       <height>469</height>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -360,13 +360,13 @@
        <x>0</x>
        <y>0</y>
        <width>251</width>
-       <height>469</height>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
       <string>Setup</string>
      </attribute>
-     <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,1,1,0,0,0">
+     <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,1,1,0,0,0,0">
       <property name="leftMargin">
        <number>0</number>
       </property>
@@ -429,6 +429,16 @@
        <widget class="QPushButton" name="calibrate">
         <property name="text">
          <string>Calibrate</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="show_ids">
+        <property name="text">
+         <string>show IDs</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -764,7 +774,7 @@
        <x>0</x>
        <y>0</y>
        <width>251</width>
-       <height>469</height>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -867,7 +877,7 @@
        <x>0</x>
        <y>0</y>
        <width>251</width>
-       <height>469</height>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1005,7 +1015,7 @@
      <x>0</x>
      <y>0</y>
      <width>885</width>
-     <height>19</height>
+     <height>22</height>
     </rect>
    </property>
   </widget>

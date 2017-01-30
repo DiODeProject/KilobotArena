@@ -39,7 +39,7 @@ private:
         QVector < bool > isAssigned;
         assignStage stage;
         float lastTime = 0.0f;
-        int numFound = 0;
+        //int numFound = 0;
         bool dupesFound = 0;
         int numSegments = 0;
 
