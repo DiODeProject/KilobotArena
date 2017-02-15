@@ -14,9 +14,9 @@
 
 enum lightColour {
     OFF,
-    BLUE,
+    RED,
     GREEN,
-    RED
+    BLUE
 };
 
 typedef uint16_t kilobot_id;
@@ -69,6 +69,52 @@ enum tracking_flags {
 };*/
 typedef lightColour kilobot_colour;
 
+
+class ColourBuffer{
+public:
+    ColourBuffer() : ColourBuffer(1) {}
+    ~ColourBuffer() {}
+    ColourBuffer(int size);
+    void addColour(lightColour newColour);
+    lightColour getAvgColour();
+    lightColour getLastColour() {return buffer.at(buffer.size()-1);}
+
+private:
+    int buffer_size;
+    QVector < lightColour > buffer;
+
+};
+
+class OrientationBuffer{
+public:
+    OrientationBuffer() : OrientationBuffer(1) {}
+    ~OrientationBuffer() {}
+    OrientationBuffer(int size) : buffer_size(size) {}
+    void addOrientation(QPointF newOrientation);
+    QPointF getAvgOrientation();
+    QPointF getLastOrientation() {return buffer.at(buffer.size()-1);}
+
+private:
+    int buffer_size;
+    QVector < QPointF > buffer;
+
+};
+
+class PositionBuffer{
+public:
+    PositionBuffer() : PositionBuffer(1) {}
+    ~PositionBuffer() {}
+    PositionBuffer(int size) : buffer_size(size) {}
+    void addPosition(QPointF newPosition);
+    QPointF getOrientationFromPositions();
+    QPointF getLastPosition() {return buffer.at(buffer.size()-1);}
+
+private:
+    int buffer_size;
+    QVector < QPointF > buffer;
+
+};
+
 class Kilobot : public QObject {
     Q_OBJECT
 public:
@@ -104,6 +150,10 @@ public:
 
     int lightThreshold = 230;
 
+    ColourBuffer colBuffer = ColourBuffer(5);
+    OrientationBuffer velocityBuffer = OrientationBuffer(5);
+    PositionBuffer posBuffer = PositionBuffer(6);
+
 signals:
     void sendUpdateToHardware(Kilobot);
     void sendUpdateToExperiment(Kilobot*,Kilobot);
@@ -113,6 +163,7 @@ private:
     QPointF pos = QPointF(0,0);
     QPointF vel = QPointF(1,1);
     kilobot_colour col = OFF;
+
 };
 
 #endif // KILOBOT_H

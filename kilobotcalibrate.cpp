@@ -79,6 +79,6 @@ void KilobotCalibrate::setupInitialKilobotState(Kilobot /*kilobotCopy*/)
 void KilobotCalibrate::updateKilobotState(Kilobot kilobotCopy)
 {
 
-    emit drawCircle(kilobotCopy.getPosition(), 20, QColor(255,0,0));
+    emit drawCircle(kilobotCopy.getPosition(), 20, QColor(255,0,0), 2, "");
 
 }

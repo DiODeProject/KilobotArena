@@ -32,11 +32,15 @@ signals:
     void setTrackingType(int);
 
     // drawing
-    void drawCircle(QPointF pos, float r, QColor col);
+    void drawCircle(QPointF pos, float r, QColor col, int thickness, std::string text);
     void clearDrawings();
+    void drawCircleOnRecordedImage(QPointF pos, float r, QColor col, int thickness, std::string text);
+    void clearDrawingsOnRecordedImage();
+
 
 public slots:
     virtual void initialise(bool) = 0;
+    virtual void stopExperiment() {}
     virtual void run() {}
 
 

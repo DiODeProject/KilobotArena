@@ -52,6 +52,11 @@ MainWindow::MainWindow(QWidget *parent) :
     if (ui->show_ids->isChecked()) this->kbtracker.showIds(true);
     connect(ui->show_ids, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(showIds(bool)));
 
+    connect(ui->maxIDtoTry_input, SIGNAL(textChanged(QString)), &this->kbtracker, SLOT(maxIDtoTry(QString)));
+
+    this->kbtracker.setFlip180(ui->flip180_ckb->isChecked());
+    connect(ui->flip180_ckb, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(setFlip180(bool)));
+
 
     QSignalMapper *mapper = new QSignalMapper(this);
     mapper->setMapping(ui->run, TRACK);
@@ -176,10 +181,12 @@ void MainWindow::calibrate() {
 void MainWindow::runExpt() {
     if (!this->userExpt.isEmpty()) {
         if (ui->run->text()=="Run") {
-            this->kbtracker.LOOPstartstop(TRACK);
-            ui->run->setText("Stop");
+            if (this->thread->exptLoaded()) {
+                this->kbtracker.LOOPstartstop(TRACK);
+                ui->run->setText("Stop");
+            }
         } else {
-            this->thread->loadLibrary(userExpt);  // resetting all value of the exp lib (by reloading it)
+            //this->thread->loadLibrary(userExpt);  // resetting all value of the exp lib (by reloading it)
             this->kbtracker.LOOPstartstop(TRACK);
             ui->run->setText("Run");
         }

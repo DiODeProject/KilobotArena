@@ -184,7 +184,7 @@ void SerialConnection::open() {
 void SerialConnection::queueCommand(QByteArray cmd) {
     cmds.push_back(cmd);
     //QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
-    //qDebug() << "Command q'd" << delay.currentTime();// << cmds;
+    //qDebug() << "Command q'd" << delay.currentTime() << "now on list we have" << cmds.size() << "msgs.";
     this->sendQueuedCommand();
 }
 
@@ -194,13 +194,15 @@ void SerialConnection::sendQueuedCommand() {
         //qDebug() << "q func called";
     } else {
         // send next q'd command
-        if (this->cmds.size() > 0) {
+        if (!this->cmds.isEmpty()) {
             // send
             delay.restart(); // AJC - sending a command - wait before sending another
             //qDebug() << "Command to send" << delay.currentTime();
             this->sendCommand(this->cmds[0]);
             //qDebug() << "Command from send" << delay.currentTime();
-            cmds.pop_front();
+            if (!cmds.isEmpty()) {
+                cmds.pop_front();  // Ask Alex: here I get a SEG_FAULT for ASSERT EMPTY ARRAY (how is that possible? F knows, but prev line should fix)
+            }
             QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
         }
     }
@@ -226,6 +228,11 @@ void SerialConnection::sendCommand(QByteArray cmd) {
         emit error("cannot send command if disconnected from usb device.");
     }
 
+}
+
+void SerialConnection::resetDelay()
+{
+    this->delay.restart();
 }
 
 void SerialConnection::sendProgram(QString file) {

@@ -90,7 +90,7 @@ void KilobotOverheadController::signalKilobot(kilobot_message message)
 
     // push message onto queue for sending (QTimer will send)
     this->message_q.push_back(message);
-
+    // qDebug() << "Queued message id" << message.id << "type" << message.type << "data" << message.data;
 }
 
 void KilobotOverheadController::sendBatch()
@@ -177,7 +177,7 @@ void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
         this->sendDataMessage(&message.data[0], message.type);
 
     }
-    qDebug() << "Broadcasting" << message.type << " content" << message.data;
+    //qDebug() << "Broadcasting" << message.type << " content" << message.data;
 }
 
 
@@ -244,7 +244,9 @@ void KilobotOverheadController::sendMessage(int type_int) {
         }
     }
 
+    serial_conn->resetDelay();
     serial_conn->sendCommand(packet);
+
 }
 
 void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) {
@@ -263,8 +265,7 @@ void KilobotOverheadController::sendDataMessage(uint8_t *payload, uint8_t type) 
     }
     packet[11] = type;
     packet[PACKET_SIZE-1] = checksum;
-    //sending = true;
-
+    //sending = true; //added recently
 
     serial_conn->queueCommand(packet);
 }

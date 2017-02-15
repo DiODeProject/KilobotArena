@@ -39,6 +39,7 @@ public slots:
     void open();
     void close();
     void read();
+    void resetDelay();
 
 private slots:
     void readLoop();

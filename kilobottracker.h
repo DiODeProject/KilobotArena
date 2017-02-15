@@ -145,6 +145,7 @@ struct drawnCircle {
     Point pos;
     int r;
     QColor col;
+    int thickness;
     std::string text;
 };
 
@@ -225,10 +226,10 @@ public slots:
     void SETUPsetCamOrder();
 
     // drawing slots
-    void drawCircle(QPointF pos, float r, QColor col) {
+    void drawCircle(QPointF pos, float r, QColor col, int thickness = 2, std::string text ="") {
 
         int r_int = r;
-        this->circsToDraw.push_back(drawnCircle {Point(pos.x(),pos.y()), r_int, col});
+        this->circsToDraw.push_back(drawnCircle {Point(pos.x(),pos.y()), r_int, col, thickness, text});
 
     }
 
@@ -238,9 +239,28 @@ public slots:
 
     }
 
+    void drawCircleOnRecordedImage(QPointF pos, float r, QColor col, int thickness = 2, std::string text = "") {
+
+        int r_int = r;
+        this->circsToDrawFinal.push_back(drawnCircle {Point(pos.x(),pos.y()), r_int, col, thickness, text});
+
+    }
+
+    void clearDrawingsOnRecordedImage() {
+        this->circsToDrawFinal.clear();
+    }
+
     void saveImage(QString file) {
         if (!finalImageCol.empty()) {
-            cv::imwrite(file.toStdString(),this->finalImageCol);
+            // before saving I draw what I need to draw on the FinalImage
+            for (int i = 0; i < this->circsToDrawFinal.size(); ++i) {
+                cv::circle(finalImageCol,this->circsToDrawFinal[i].pos, this->circsToDrawFinal[i].r,
+                           Scalar(this->circsToDrawFinal[i].col.blue(),this->circsToDrawFinal[i].col.green(),this->circsToDrawFinal[i].col.red(),0.5),
+                           this->circsToDrawFinal[i].thickness);
+            }
+
+            cv::imwrite(file.toStdString(),finalImageCol);
+
         }
     }
 
@@ -272,6 +292,10 @@ public slots:
      * Accessor to allow drawing of KiloBot IDs
      */
     void showIds(bool toggle) {this->showIDs = toggle;}
+
+    void maxIDtoTry(QString maxIdStr) {this->maxIDtoCheck = maxIdStr.toUInt();}
+
+    void setFlip180(bool toggle) {this->flip180 = toggle;}
 
 private:
 
@@ -385,8 +409,8 @@ private:
     bool loadFirstIm = false;
 
     int kbMinSize = 10;
-    int kbMaxSize = 31;
-    int houghAcc = 21;
+    int kbMaxSize = 27;
+    int houghAcc = 19;
     int cannyThresh = 50;
 
     srcDataType srcType = CAMERA;
@@ -411,12 +435,16 @@ private:
 
     uint currentID = 0;
     uint found = IDENTIFY_TIMEOUT;
+    QVector < uint > foundIDs;
+    QVector < int > assignedCircles;
+    uint maxIDtoCheck = 100;
 
     stageType stage = TRACK;
 
     Mat testAdap;
 
     QVector < drawnCircle > circsToDraw;
+    QVector < drawnCircle > circsToDrawFinal;
 
 #ifdef USE_CUDA
     Ptr<cuda::HoughCirclesDetector> hough;
@@ -426,6 +454,9 @@ private:
 #endif
 
     bool showIDs = true;
+    bool flip180 = true;
+
+    QVector <int> lost_count;
 
 };
 

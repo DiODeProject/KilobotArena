@@ -213,7 +213,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="page_src">
      <property name="geometry">
@@ -353,6 +353,22 @@
        </widget>
       </widget>
      </widget>
+     <widget class="QCheckBox" name="flip180_ckb">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>180</y>
+        <width>151</width>
+        <height>22</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>flip image 180deg</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
+     </widget>
     </widget>
     <widget class="QWidget" name="page_setup">
      <property name="geometry">
@@ -366,7 +382,7 @@
      <attribute name="label">
       <string>Setup</string>
      </attribute>
-     <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,1,1,0,0,0,0">
+     <layout class="QVBoxLayout" name="verticalLayout_2" stretch="0,0,0,0,1,1,0,0,0,0">
       <property name="leftMargin">
        <number>0</number>
       </property>
@@ -415,6 +431,38 @@
        <widget class="QPushButton" name="identify">
         <property name="text">
          <string>Identify Kilobots</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_8">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Max ID to try</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="maxIDtoTry_input">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>100</string>
         </property>
        </widget>
       </item>
@@ -517,7 +565,7 @@
           </rect>
          </property>
          <property name="text">
-          <string>31</string>
+          <string>27</string>
          </property>
         </widget>
         <widget class="QLabel" name="label_3">
@@ -578,7 +626,7 @@
           </rect>
          </property>
          <property name="text">
-          <string>25</string>
+          <string>19</string>
          </property>
         </widget>
         <widget class="QLabel" name="label_5">
@@ -610,7 +658,7 @@
           <number>40</number>
          </property>
          <property name="value">
-          <number>31</number>
+          <number>27</number>
          </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -632,7 +680,7 @@
           <number>100</number>
          </property>
          <property name="value">
-          <number>25</number>
+          <number>19</number>
          </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -773,8 +821,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>251</width>
-       <height>457</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">
@@ -848,8 +896,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>215</width>
-         <height>335</height>
+         <width>216</width>
+         <height>336</height>
         </rect>
        </property>
       </widget>
@@ -876,8 +924,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>251</width>
-       <height>457</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1015,7 +1063,7 @@
      <x>0</x>
      <y>0</y>
      <width>885</width>
-     <height>22</height>
+     <height>25</height>
     </rect>
    </property>
   </widget>

@@ -26,12 +26,56 @@ void KilobotIDAssignment::initialise(bool)
     this->stage = START;
     qDebug() << "INIT";
     t.start();
+
+    // Init Log File operations
+    if (saveImages){
+        if (log_file.isOpen()){
+            log_file.close(); // if it was open I close and re-open it (erasing old content!! )
+        }
+        QString log_filename = log_filename_prefix + ".txt";
+//        QString log_filename = log_filename_prefix + "_" + QDate::currentDate().toString("yyMMdd") + "_" + QTime::currentTime().toString("hhmmss") + ".txt";
+        log_file.setFileName( log_filename );
+        if ( !log_file.open(QIODevice::WriteOnly) ) { // open file
+            qDebug() << "ERROR(!) in opening file" << log_filename;
+        } else {
+            qDebug () << "Log file" << log_file.fileName() << "opened.";
+            log_stream.setDevice(&log_file);
+        }
+    }
+}
+
+void KilobotIDAssignment::stopExperiment(){
+    if (log_file.isOpen()){
+        qDebug() << "Closing file" << log_file.fileName();
+        log_file.close();
+    }
+    this->time = 0;
+    savedImagesCounter = 0;
 }
 
 void KilobotIDAssignment::run()
 {
     this->time += 0.1; // 100 ms in sec
     this->lastTime += 0.1;
+
+    if (saveImages) {
+        if (qRound(this->time*10.0) % 5 == 0) { // every 0.5s
+            emit saveImage(QString("ass_%1.jpg").arg(savedImagesCounter++, 5,10, QChar('0')));
+            log_stream << this->time;
+            for (int i = 0; i < allKiloIDs.size(); ++i){
+                kilobot_id kID = allKiloIDs[i];
+                log_stream << "\t" << allKilos[kID].position.x() << "\t" << allKilos[kID].position.y() << "\t"
+                           << allKilos[kID].colour;
+                for (int d=0; d < allKilos[kID].digits.size(); ++d){
+                    log_stream << "\t" << allKilos[kID].digits[d];
+                }
+                for (int d=allKilos[kID].digits.size(); d < 12; ++d){
+                    log_stream << "\t -1";
+                }
+            }
+            log_stream << endl;
+        }
+    }
 
     // stop broadcasting (replace)
     if (t_since > 0) {
@@ -74,6 +118,13 @@ void KilobotIDAssignment::run()
             emit broadcastMessage(msg);
             t_since = 2;
 
+            if (saveImages){
+                for (int i = 0; i < allKiloIDs.size(); ++i){
+                    kilobot_id kID = allKiloIDs[i];
+                    allKilos[kID].digits.fill(-1);
+                }
+            }
+
             break;
         }
         case TEST:
@@ -88,7 +139,7 @@ void KilobotIDAssignment::run()
                 // when we have all segments
                 if (numSegments > 10) {
                     for (int i = 0; i < tempIDs.size(); ++i) {
-                        qDebug() << i << ":" << this->tempIDs[i];
+                        qDebug() << i << "[" << this->isAssigned[i] << "]:" << this->tempIDs[i];
                     }
                     this->dupesFound = false;
                     // work out if we have have duplicates, if so fix them
@@ -98,7 +149,7 @@ void KilobotIDAssignment::run()
                             // already compared to ones below
                             int temp = tempIDs[i];
                             for (int j = i+1; j < this->tempIDs.size(); ++j) {
-                                if (temp == tempIDs[j]) {
+                                if (temp == tempIDs[j] && !this->isAssigned[j]) {
                                     tempIDs[i] = DUPE;
                                     tempIDs[j] = DUPE;
                                     // signal dupes
@@ -118,7 +169,7 @@ void KilobotIDAssignment::run()
                 emit broadcastMessage(msg);
                 t_since = 2;
             }
-            if (lastTime > 1.0f*float(numSegments+1)+0.21f) {
+            if (lastTime > 2.0f*float(numSegments+1)+0.21f) {
 
                 ++numSegments;
                 emit updateKilobotStates();
@@ -130,8 +181,8 @@ void KilobotIDAssignment::run()
         }
         case SEND:
         {
-            if (lastTime > 14.0f) {
-                if (t_since < 4) {
+            if (lastTime > 25.0f) {
+                //if (t_since < 4) {
                     for (int id = 0; id < tempIDs.size(); ++id) {
                         qDebug() << "SEND" << lastTime;
                         if (this->tempIDs[id] != DUPE && !this->isAssigned[id]) {
@@ -147,29 +198,31 @@ void KilobotIDAssignment::run()
                             msg.type = 2;
                             msg.data = data;
                             emit broadcastMessage(msg);
-                            t_since = 2;
                             this->isAssigned[id] = true; // set as assigned
                         }
 //                        ++numFound;
                     }
+                    t_since = tempIDs.size() + 2;
                     if (dupesFound) {
                         this->stage = RETRY;
                     } else {
                         // end
                         this->stage = COMPLETE;
                     }
-                }
+               //}
             }
             break;
         }
         case RETRY:
         {
-            qDebug() << "RETRY" << lastTime;
-            kilobot_broadcast msg;
-            msg.type = 3;
-            emit broadcastMessage(msg);
-            t_since = 2;
-            this->stage = START;
+            if (t_since <= 0) {
+                qDebug() << "RETRY" << lastTime;
+                kilobot_broadcast msg;
+                msg.type = 3;
+                emit broadcastMessage(msg);
+                t_since = 2;
+                this->stage = START;
+            }
             break;
         }
         case COMPLETE:
@@ -188,14 +241,22 @@ void KilobotIDAssignment::run()
 // run once for each kilobot after emitting getInitialKilobotStates() signal
 void KilobotIDAssignment::setupInitialKilobotState(Kilobot kilobotCopy)
 {
+    kilobot_id kID = kilobotCopy.getID();
 
     // resize and insert kilobot ID
     if (kilobotCopy.getID()+1 > this->tempIDs.size()) {
         this->tempIDs.resize(kilobotCopy.getID() + 1);
         this->isAssigned.resize(kilobotCopy.getID() + 1);
+        this->allKilos.resize(kID+1);
     }
     this->tempIDs[kilobotCopy.getID()] = DUPE;
     this->isAssigned[kilobotCopy.getID()] = false;
+
+    if (saveImages){
+        KiloLog kLog(kID, kilobotCopy.getPosition()*PIXEL_TO_MM, 0, kilobotCopy.getLedColour());
+        allKilos[kID] = kLog;
+        if (!allKiloIDs.contains(kID)) allKiloIDs.append(kID);
+    }
 
 }
 
@@ -231,5 +292,37 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
     }
 
     this->tempIDs[kilobotCopy.getID()] += int(col2) * binaryMultipliers[numSegments-1];
+
+    if (saveImages){
+        kilobot_id kID = kilobotCopy.getID();
+        kilobot_colour kCol = kilobotCopy.getLedColour();
+        QPointF kPos = kilobotCopy.getPosition()*PIXEL_TO_MM;
+        //double kRot = qRadiansToDegrees(qAtan2(-kilobotCopy.getVelocity().y(), kilobotCopy.getVelocity().x()));
+        allKilos[kID].updateAllValues(kID, kPos, 0, kCol);
+        allKilos[kID].digits[numSegments] = col2;
+    }
+
+//    clearDrawings();
+//    QColor rgbColor(0,0,0);
+//    switch (col){
+//    case OFF:{
+//        rgbColor.setRgb(0,0,0);
+//        break;
+//    }
+//    case RED:{
+//        rgbColor.setRgb(255,0,0);
+//        break;
+//    }
+//    case GREEN:{
+//        rgbColor.setRgb(0,255,0);
+//        break;
+//    }
+//    case BLUE:{
+//        rgbColor.setRgb(0,0,255);
+//        break;
+//    }
+//    }
+
+//    drawCircle(kilobotCopy.getPosition(), 5, rgbColor, 2);
 
 }

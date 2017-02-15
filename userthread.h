@@ -86,8 +86,10 @@ public slots:
                 connect(mapper, SIGNAL(mapped(int)), kbtracker, SLOT(LOOPstartstop(int)));
 
                 // drawing signal / slots
-                connect(expts[currExpt], SIGNAL(drawCircle(QPointF,float,QColor)), this->kbtracker, SLOT(drawCircle(QPointF,float,QColor)));
+                connect(expts[currExpt], SIGNAL(drawCircle(QPointF,float,QColor,int, std::string)), this->kbtracker, SLOT(drawCircle(QPointF,float,QColor,int, std::string)));
                 connect(expts[currExpt], SIGNAL(clearDrawings()), this->kbtracker, SLOT(clearDrawings()));
+                connect(expts[currExpt], SIGNAL(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)), this->kbtracker, SLOT(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)));
+                connect(expts[currExpt], SIGNAL(clearDrawingsOnRecordedImage()), this->kbtracker, SLOT(clearDrawingsOnRecordedImage()));
 
                 // save image
                 connect(expts[currExpt], SIGNAL(saveImage(QString)), this->kbtracker, SLOT(saveImage(QString)));
@@ -99,6 +101,7 @@ public slots:
                 // tracker outputs
                 connect(kbtracker, SIGNAL(startExperiment(bool)), this->expts[currExpt], SLOT(initialise(bool)));
                 connect(kbtracker, SIGNAL(startExperiment(bool)), &this->timer, SLOT(start()));
+                connect(kbtracker, SIGNAL(stopExperiment()), this->expts[currExpt], SLOT(stopExperiment()));
                 connect(kbtracker, SIGNAL(stopExperiment()), &this->timer, SLOT(stop()));
 
                 // ohc
@@ -132,8 +135,6 @@ public slots:
 
         void loadLibrary(QString filename) {
 
-
-
             // load library
             QLibrary library(filename);
 
@@ -141,16 +142,17 @@ public slots:
             typedef KilobotExperiment* (*createExperimentFunction)();
             createExperimentFunction createExperiment = (createExperimentFunction)library.resolve("createExpt");
 
-             if (createExperiment) {
+            if (createExperiment) {
 
-                 if (currExptFilename != filename) {
-                     currExptFilename = filename;
-                 }
+                if (currExptFilename != filename) {
+                    currExptFilename = filename;
+                }
 
-                 while (this->expts.size() > 0) {
-                     this->expts[0]->deleteLater();
-                     this->expts.pop_front();
-                 }
+                while (this->expts.size() > 0) {
+                    this->expts[0]->deleteLater();
+                    this->expts.pop_front();
+                }
+
                 expts.push_back(createExperiment());
                 emit setLibName(filename);
                 // set as current experiment for now
@@ -163,8 +165,11 @@ public slots:
 
             } else {
                 emit setLibName(QString("<load failed: ") + library.errorString() + QString(">"));
+                this->expts.clear();
             }
         }
+
+        bool exptLoaded() {return this->expts.size() != 0;}
 };
 
 #endif // USERTHREAD_H
