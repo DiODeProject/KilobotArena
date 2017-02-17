@@ -277,6 +277,7 @@ void KilobotTracker::LOOPstartstop(int stage)
         // Stop the experiment
         emit stopExperiment();
 
+
         QThread::currentThread()->setPriority(QThread::NormalPriority);
 
         return;
@@ -310,7 +311,7 @@ void KilobotTracker::LOOPstartstop(int stage)
 
     // connect kilobots
     for (int i = 0; i < this->kilos.size(); ++i) {
-        disconnect(kilos[i]);
+        this->kilos[i]->disconnect(SIGNAL(sendUpdateToExperiment(Kilobot*,Kilobot)));
         connect(this->kilos[i],SIGNAL(sendUpdateToExperiment(Kilobot*,Kilobot)), this->expt, SLOT(setupInitialStateRequiredCode(Kilobot*,Kilobot)));
     }
 
