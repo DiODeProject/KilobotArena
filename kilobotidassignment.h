@@ -28,7 +28,10 @@ class KiloLog {
 public:
     // constructors
     KiloLog() {}
-    KiloLog(kilobot_id id, QPointF pos, double rot, kilobot_colour col) : id(id), position(pos), orientation(rot), colour(col) {}
+    KiloLog(kilobot_id id, QPointF pos, double rot, kilobot_colour col) : id(id), position(pos), orientation(rot), colour(col) {
+        this->digits.resize(11);
+        this->digits.fill(-1);
+    }
 
     // methods
     void updateAllValues(kilobot_id id, QPointF pos, double rot, kilobot_colour col){
@@ -36,8 +39,6 @@ public:
         this->position = pos;
         this->orientation = rot;
         this->colour = col;
-        this->digits.resize(12);
-        this->digits.fill(-1);
     }
     void setPos(QPointF pos){
         this->position = pos;
@@ -87,13 +88,14 @@ private:
         int t_since;
 
         // log variables
-        bool saveImages = true;
+        bool saveImages = false;
         int savedImagesCounter = 0;
         QFile log_file;
         QString log_filename_prefix="log_id_ass";
         QTextStream log_stream;
-        QVector < kilobot_id >  allKiloIDs;
+        //QVector < kilobot_id >  allKiloIDs;
         QVector <KiloLog> allKilos;
+        bool updatedCol = false;
 
 };
 

@@ -61,19 +61,19 @@ void KilobotIDAssignment::run()
     if (saveImages) {
         if (qRound(this->time*10.0) % 5 == 0) { // every 0.5s
             emit saveImage(QString("ass_%1.jpg").arg(savedImagesCounter++, 5,10, QChar('0')));
-            log_stream << this->time;
-            for (int i = 0; i < allKiloIDs.size(); ++i){
-                kilobot_id kID = allKiloIDs[i];
+            log_stream << this->time << "\t"  << (int)this->updatedCol;
+            for (int kID = 0; kID < this->tempIDs.size(); ++kID){
                 log_stream << "\t" << allKilos[kID].position.x() << "\t" << allKilos[kID].position.y() << "\t"
-                           << allKilos[kID].colour;
+                           << allKilos[kID].colour << "\t" << (int)this->isAssigned[kID];
                 for (int d=0; d < allKilos[kID].digits.size(); ++d){
                     log_stream << "\t" << allKilos[kID].digits[d];
                 }
-                for (int d=allKilos[kID].digits.size(); d < 12; ++d){
-                    log_stream << "\t -1";
-                }
+//                for (int d=allKilos[kID].digits.size(); d < 11; ++d){
+//                    log_stream << "\t -1";
+//                }
             }
             log_stream << endl;
+            this->updatedCol = false;
         }
     }
 
@@ -118,10 +118,10 @@ void KilobotIDAssignment::run()
             emit broadcastMessage(msg);
             t_since = 2;
 
+            // reset log files
             if (saveImages){
-                for (int i = 0; i < allKiloIDs.size(); ++i){
-                    kilobot_id kID = allKiloIDs[i];
-                    allKilos[kID].digits.fill(-1);
+                for (int id = 0; id < this->tempIDs.size(); ++id){
+                    allKilos[id].digits.fill(-1);
                 }
             }
 
@@ -229,7 +229,9 @@ void KilobotIDAssignment::run()
         {
 
             qDebug() << "DONE" << lastTime;
-            emit experimentComplete();
+            if (!saveImages){
+                emit experimentComplete();
+            }
             break;
         }
         }
@@ -241,21 +243,20 @@ void KilobotIDAssignment::run()
 // run once for each kilobot after emitting getInitialKilobotStates() signal
 void KilobotIDAssignment::setupInitialKilobotState(Kilobot kilobotCopy)
 {
-    kilobot_id kID = kilobotCopy.getID();
 
     // resize and insert kilobot ID
     if (kilobotCopy.getID()+1 > this->tempIDs.size()) {
         this->tempIDs.resize(kilobotCopy.getID() + 1);
         this->isAssigned.resize(kilobotCopy.getID() + 1);
-        this->allKilos.resize(kID+1);
+        this->allKilos.resize(kilobotCopy.getID() + 1);
     }
     this->tempIDs[kilobotCopy.getID()] = DUPE;
     this->isAssigned[kilobotCopy.getID()] = false;
 
     if (saveImages){
-        KiloLog kLog(kID, kilobotCopy.getPosition()*PIXEL_TO_MM, 0, kilobotCopy.getLedColour());
-        allKilos[kID] = kLog;
-        if (!allKiloIDs.contains(kID)) allKiloIDs.append(kID);
+        KiloLog kLog(kilobotCopy.getID(), kilobotCopy.getPosition()*PIXEL_TO_MM, 0, kilobotCopy.getLedColour());
+        this->allKilos[kilobotCopy.getID()] = kLog;
+        updatedCol = true;
     }
 
 }
@@ -298,8 +299,9 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
         kilobot_colour kCol = kilobotCopy.getLedColour();
         QPointF kPos = kilobotCopy.getPosition()*PIXEL_TO_MM;
         //double kRot = qRadiansToDegrees(qAtan2(-kilobotCopy.getVelocity().y(), kilobotCopy.getVelocity().x()));
-        allKilos[kID].updateAllValues(kID, kPos, 0, kCol);
-        allKilos[kID].digits[numSegments] = col2;
+        this->allKilos[kID].updateAllValues(kID, kPos, 0, kCol);
+        this->updatedCol = true;
+        this->allKilos[kID].digits[numSegments-1] = col2;
     }
 
 //    clearDrawings();
