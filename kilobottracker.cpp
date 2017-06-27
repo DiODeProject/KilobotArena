@@ -147,9 +147,9 @@ private:
                     }
 
                 } else if (type == VIDEO) {
-                    // NOT USED
+                    //qDebug() << (this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/200, 5,10, QChar('0')).arg(index)+QString(".jpg"));
                     image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/200, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
-                    if (image.empty()) continue;
+                    if (image.empty()) {qDebug() << "Image not found"; continue;}
                 }
 
                 // Prepare images masks
@@ -195,10 +195,12 @@ private:
 
                     Point2f arenaCorners_adj[4];
                     Point2f outputQuad_adj[4];
+                    //qDebug() << "Thread " << this->index << " corner " << corner.x << "," << corner.y << " full Corner " << fullCorner.x << "," << fullCorner.y;
                     for (int i = 0; i < 4; ++i) {
                         arenaCorners_adj[i] = arenaCorners[i] - Point2f(((corner.x-fullCorner.x)*1536)/fullSize.width,((corner.y-fullCorner.y)*1536)/fullSize.height);
+                        //qDebug() << "arenaCorners_adj " << i << " is " << arenaCorners_adj[i].x << "," << arenaCorners_adj[i].y;
                         // shift the location for all but the first camera, and add 100 pixel overlap around the images
-                        outputQuad_adj[i] = outputQuad[i] - Point2f((corner.x-fullCorner.x>300)*1000-100, ((corner.y-fullCorner.y)>300)*1000-100);
+                        outputQuad_adj[i] = outputQuad[i] - Point2f((fabs(corner.x-fullCorner.x)>100)*1000-100, (fabs(corner.y-fullCorner.y)>100)*1000-100);
                     }
 
                     Mat M = getPerspectiveTransform(arenaCorners_adj,outputQuad_adj);
@@ -295,8 +297,8 @@ void KilobotTracker::LOOPstartstop(int stage)
     kbLocs.upload(tempKbLocs);
     
     //     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,5000); // kilobot detection
-    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize+4,this->kbMaxSize-1,3000); // kilobot detection
-    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,2,20,10000);// led detection
+    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
+    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize/7,this->kbMinSize*10/7,10000);// led detection
 #endif
 
     QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
@@ -315,6 +317,7 @@ void KilobotTracker::LOOPstartstop(int stage)
         connect(this->kilos[i],SIGNAL(sendUpdateToExperiment(Kilobot*,Kilobot)), this->expt, SLOT(setupInitialStateRequiredCode(Kilobot*,Kilobot)));
     }
 
+    /** @Salah: check if the compensator and blender is ever used */
     if (!this->compensator) {
         // calculate to compensate for exposure
         compensator = detail::ExposureCompensator::createDefault(detail::ExposureCompensator::GAIN);
@@ -414,11 +417,7 @@ void KilobotTracker::LOOPiterate()
             this->fullImages[i][0] = channels[i][0];
             this->fullImages[i][1] = channels[i][1];
             this->fullImages[i][2] = channels[i][2];
-            /*cv::GaussianBlur(this->fullImages[i], this->fullImages[i], cv::Size(7,7), 3.5, 3.5);
-            Mat temp;
-            cv::GaussianBlur(this->fullImages[i], temp, cv::Size(17,17), 10.5, 10.5);
-             this->fullImages[i] = this->fullImages[i] - temp;*/
-            //srcBuff[i][time % BUFF_SIZE].full_warped_image.copyTo(this->fullImages[i]);
+
         }
 
         Mat top;
@@ -604,23 +603,31 @@ void KilobotTracker::identifyKilobots()
     if (time == 0)
     {
         qDebug() << "Max ID to test is" << maxIDtoCheck;
+
+        // check that max id is higher than number of tracked kilobots
         if (maxIDtoCheck < (uint)qMax(0,kilos.size()-2)){
             qDebug() << "ERROR! More robots than possible IDs. Change the max ID to test (currently it's" << maxIDtoCheck << ")";
             return;
         }
+
+        // Reset lists and counters
         currentID = 0;
         foundIDs.clear();
         assignedCircles.clear();
+        this->circsToDraw.clear();
+
+        // broadcast ID
         identifyKilobot(currentID);
         qDebug() << "Try ID" << currentID;
-        this->circsToDraw.clear();
     }
 
-    if (currentID > maxIDtoCheck){ // RESET
+    // Restart from current ID=0 if we reached MaxIDtoCheck
+    if (currentID > maxIDtoCheck){
         currentID = 0;
         while( foundIDs.contains(currentID) ){
             currentID++;
         }
+        // broadcast ID
         identifyKilobot(currentID);
         qDebug() << "Try ID" << currentID;
     }
@@ -654,15 +661,14 @@ void KilobotTracker::identifyKilobots()
         } else if (blueBots == 1 && assignedCircles.contains(bot)) {
             qDebug() << "Trying to re-assign the same circle to a second ID. I don't make this assigment and I undo the previous, i.e., ID" << kilos[bot]->getID();
             foundIDs.remove( kilos[bot]->getID() );
+            assignedCircles.removeOne(bot);
         }
 
-        if (foundIDs.size() == kilos.size()) {
-            // all robots has been found
+        if (foundIDs.size() == kilos.size()) { // all robots has been found
             qDebug() << "All" << kilos.size() << "robots have been correcly identified. Well Done, mate! Now, it's time for serious stuff.";
             this->LOOPstartstop(IDENTIFY);
         }
-        else {
-            // next id
+        else { // next id
             ++currentID;
             while( foundIDs.contains(currentID) ){
                 currentID++;
@@ -731,6 +737,10 @@ void KilobotTracker::trackKilobots()
 #endif
 
     switch (this->trackType) {
+    {
+    case NO_TRACK:
+            return;
+    }
     {
     case CIRCLES_NAIVE:
 
@@ -1789,6 +1799,7 @@ void KilobotTracker::SETUPstitcher()
 
     for (uint i = 0; i < 4; ++i) {
         this->corners[i] = warper->warp(in, Ks[i], Rs[i], INTER_LINEAR, BORDER_REFLECT, out);
+        //this->corners[i].x = max(-1535, this->corners[i].x); //TEMP
         this->sizes[i] = out.size();
     }
 

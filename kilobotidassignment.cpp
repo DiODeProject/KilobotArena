@@ -81,6 +81,7 @@ void KilobotIDAssignment::run()
     if (t_since > 0) {
         --t_since;
     } else {
+        // STOP sending message
         kilobot_broadcast msg;
         msg.type = 250;
         emit broadcastMessage(msg);
@@ -264,8 +265,6 @@ void KilobotIDAssignment::setupInitialKilobotState(Kilobot kilobotCopy)
 // run once for each kilobot after emitting updateKilobotStates() signal
 void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
 {
-
-    //qDebug() << "here2";
     // check colours
 
     if (isAssigned[kilobotCopy.getID()]) return;

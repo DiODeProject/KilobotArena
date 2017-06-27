@@ -113,6 +113,7 @@ enum srcDataType {
 };
 
 enum trackerType {
+    NO_TRACK,
     CIRCLES_NAIVE,
     CIRCLES_LOCAL,
     MY_HAPPY_OTHER_TRACKER,
@@ -408,8 +409,8 @@ private:
 
     bool loadFirstIm = false;
 
-    int kbMinSize = 10;
-    int kbMaxSize = 27;
+    int kbMinSize = 14;
+    int kbMaxSize = 26;
     int houghAcc = 19;
     int cannyThresh = 50;
 

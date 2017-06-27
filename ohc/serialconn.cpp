@@ -200,9 +200,7 @@ void SerialConnection::sendQueuedCommand() {
             //qDebug() << "Command to send" << delay.currentTime();
             this->sendCommand(this->cmds[0]);
             //qDebug() << "Command from send" << delay.currentTime();
-            if (!cmds.isEmpty()) {
-                cmds.pop_front();  // Ask Alex: here I get a SEG_FAULT for ASSERT EMPTY ARRAY (how is that possible? F knows, but prev line should fix)
-            }
+            cmds.pop_front();
             QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
         }
     }

@@ -549,7 +549,7 @@
           <number>25</number>
          </property>
          <property name="value">
-          <number>10</number>
+          <number>14</number>
          </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -565,7 +565,7 @@
           </rect>
          </property>
          <property name="text">
-          <string>27</string>
+          <string>26</string>
          </property>
         </widget>
         <widget class="QLabel" name="label_3">
@@ -658,7 +658,7 @@
           <number>40</number>
          </property>
          <property name="value">
-          <number>27</number>
+          <number>26</number>
          </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -722,7 +722,7 @@
           </rect>
          </property>
          <property name="text">
-          <string>10</string>
+          <string>14</string>
          </property>
         </widget>
         <widget class="Line" name="line">
@@ -821,8 +821,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>251</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -924,8 +924,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>251</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1088,22 +1088,6 @@
  <resources/>
  <connections>
   <connection>
-   <sender>kbMax_slider</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>kbMax_label</receiver>
-   <slot>setNum(int)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>735</x>
-     <y>223</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>855</x>
-     <y>223</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>kbMin_slider</sender>
    <signal>valueChanged(int)</signal>
    <receiver>kbMin_label</receiver>
@@ -1180,6 +1164,22 @@
     <hint type="destinationlabel">
      <x>875</x>
      <y>385</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>kbMax_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>kbMax_label</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>735</x>
+     <y>223</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>855</x>
+     <y>223</y>
     </hint>
    </hints>
   </connection>
