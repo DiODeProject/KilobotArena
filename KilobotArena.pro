@@ -48,6 +48,10 @@ HEADERS  += mainwindow.h \
     kilobotcalibrate.h \
     kilobotcalibrateenv.h
 
+# Cuda sources
+#CUDA_SOURCES += cuda_code.cu
+
+
 FORMS    += mainwindow.ui
 
 linux {
@@ -103,7 +107,7 @@ LIBS += -lopencv_cudawarping \
 }
 
 
-#     -lusb
+     #-lusb
 
 }
 

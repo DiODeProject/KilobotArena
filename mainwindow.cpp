@@ -43,6 +43,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->cam_radio, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(setSourceType(bool)));
     connect(ui->find_kb, SIGNAL(clicked(bool)), &this->kbtracker, SLOT(SETUPfindKilobots()));
     connect(ui->lineEdit, SIGNAL(editingFinished()), &this->kbtracker, SLOT(SETUPsetCamOrder()));
+    connect(ui->refresh, SIGNAL(clicked(bool)), &this->kbtracker,SLOT(RefreshDisplayedImage()));
+
 
     connect(ui->houghAcc_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHoughAcc(int)));
     connect(ui->cannyThresh_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setCannyThresh(int)));
@@ -53,9 +55,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->show_ids, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(showIds(bool)));
 
     connect(ui->maxIDtoTry_input, SIGNAL(textChanged(QString)), &this->kbtracker, SLOT(maxIDtoTry(QString)));
-
-    this->kbtracker.setFlip180(ui->flip180_ckb->isChecked());
-    connect(ui->flip180_ckb, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(setFlip180(bool)));
 
 
     QSignalMapper *mapper = new QSignalMapper(this);
@@ -97,6 +96,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->load_expt, SIGNAL(clicked(bool)), this, SLOT(getExperiment()));
     connect(ui->assignIDs, SIGNAL(clicked(bool)), this, SLOT(assignIDs()));
     connect(ui->calibrate, SIGNAL(clicked(bool)), this, SLOT(calibrate()));
+    connect(ui->identify , SIGNAL(clicked(bool)), this, SLOT(identify()));
+    connect(ui->rotate_pos , SIGNAL(clicked(bool)), this, SLOT(rotate_pos()));
+    connect(ui->rotate_neg , SIGNAL(clicked(bool)), this, SLOT(rotate_neg()));
+
 
     // TESTING
     connect(ui->left, SIGNAL(clicked(bool)), this, SLOT(left()));
@@ -169,13 +172,47 @@ void MainWindow::getExperiment()
 }
 
 void MainWindow::assignIDs() {
+    if(ui->assignIDs->text() == "Start IDs Assignment"){
+        ui->assignIDs->setText("Stop IDs Assignment");}
+    else {
+    if(ui->assignIDs->text() == "Stop IDs Assignment")
+        ui->assignIDs->setText("Start IDs Assignment");
+    }
+
     this->thread->chooseInternalExperiments(0);
     this->kbtracker.LOOPstartstop(TRACK);
 }
 
 void MainWindow::calibrate() {
+    if(ui->calibrate->text() == "Start Motors Calibration"){
+        ui->calibrate->setText("Stop Motors Calibration");}
+    else {
+    if(ui->calibrate->text() == "Stop Motors Calibration")
+        ui->calibrate->setText("Start Motors Calibration");
+    }
     this->thread->chooseInternalExperiments(1);
     this->kbtracker.LOOPstartstop(TRACK);
+}
+
+
+
+void MainWindow::identify() {
+    if(this->ui->identify->text() == "Start Identify Kilobots"){
+        ui->identify->setText("Stop Identify Kilobots");}
+    else {
+    if(ui->identify->text() == "Stop Identify Kilobots")
+        ui->identify->setText("Start Identify Kilobots");
+    }
+}
+
+void MainWindow::rotate_pos() {
+    this->kbtracker.setFlipangle(90);
+    this->kbtracker.RefreshDisplayedImage();
+}
+
+void MainWindow::rotate_neg() {
+    this->kbtracker.setFlipangle(-90);
+    this->kbtracker.RefreshDisplayedImage();
 }
 
 void MainWindow::runExpt() {
@@ -239,3 +276,4 @@ void MainWindow::test_id()
     msg.type = 4;
     ohc.broadcastMessage(msg);
 }
+

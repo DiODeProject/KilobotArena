@@ -91,8 +91,10 @@ public slots:
                 connect(expts[currExpt], SIGNAL(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)), this->kbtracker, SLOT(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)));
                 connect(expts[currExpt], SIGNAL(clearDrawingsOnRecordedImage()), this->kbtracker, SLOT(clearDrawingsOnRecordedImage()));
 
-                // save image
+                // save image/video
                 connect(expts[currExpt], SIGNAL(saveImage(QString)), this->kbtracker, SLOT(saveImage(QString)));
+                connect(expts[currExpt], SIGNAL(saveVideoFrames(QString,unsigned int)), this->kbtracker, SLOT(saveVideoFrames(QString,unsigned int)));
+
 
                 // clock for experiment
                 this->timer.setInterval(expts[currExpt]->serviceInterval);

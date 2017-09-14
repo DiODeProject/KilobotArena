@@ -63,6 +63,10 @@ public slots:
 
     void calibrate();
 
+    void identify();
+    void rotate_pos();
+    void rotate_neg();
+
     void runExpt();
 
     void setGUILayout(QWidget *);

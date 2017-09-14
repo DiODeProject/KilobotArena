@@ -27,6 +27,7 @@ signals:
     void getInitialKilobotStates();
     void experimentComplete();
     void saveImage(QString);
+    void saveVideoFrames(QString,unsigned int);
     void signalKilobot(kilobot_message);
     void broadcastMessage(kilobot_broadcast);
     void setTrackingType(int);

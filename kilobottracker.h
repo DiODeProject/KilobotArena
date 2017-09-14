@@ -16,6 +16,7 @@
 
 #ifndef USE_OPENCV3
 
+
 // OpenCV 2 includes
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
@@ -57,6 +58,7 @@ using namespace std;
 #include <opencv2/gpu/gpu.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudafilters.hpp>
 #include <opencv2/cudafeatures2d.hpp>
 #include <opencv2/cudawarping.hpp>
 
@@ -188,6 +190,8 @@ signals:
 
     void testtesttest(Kilobot*,Kilobot);
 
+    void shownumberofdetectedkbs(int);
+
 public slots:
     /*!
      * \brief startLoop
@@ -265,6 +269,14 @@ public slots:
         }
     }
 
+    void saveVideoFrames(QString file, unsigned int numofframes) {
+            savecamerasframes = true;
+            savecamerasframesdir=file;
+            numberofframes=numofframes;
+    }
+
+
+
 
     // accessors - docs not required??
     void setSourceType(bool val) {if (val) this->srcType = CAMERA; else this->srcType = VIDEO;}
@@ -296,7 +308,14 @@ public slots:
 
     void maxIDtoTry(QString maxIdStr) {this->maxIDtoCheck = maxIdStr.toUInt();}
 
-    void setFlip180(bool toggle) {this->flip180 = toggle;}
+    void setFlipangle(double angle) {flipangle=flipangle+angle;
+                                     if( (flipangle==360) || (flipangle==-360) ) flipangle=0;}
+
+    /*!
+     * \brief RefreshDisplayedImage
+     * Refresh the displayed image on the GUI
+     */
+    void RefreshDisplayedImage();
 
 private:
 
@@ -370,7 +389,7 @@ private:
     Mat finalImageCol;
 
 #ifdef USE_CUDA
-    cuda::GpuMat finalImage;
+    cuda::GpuMat finalImageB;
     cuda::GpuMat finalImageG;
     cuda::GpuMat finalImageR;
     cuda::GpuMat fullImages[4][3];
@@ -409,7 +428,7 @@ private:
 
     bool loadFirstIm = false;
 
-    int kbMinSize = 14;
+    int kbMinSize = 12;
     int kbMaxSize = 26;
     int houghAcc = 19;
     int cannyThresh = 50;
@@ -452,12 +471,23 @@ private:
     // RGB Hough
     Ptr<cuda::HoughCirclesDetector> hough2;
     cuda::GpuMat kbLocs;
+
+    Ptr<cuda::CLAHE> clahe;
+    Mat element = cv::getStructuringElement(MORPH_ELLIPSE,Size(7,7));
+    Ptr<cuda::Filter> dilateFilter;
 #endif
 
     bool showIDs = true;
-    bool flip180 = true;
+    int flipangle = 0;
+
 
     QVector <int> lost_count;
+
+    //video saving
+    bool savecamerasframes=false;
+    unsigned int numberofframes;
+    QString savecamerasframesdir;
+
 
 };
 

@@ -60,7 +60,7 @@ void KilobotIDAssignment::run()
 
     if (saveImages) {
         if (qRound(this->time*10.0) % 5 == 0) { // every 0.5s
-            emit saveImage(QString("ass_%1.jpg").arg(savedImagesCounter++, 5,10, QChar('0')));
+            emit saveImage(QString("idsassign_%1.jpg").arg(savedImagesCounter++, 5,10, QChar('0')));
             log_stream << this->time << "\t"  << (int)this->updatedCol;
             for (int kID = 0; kID < this->tempIDs.size(); ++kID){
                 log_stream << "\t" << allKilos[kID].position.x() << "\t" << allKilos[kID].position.y() << "\t"

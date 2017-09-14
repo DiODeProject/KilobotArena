@@ -8,13 +8,13 @@
 #include "kilobottracker.h"
 #include "kilobotexperiment.h"
 #include <QImage>
-#include <QDebug>
 #include <QThread>
 #include <QLineEdit>
 #include <QDir>
 #include <QSettings>
 #include <QFileDialog>
 #include <QtMath>
+#include <QDebug>
 
 //#define TEST_WITHOUT_CAMERAS
 //#define TESTLEDS
@@ -66,6 +66,10 @@ public:
 
     cv::VideoCapture cap;
 
+    //video saving
+    bool savecamerasframes=false;
+    QString videoframeprefix;
+
 private:
     /*!
      * \brief run
@@ -75,11 +79,11 @@ private:
 
         QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
 
-        #ifdef USE_OPENCV3
+#ifdef USE_OPENCV3
         if (ocl::haveOpenCL()) {
             ocl::setUseOpenCL(true);
         }
-        #endif
+#endif
 
 #ifdef USE_CUDA
         // if using CUDA we need a stream to make the operations thread safe
@@ -117,6 +121,8 @@ private:
                 }
                 else if (type == CAMERA) {
 #ifndef TEST_WITHOUT_CAMERAS
+
+                    // Open the camera
                     camUsage.acquire();
                     if (!cap.isOpened() && camOrder[index]<4) {
                         cap.open(camOrder[index]);
@@ -129,6 +135,7 @@ private:
                             continue;
                         }
                     }
+
                     if (cap.isOpened()) {
                         // exhaust buffer
                         cap.grab();
@@ -137,6 +144,13 @@ private:
 
                         camUsage.acquire();
                         cap.retrieve(image);
+                        if(savecamerasframes) {
+                            vector<int> compression_params;
+                            compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
+                            compression_params.push_back(95);
+                            imwrite(videoframeprefix.toStdString(), image, compression_params);
+                            savecamerasframes=false;
+                        }
                         camUsage.release();
                     }
                     else
@@ -147,14 +161,14 @@ private:
                     }
 
                 } else if (type == VIDEO) {
-                    //qDebug() << (this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/200, 5,10, QChar('0')).arg(index)+QString(".jpg"));
-                    image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/200, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
+                    qDebug() << (this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/time, 5,10, QChar('0')).arg(index)+QString(".jpg"));
+                    image = imread((this->videoDir+QDir::toNativeSeparators("/")+QString("frame_%1_%2").arg(/*time+*/time, 5,10, QChar('0')).arg(index)+QString(".jpg")).toStdString());
                     if (image.empty()) {qDebug() << "Image not found"; continue;}
                 }
 
                 // Prepare images masks
                 if (mask.size().width < 10) {
-                  mask.create(image.size(), CV_8U);
+                    mask.create(image.size(), CV_8U);
                 }
                 mask.setTo(Scalar::all(255));
 
@@ -223,8 +237,6 @@ private:
 
     }
 };
-
-
 KilobotTracker::KilobotTracker(QPoint smallImageSize, QObject *parent) : QObject(parent)
 {
     // select cuda device
@@ -246,7 +258,6 @@ KilobotTracker::KilobotTracker(QPoint smallImageSize, QObject *parent) : QObject
     camUsage.release(1);
 
 }
-
 KilobotTracker::~KilobotTracker()
 {
     if (this->threads[0] && this->threads[0]->isRunning()) {
@@ -260,11 +271,11 @@ KilobotTracker::~KilobotTracker()
         }
     }
 }
-
 void KilobotTracker::LOOPstartstop(int stage)
 {
 
     this->stage = (stageType) stage;
+
 
     // check if running
     if (this->threads[0] && this->threads[0]->isRunning()) {
@@ -281,6 +292,9 @@ void KilobotTracker::LOOPstartstop(int stage)
 
 
         QThread::currentThread()->setPriority(QThread::NormalPriority);
+
+        // Reset the time to zero for the next experiment
+        time=0;
 
         return;
 
@@ -299,6 +313,11 @@ void KilobotTracker::LOOPstartstop(int stage)
     //     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,5000); // kilobot detection
     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
     this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize/7,this->kbMinSize*10/7,10000);// led detection
+//    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,1,this->kbMinSize*10/7,10000);// led detection
+
+    clahe=cuda::createCLAHE(10);
+    dilateFilter=cuda::createMorphologyFilter(MORPH_DILATE,CV_8UC1, element);
+
 #endif
 
     QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
@@ -345,16 +364,29 @@ void KilobotTracker::LOOPstartstop(int stage)
     this->lost_count.resize(this->kilos.size());
 
 }
-
-
 void KilobotTracker::LOOPiterate()
 {
 
+    if(savecamerasframes && (time <= numberofframes)){
+
+        if(!(this->threads[0]->savecamerasframes) &&
+           !(this->threads[1]->savecamerasframes) &&
+           !(this->threads[2]->savecamerasframes) &&
+           !(this->threads[3]->savecamerasframes)){
+        for (uint i = 0; i < 4; ++i)
+        {
+            this->threads[i]->savecamerasframes = true;
+            this->threads[i]->videoframeprefix=savecamerasframesdir+QString("/")+QString("frame_%1_%2").arg(/*time+*/time-1, 5,10, QChar('0')).arg(i)+QString(".jpg"); 
+        }
+    }
+        else return;
+   }
+    else savecamerasframes=false;
     // wait for semaphores
     if ((srcUsed[0].available() > 0 && \
-        srcUsed[1].available() > 0 && \
-        srcUsed[2].available() > 0 && \
-        srcUsed[3].available() > 0) || this->loadFirstIm)
+         srcUsed[1].available() > 0 && \
+         srcUsed[2].available() > 0 && \
+         srcUsed[3].available() > 0) || this->loadFirstIm)
     {
 
         // we have tracking, so it is safe to start the experiment
@@ -382,7 +414,6 @@ void KilobotTracker::LOOPiterate()
 #ifndef USE_CUDA
         if (time == 0) {
             compensator->feed(corners, warpedImages, warpedMasks);
-
         }
 
         // apply compensation
@@ -392,9 +423,9 @@ void KilobotTracker::LOOPiterate()
 #endif
 
 #ifdef USE_CUDA
-            cuda::GpuMat channels[4][3];
+        cuda::GpuMat channels[4][3];
 #else
-            Mat channels[4][3];
+        Mat channels[4][3];
 #endif
 
         Mat saveIm[4];
@@ -423,11 +454,11 @@ void KilobotTracker::LOOPiterate()
         Mat top;
         Mat bottom;
 #ifdef USE_CUDA
-        cv::cuda::GpuMat result(2000, 2000, this->fullImages[clData.inds[0]][0].type());
-        this->fullImages[clData.inds[0]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(0,0,1000,1000)));
-        this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(1000,0,1000,1000)));
-        this->fullImages[clData.inds[2]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(0,1000,1000,1000)));
-        this->fullImages[clData.inds[3]][0](Rect(100,100,1000,1000)).copyTo(result(cv::Rect(1000,1000,1000,1000)));
+        cv::cuda::GpuMat resultB(2000, 2000, this->fullImages[clData.inds[0]][0].type());
+        this->fullImages[clData.inds[0]][0](Rect(100,100,1000,1000)).copyTo(resultB(cv::Rect(0,0,1000,1000)));
+        this->fullImages[clData.inds[1]][0](Rect(100,100,1000,1000)).copyTo(resultB(cv::Rect(1000,0,1000,1000)));
+        this->fullImages[clData.inds[2]][0](Rect(100,100,1000,1000)).copyTo(resultB(cv::Rect(0,1000,1000,1000)));
+        this->fullImages[clData.inds[3]][0](Rect(100,100,1000,1000)).copyTo(resultB(cv::Rect(1000,1000,1000,1000)));
         cv::cuda::GpuMat resultG(2000, 2000, this->fullImages[clData.inds[0]][0].type());
         this->fullImages[clData.inds[0]][1](Rect(100,100,1000,1000)).copyTo(resultG(cv::Rect(0,0,1000,1000)));
         this->fullImages[clData.inds[1]][1](Rect(100,100,1000,1000)).copyTo(resultG(cv::Rect(1000,0,1000,1000)));
@@ -455,25 +486,19 @@ void KilobotTracker::LOOPiterate()
         srcFree[2].release();
         srcFree[3].release();
 
-        if (this->flip180) {
-            cuda::GpuMat rB_temp;
-            cuda::GpuMat rG_temp;
-            cuda::GpuMat rR_temp;
+        if (flipangle!=0) {
+            cv::Point origin(this->finalImageB.cols/2,this->finalImageB.rows/2);
+            Mat rotationmatrixCPU;
+            rotationmatrixCPU=getRotationMatrix2D(origin,flipangle,1);
 
-            cuda::flip(result, rB_temp, -1);
-            cuda::flip(resultG, rG_temp, -1);
-            cuda::flip(resultR, rR_temp, -1);
-
-            this->finalImage = rB_temp;
-            this->finalImageG = rG_temp;
-            this->finalImageR = rR_temp;
+            cuda::warpAffine(resultB,this->finalImageB,rotationmatrixCPU,resultB.size());
+            cuda::warpAffine(resultG,this->finalImageG,rotationmatrixCPU,resultG.size());
+            cuda::warpAffine(resultR,this->finalImageR,rotationmatrixCPU,resultR.size());
         } else {
-            this->finalImage = result;
+            this->finalImageB = resultB;
             this->finalImageG = resultG;
             this->finalImageR = resultR;
         }
-
-        //qDebug() << "Main" << time << QTime::currentTime();
 
         switch (this->stage) {
         case TRACK:
@@ -495,7 +520,6 @@ void KilobotTracker::LOOPiterate()
     }
 
 }
-
 void KilobotTracker::updateKilobotStates()
 {
     for (int i = 0; i < kilos.size(); ++i) {
@@ -503,24 +527,22 @@ void KilobotTracker::updateKilobotStates()
         kilos[i]->updateHardware();
     }
 }
-
 void KilobotTracker::getInitialKilobotStates()
 {
     for (int i = 0; i < kilos.size(); ++i) {
         kilos[i]->updateExperiment();
     }
 }
-
 void KilobotTracker::SETUPfindKilobots()
 {
 
-    if (this->finalImage.empty()) return;
+    if (this->finalImageB.empty()) return;
 
     Mat res2;
     Mat display;
 
 #ifdef USE_CUDA
-    this->finalImage.download(display);
+    this->finalImageB.download(display);
     display.copyTo(res2);
 #else
     this->finalImage.copyTo(display);
@@ -535,24 +557,21 @@ void KilobotTracker::SETUPfindKilobots()
                  ,kbMinSize/* min circle size*/ \
                  ,kbMaxSize/* max circle size*/);
 
-    qDebug() << "Found" << circles.size() << "circles";
-
     // the *2 is an assumption - should always be true...
     cv::cvtColor(display, display, CV_GRAY2RGB);
 
     for( size_t i = 0; i < circles.size(); i++ )
     {
-         Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-         int radius = cvRound(circles[i][2]);
-         // draw the circle center
-         //circle( result, center, 3, Scalar(0,255,0), -1, 8, 0 );
-         // draw the circle outline
-         circle( display, center, radius, Scalar(0,0,255), 3, 8, 0 );
-         putText(display, to_string(i), center, FONT_HERSHEY_PLAIN, 3, Scalar(0,0,255), 3);
+        Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+        int radius = cvRound(circles[i][2]);
+        // draw the circle center
+        //circle( result, center, 3, Scalar(0,255,0), -1, 8, 0 );
+        // draw the circle outline
+        circle( display, center, radius, Scalar(0,0,255), 3, 8, 0 );
+        putText(display, to_string(i), center, FONT_HERSHEY_PLAIN, 3, Scalar(0,0,255), 3);
     }
 
     cv::resize(display,display,Size(this->smallImageSize.x()*2, this->smallImageSize.y()*2));
-    //if (this->flip180) cv::flip(display, display,-1);
 
     // convert to C header for easier mem ptr addressing
     IplImage imageIpl = display;
@@ -578,10 +597,8 @@ void KilobotTracker::SETUPfindKilobots()
 
     this->kiloHeadings.clear();
     this->kiloHeadings.resize(this->kilos.size());
-
+    emit errorMessage(QString::fromStdString(to_string(kilos.size()))+ QString(" kilobots found!"));
 }
-
-
 void KilobotTracker::identifyKilobots()
 {
 
@@ -593,7 +610,7 @@ void KilobotTracker::identifyKilobots()
 
 #ifdef USE_CUDA
     Mat display;
-    this->finalImage.download(display);
+    this->finalImageB.download(display);
     cv::cvtColor(display, display, CV_GRAY2RGB);
 #else
     Mat display;
@@ -683,7 +700,6 @@ void KilobotTracker::identifyKilobots()
     this->showMat(display);
 
 }
-
 void KilobotTracker::identifyKilobot(int id)
 {
 
@@ -698,14 +714,13 @@ void KilobotTracker::identifyKilobot(int id)
     emit this->broadcastMessage(msg);
 
 }
-
 QString type2str(int type) {
-  QString r;
+    QString r;
 
-  uchar depth = type & CV_MAT_DEPTH_MASK;
-  uchar chans = 1 + (type >> CV_CN_SHIFT);
+    uchar depth = type & CV_MAT_DEPTH_MASK;
+    uchar chans = 1 + (type >> CV_CN_SHIFT);
 
-  switch ( depth ) {
+    switch ( depth ) {
     case CV_8U:  r = "8U"; break;
     case CV_8S:  r = "8S"; break;
     case CV_16U: r = "16U"; break;
@@ -714,14 +729,13 @@ QString type2str(int type) {
     case CV_32F: r = "32F"; break;
     case CV_64F: r = "64F"; break;
     default:     r = "User"; break;
-  }
+    }
 
-  r += "C";
-  r += (chans+'0');
+    r += "C";
+    r += (chans+'0');
 
-  return r;
+    return r;
 }
-
 void KilobotTracker::trackKilobots()
 {
 
@@ -729,7 +743,7 @@ void KilobotTracker::trackKilobots()
 #ifdef USE_CUDA
     Mat display;
     Mat temp_for_reacquire;
-    this->finalImage.download(temp_for_reacquire);
+    this->finalImageB.download(temp_for_reacquire);
     cv::cvtColor(temp_for_reacquire, display, CV_GRAY2RGB);
 #else
     Mat display;
@@ -739,158 +753,159 @@ void KilobotTracker::trackKilobots()
     switch (this->trackType) {
     {
     case NO_TRACK:
+            this->showMat(display);
             return;
     }
     {
     case CIRCLES_NAIVE:
 
-                if (this->kilos.size() == 0) break;
+            if (this->kilos.size() == 0) break;
 
-                int circle_acc = this->houghAcc + 0;//-3
-                cuda::GpuMat circlesGpu;
+            int circle_acc = this->houghAcc + 0;//-3
+            cuda::GpuMat circlesGpu;
 
-                vector < cuda::GpuMat > circChans;
-                vector < cuda::GpuMat > kbChans;
+            vector < cuda::GpuMat > circChans;
+            vector < cuda::GpuMat > kbChans;
 
-                this->hough->setVotesThreshold(circle_acc);
-                this->hough->detect(this->finalImage,circlesGpu,stream);
+            this->hough->setVotesThreshold(circle_acc);
+            this->hough->detect(this->finalImageB,circlesGpu,stream);
 
-                // get the channels so we can get rid of the sizes and use locations only
-                cuda::split(circlesGpu,circChans);
-                cuda::split(kbLocs,kbChans);
+            // get the channels so we can get rid of the sizes and use locations only
+            cuda::split(circlesGpu,circChans);
+            cuda::split(kbLocs,kbChans);
 
-        //#define DEBUG_TRACKING true
-                Mat xCpu;
-                Mat yCpu;
-                circChans[0].download(xCpu);
-                circChans[1].download(yCpu);
-        #ifdef DEBUG_TRACKING
-                Mat szCpu;
-                circChans[2].download(szCpu);
+            //#define DEBUG_TRACKING true
+            Mat xCpu;
+            Mat yCpu;
+            circChans[0].download(xCpu);
+            circChans[1].download(yCpu);
+#ifdef DEBUG_TRACKING
+            Mat szCpu;
+            circChans[2].download(szCpu);
 
-                for (int i = 0; i < xCpu.size().width;++i) {
-                    cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),mean(szCpu(Rect(i,0,1,1)))[0],Scalar(0,255,0),2);
-                }
-        #endif
+            for (int i = 0; i < xCpu.size().width;++i) {
+                cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),mean(szCpu(Rect(i,0,1,1)))[0],Scalar(0,255,0),2);
+            }
+#endif
 
-                // create ones
-                cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
-                cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+            // create ones
+            cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+            cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
 
-                // expanded mats
-                cuda::GpuMat all_x_c;
-                cuda::GpuMat all_y_c;
-                cuda::GpuMat all_x_kb;
-                cuda::GpuMat all_y_kb;
+            // expanded mats
+            cuda::GpuMat all_x_c;
+            cuda::GpuMat all_y_c;
+            cuda::GpuMat all_x_kb;
+            cuda::GpuMat all_y_kb;
 
-                QVector <QPointF> previousPositions;
-                previousPositions.resize(this->kilos.size());
+            QVector <QPointF> previousPositions;
+            previousPositions.resize(this->kilos.size());
 
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                // store the previous position
+                previousPositions[i] = this->kilos[i]->getPosition();
+            }
+
+            if (circChans[0].size().width  > 0) {
+
+
+                // expand circle x's & y's
+                vector < cuda::Stream > streams(4);
+                cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+                cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+                // expand kb x's & y's
+                cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+                cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+                // diffs
+                cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+                cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+                // distances
+                cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+                double * min = new double;
+                Point * minLoc = new Point();
+
+                Mat localDists;
+
+                all_x_c.download(localDists);
+
+                //cout << endl << localDists << endl;
+
+                // download circChans
+                Mat circChansXCpu;
+                Mat circChansYCpu;
+
+                circChans[0].download(circChansXCpu);
+                circChans[1].download(circChansYCpu);
+
+                // min
                 for (int i = 0; i < this->kilos.size(); ++i) {
-                    // store the previous position
-                    previousPositions[i] = this->kilos[i]->getPosition();
-                }
+                    // find the closest circle
+                    minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                    // work out if we should update...
+                    if (*min < float(this->kbMinSize)/1.2) { // check if the distance between the old and new position is small enough // was 1.0
+                        circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
+                        circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
+                        //cout << endl << circChansXCpu << endl;
+                        this->lost_count[i] = 0;
+                        // and on the cpu
+                        kilos[i]->updateState(QPointF(circChansXCpu.at<float>((*minLoc).y),circChansYCpu.at<float>((*minLoc).y)),kilos[i]->getVelocity(), kilos[i]->getLedColour());
+                    } else {
 
-                if (circChans[0].size().width  > 0) {
+                        // we could not assign a circle onto the kilobot! maybe we lost the tag?
 
+                        this->lost_count[i]++;
+                        kilobot_id kID = kilos[i]->getID();
+                        if (this->lost_count[i]>5){ qDebug() << "Lost tag #" << kID << "!! (count is " << this->lost_count[i] << ")"; }
 
-                    // expand circle x's & y's
-                    vector < cuda::Stream > streams(4);
-                    cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
-                    cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+                        Mat kbLocsCpuX;
+                        Mat kbLocsCpuY;
 
-                    // expand kb x's & y's
-                    cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
-                    cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+                        kbChans[0].download(kbLocsCpuX);
+                        kbChans[1].download(kbLocsCpuY);
 
-                    // diffs
-                    cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
-                    cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+                        if (this->lost_count[i] > 10) {
 
-                    // distances
-                    cuda::magnitude(all_x_c,all_y_c,all_x_c);
+                            // go through xCpu and yCpu (circle locs) and compare to KB locations
+                            // Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0])
+                            for (uint c = 0; c < xCpu.size().width; ++c)
+                            {
+                                int cur_x = mean(xCpu(Rect(c,0,1,1)))[0];
+                                int cur_y = mean(yCpu(Rect(c,0,1,1)))[0];
 
-                    double * min = new double;
-                    Point * minLoc = new Point();
-
-                    Mat localDists;
-
-                    all_x_c.download(localDists);
-
-                    //cout << endl << localDists << endl;
-
-                    // download circChans
-                    Mat circChansXCpu;
-                    Mat circChansYCpu;
-
-                    circChans[0].download(circChansXCpu);
-                    circChans[1].download(circChansYCpu);
-
-                    // min
-                    for (int i = 0; i < this->kilos.size(); ++i) {
-                        // find the closest circle
-                        minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
-                        // work out if we should update...
-                        if (*min < float(this->kbMinSize)/1.2) { // check if the distance between the old and new position is small enough // was 1.0
-                            circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
-                            circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
-                            //cout << endl << circChansXCpu << endl;
-                            this->lost_count[i] = 0;
-                            // and on the cpu
-                            kilos[i]->updateState(QPointF(circChansXCpu.at<float>((*minLoc).y),circChansYCpu.at<float>((*minLoc).y)),kilos[i]->getVelocity(), kilos[i]->getLedColour());
-                        } else {
-
-                            // we could not assign a circle onto the kilobot! maybe we lost the tag?
-
-                            this->lost_count[i]++;
-                            kilobot_id kID = kilos[i]->getID();
-                            if (this->lost_count[i]>5){ qDebug() << "Lost tag #" << kID << "!! (count is " << this->lost_count[i] << ")"; }
-
-                            Mat kbLocsCpuX;
-                            Mat kbLocsCpuY;
-
-                            kbChans[0].download(kbLocsCpuX);
-                            kbChans[1].download(kbLocsCpuY);
-
-                            if (this->lost_count[i] > 10) {
-
-                                // go through xCpu and yCpu (circle locs) and compare to KB locations
-                                // Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0])
-                                for (uint c = 0; c < xCpu.size().width; ++c)
-                                {
-                                    int cur_x = mean(xCpu(Rect(c,0,1,1)))[0];
-                                    int cur_y = mean(yCpu(Rect(c,0,1,1)))[0];
-
-                                    bool foundCirc = false;
-                                    for (int k = 0; k < kilos.size(); ++k) {
-                                        // check if within small distance to a KB
-                                        if (qAbs(kilos[k]->getPosition().x()-cur_x) < 16 && qAbs(kilos[k]->getPosition().y()-cur_y) < 16) {
-                                            foundCirc = true;
-                                        }
-                                    }
-                                    if (!foundCirc) {
-                                        // check it is in a sane distance
-                                        if (qAbs(kilos[i]->getPosition().x()-cur_x) < this->lost_count[i]*5 && qAbs(kilos[i]->getPosition().y()-cur_y) < this->lost_count[i]*5) {
-                                            qDebug() << "Lost bot #" << kID << "has been Found(!!)";
-                                            // pair up on CPU!
-                                            kilos[i]->updateState(QPointF(cur_x,cur_y),kilos[i]->getVelocity(),kilos[i]->getLedColour());
-                                            // and GPU
-                                            kbLocsCpuX(Rect(i,0,1,1)) = (mean(xCpu(Rect(c,0,1,1)))[0]);
-                                            kbLocsCpuY(Rect(i,0,1,1)) = (mean(yCpu(Rect(c,0,1,1)))[0]);
-
-                                            kbChans[0].upload(kbLocsCpuX);
-                                            kbChans[1].upload(kbLocsCpuY);
-
-                                            this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0), 2, ""});
-                                            this->lost_count[i] = 0;
-                                            break;
-                                        } else {
-                                            foundCirc = false;
-                                        }
+                                bool foundCirc = false;
+                                for (int k = 0; k < kilos.size(); ++k) {
+                                    // check if within small distance to a KB
+                                    if (qAbs(kilos[k]->getPosition().x()-cur_x) < 16 && qAbs(kilos[k]->getPosition().y()-cur_y) < 16) {
+                                        foundCirc = true;
                                     }
                                 }
+                                if (!foundCirc) {
+                                    // check it is in a sane distance
+                                    if (qAbs(kilos[i]->getPosition().x()-cur_x) < this->lost_count[i]*5 && qAbs(kilos[i]->getPosition().y()-cur_y) < this->lost_count[i]*5) {
+                                        qDebug() << "Lost bot #" << kID << "has been Found(!!)";
+                                        // pair up on CPU!
+                                        kilos[i]->updateState(QPointF(cur_x,cur_y),kilos[i]->getVelocity(),kilos[i]->getLedColour());
+                                        // and GPU
+                                        kbLocsCpuX(Rect(i,0,1,1)) = (mean(xCpu(Rect(c,0,1,1)))[0]);
+                                        kbLocsCpuY(Rect(i,0,1,1)) = (mean(yCpu(Rect(c,0,1,1)))[0]);
 
-                                /*vector<Vec3f> circles;
+                                        kbChans[0].upload(kbLocsCpuX);
+                                        kbChans[1].upload(kbLocsCpuY);
+
+                                        this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0), 2, ""});
+                                        this->lost_count[i] = 0;
+                                        break;
+                                    } else {
+                                        foundCirc = false;
+                                    }
+                                }
+                            }
+
+                            /*vector<Vec3f> circles;
 
                                 HoughCircles(temp_for_reacquire,circles,CV_HOUGH_GRADIENT,1.0,1.0this->cannyThresh ,this->houghAcc,this->kbMinSize,this->kbMaxSize);
 
@@ -924,104 +939,104 @@ void KilobotTracker::trackKilobots()
                                     }
                                 }*/
 
-                            }
-
                         }
-                    }
 
-                    // recompose kbLocs
-                    cuda::merge(kbChans,kbLocs);
-                }
-
-                // now we must do the LED detection:
-                if (this->t_type & LED || this->t_type & ADAPTIVE_LED) {
-                    this->getKiloBotLights(display);
-                }
-
-                // getting the orientation
-                if (this->t_type & ROT){
-                    //float smooth_fact = 0.5;
-                    for (int i = 0; i < this->kilos.size(); ++i) {
-//                        int new_x = float(kilos[i]->getPosition().x())*(1.0-smooth_fact) + float(previousPositions[i].x())*smooth_fact;
-//                        int new_y = float(kilos[i]->getPosition().y())*(1.0-smooth_fact) + float(previousPositions[i].y())*smooth_fact;
-
-//                        // update velocity
-//                        QPointF prevVel = this->kilos[i]->getVelocity();
-//                        QPointF newSmoothPos = QPointF(new_x,new_y);
-
-//                        QPointF newVel = prevVel*(2.0f/3.0f) + (newSmoothPos - previousPositions[i])*(1.0f/3.0f);
-
-                        this->kilos[i]->posBuffer.addPosition(this->kilos[i]->getPosition());
-                        QPointF newVel = this->kilos[i]->posBuffer.getOrientationFromPositions();
-
-                        //                    if (this->t_type & LED || this->t_type & ADAPTIVE_LED) {
-
-                        //                        QLineF lightLine = QLineF(QPointF(0,0),QPointF(light.pos.x,light.pos.y));
-                        //                        QLineF velLine = QLineF(QPointF(0,0),newVel);
-
-                        //                        // if we have a light
-                        //                        if (light.col != OFF) {
-
-                        //                            if (velLine.length() < 1.0f) {
-                        //                                lightLine.setLength(0.9f);
-                        //                                lightLine.setAngle(lightLine.angle() + 20.0f);
-                        //                                newVel = lightLine.p2();
-                        //                            } else {
-                        //                                // combine LED and velocity estimates
-                        //                                lightLine.setLength(velLine.length());
-                        //                                // align to forward
-                        //                                lightLine.setAngle(lightLine.angle() + 20.0f);
-                        //                                newVel = (lightLine.p2() + velLine.p2())*0.5f;
-                        //                            }
-
-                        //                        }
-                        //                    }
-                        kilos[i]->velocityBuffer.addOrientation(newVel);
-                        kilos[i]->updateState(kilos[i]->getPosition(), kilos[i]->velocityBuffer.getAvgOrientation(), kilos[i]->getLedColour());
                     }
                 }
 
-                // we add overlay circles and orientation */
+                // recompose kbLocs
+                cuda::merge(kbChans,kbLocs);
+            }
+
+            // now we must do the LED detection:
+            if (this->t_type & LED || this->t_type & ADAPTIVE_LED) {
+                this->getKiloBotLights(display);
+            }
+
+            // getting the orientation
+            if (this->t_type & ROT){
+                //float smooth_fact = 0.5;
                 for (int i = 0; i < this->kilos.size(); ++i) {
-                    //cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),10,Scalar(0,255,0),2);
-                    Scalar rgbColor(0,0,0);
-                    switch (kilos[i]->getLedColour()){
-                    case OFF:{
-                        break;
-                    }
-                    case RED:{
-                        rgbColor[0] = 255;
-                        break;
-                    }
-                    case GREEN:{
-                        rgbColor[1] = 255;
-                        break;
-                    }
-                    case BLUE:{
-                        rgbColor[2] = 255;
-                        break;
-                    }
-                    }
-                    cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),10,rgbColor,2);
+                    //                        int new_x = float(kilos[i]->getPosition().x())*(1.0-smooth_fact) + float(previousPositions[i].x())*smooth_fact;
+                    //                        int new_y = float(kilos[i]->getPosition().y())*(1.0-smooth_fact) + float(previousPositions[i].y())*smooth_fact;
 
-                    if (this->t_type & ROT){
-                        Point center(round(kilos[i]->getPosition().x()), round(kilos[i]->getPosition().y()));
-                        QLineF currVel = QLineF(QPointF(0,0),this->kilos[i]->getVelocity());
-                        currVel.setLength(currVel.length()*10.0f+20.0f);
-                        QPointF hdQpt = currVel.p2() + this->kilos[i]->getPosition();
-                        Point heading(hdQpt.x(), hdQpt.y());
-                        line(display, center, heading, rgbColor, 3);
-                    }
+                    //                        // update velocity
+                    //                        QPointF prevVel = this->kilos[i]->getVelocity();
+                    //                        QPointF newSmoothPos = QPointF(new_x,new_y);
 
-                    //qDebug() << "Single vel is" << this->kilos[i]->getVelocity() << "AVG vel is" << this->kilos[i]->velocityBuffer.getAvgOrientation();
+                    //                        QPointF newVel = prevVel*(2.0f/3.0f) + (newSmoothPos - previousPositions[i])*(1.0f/3.0f);
 
-                    if (this->showIDs) {
-                        cv::putText(display, QString::number(this->kilos[i]->getID()).toStdString(), Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), FONT_HERSHEY_PLAIN, 3, rgbColor, 3);
-                    }
+                    this->kilos[i]->posBuffer.addPosition(this->kilos[i]->getPosition());
+                    QPointF newVel = this->kilos[i]->posBuffer.getOrientationFromPositions();
+
+                    //                    if (this->t_type & LED || this->t_type & ADAPTIVE_LED) {
+
+                    //                        QLineF lightLine = QLineF(QPointF(0,0),QPointF(light.pos.x,light.pos.y));
+                    //                        QLineF velLine = QLineF(QPointF(0,0),newVel);
+
+                    //                        // if we have a light
+                    //                        if (light.col != OFF) {
+
+                    //                            if (velLine.length() < 1.0f) {
+                    //                                lightLine.setLength(0.9f);
+                    //                                lightLine.setAngle(lightLine.angle() + 20.0f);
+                    //                                newVel = lightLine.p2();
+                    //                            } else {
+                    //                                // combine LED and velocity estimates
+                    //                                lightLine.setLength(velLine.length());
+                    //                                // align to forward
+                    //                                lightLine.setAngle(lightLine.angle() + 20.0f);
+                    //                                newVel = (lightLine.p2() + velLine.p2())*0.5f;
+                    //                            }
+
+                    //                        }
+                    //                    }
+                    kilos[i]->velocityBuffer.addOrientation(newVel);
+                    kilos[i]->updateState(kilos[i]->getPosition(), kilos[i]->velocityBuffer.getAvgOrientation(), kilos[i]->getLedColour());
                 }
-                this->drawOverlay(display);
+            }
 
-        break;
+            // we add overlay circles and orientation */
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                //cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),10,Scalar(0,255,0),2);
+                Scalar rgbColor(0,0,0);
+                switch (kilos[i]->getLedColour()){
+                case OFF:{
+                    break;
+                }
+                case RED:{
+                    rgbColor[0] = 255;
+                    break;
+                }
+                case GREEN:{
+                    rgbColor[1] = 255;
+                    break;
+                }
+                case BLUE:{
+                    rgbColor[2] = 255;
+                    break;
+                }
+                }
+                cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),10,rgbColor,2);
+
+                if (this->t_type & ROT){
+                    Point center(round(kilos[i]->getPosition().x()), round(kilos[i]->getPosition().y()));
+                    QLineF currVel = QLineF(QPointF(0,0),this->kilos[i]->getVelocity());
+                    currVel.setLength(currVel.length()*10.0f+20.0f);
+                    QPointF hdQpt = currVel.p2() + this->kilos[i]->getPosition();
+                    Point heading(hdQpt.x(), hdQpt.y());
+                    line(display, center, heading, rgbColor, 3);
+                }
+
+                //qDebug() << "Single vel is" << this->kilos[i]->getVelocity() << "AVG vel is" << this->kilos[i]->velocityBuffer.getAvgOrientation();
+
+                if (this->showIDs) {
+                    cv::putText(display, QString::number(this->kilos[i]->getID()).toStdString(), Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), FONT_HERSHEY_PLAIN, 3, rgbColor, 3);
+                }
+            }
+            this->drawOverlay(display);
+
+            break;
     }
     {
     case CIRCLES_LOCAL:
@@ -1042,9 +1057,9 @@ void KilobotTracker::trackKilobots()
 
                 Rect bb = bbs[i];
 #ifdef USE_CUDA
-            cuda::GpuMat temp[3];
+                cuda::GpuMat temp[3];
 #else
-            Mat temp[3];
+                Mat temp[3];
 #endif
                 // setup temp pars with previous KB state
                 kiloLight light;
@@ -1141,7 +1156,7 @@ void KilobotTracker::trackKilobots()
                                 Point cCent(circles[k][0]-bb.width/2+kilos[i]->getPosition().x(), circles[k][1]-bb.height/2+kilos[i]->getPosition().y());
 
                                 if ( qPow(cCent.x - kilos[l]->getPosition().x(),2) + qPow(cCent.y - kilos[l]->getPosition().y(),2) \
-                                       <  qPow(circles[k][0]-bb.width/2,2) + qPow(circles[k][1]-bb.height/2,2) ) {
+                                     <  qPow(circles[k][0]-bb.width/2,2) + qPow(circles[k][1]-bb.height/2,2) ) {
                                     circles.erase(circles.begin()+k);
                                     --k;
                                     oops = true;
@@ -1249,10 +1264,10 @@ void KilobotTracker::trackKilobots()
                 // DRAW
                 Point center(round(kilos[i]->getPosition().x()), round(kilos[i]->getPosition().y()));
                 if (kilos[i]->getID() == UNASSIGNED_ID) {
-                     // not id'd
+                    // not id'd
                     circle( display, center, 1, Scalar(255,0,0), 3, 8, 0 );
                 } else {
-                     // id'd
+                    // id'd
                     circle( display, center, 1, Scalar(0,255,0), 3, 8, 0 );
                 }
                 // plot
@@ -1262,17 +1277,17 @@ void KilobotTracker::trackKilobots()
                 Point heading(hdQpt.x(), hdQpt.y());
                 switch (light.col) {
                 case RED:
-                     line(display,center,heading,Scalar(255,0,0),3);
-                     break;
+                    line(display,center,heading,Scalar(255,0,0),3);
+                    break;
                 case GREEN:
-                     line(display,center,heading,Scalar(0,255,0),3);
-                     break;
+                    line(display,center,heading,Scalar(0,255,0),3);
+                    break;
                 case BLUE:
-                     line(display,center,heading,Scalar(0,0,255),3);
-                     break;
+                    line(display,center,heading,Scalar(0,0,255),3);
+                    break;
                 case OFF:
-                     line(display,center,heading,Scalar(255,255,255),3);
-                     break;
+                    line(display,center,heading,Scalar(255,255,255),3);
+                    break;
                 }
             }
 
@@ -1289,8 +1304,8 @@ void KilobotTracker::trackKilobots()
     }
     {
     case MY_HAPPY_OTHER_TRACKER:
-        // GIOVANNI IS WRITING THIS
-        break;
+            // GIOVANNI IS WRITING THIS
+            break;
     }
     }
 
@@ -1298,7 +1313,6 @@ void KilobotTracker::trackKilobots()
     this->showMat(display);
 
 }
-
 void KilobotTracker::drawOverlay(Mat & display)
 {
 
@@ -1317,7 +1331,6 @@ void KilobotTracker::drawOverlay(Mat & display)
     }
 
 }
-
 Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
 {
 
@@ -1330,9 +1343,9 @@ Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
     bb.height = cvRound(maxDist*2.0f);
 
     bb.x = bb.x > 0 ? bb.x : 0;
-    bb.width = bb.x + bb.width < this->finalImage.size().width ? bb.width :  this->finalImage.size().width - bb.x - 1;
+    bb.width = bb.x + bb.width < this->finalImageB.size().width ? bb.width :  this->finalImageB.size().width - bb.x - 1;
     bb.y = bb.y > 0 ? bb.y : 0;
-    bb.height = bb.y + bb.height < this->finalImage.size().height ? bb.height :  this->finalImage.size().height - bb.y - 1;
+    bb.height = bb.y + bb.height < this->finalImageB.size().height ? bb.height :  this->finalImageB.size().height - bb.y - 1;
 
     return bb;
 
@@ -1348,18 +1361,22 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
     // calculate differences
     cuda::GpuMat channelRlow;
+
     cuda::GpuMat channelGlow;
+    cuda::GpuMat channelGhigh;
+
     cuda::GpuMat channelBlow;
+
     cuda::multiply(finalImageR,0.6,channelRlow,1,-1,stream2);
     cuda::multiply(finalImageG,0.56,channelGlow,1,-1,stream3);
-    cuda::multiply(finalImage,0.65,channelBlow,1,-1,stream1);
+    cuda::multiply(finalImageB,0.65,channelBlow,1,-1,stream1);
 
-    //cuda::GpuMat channelRhigh;
-    cuda::GpuMat channelGhigh;
-    //cuda::GpuMat channelBhigh;
+
+
     //cuda::multiply(finalImageR,0.55,channelRhigh,1,-1,stream2);
-    cuda::multiply(finalImageG,0.70,channelGhigh,1,-1,stream3);
-    //cuda::multiply(finalImage, 0.55,channelBhigh,1,-1,stream1);*/
+    //cuda::multiply(finalImageG,0.70,channelGhigh,1,-1,stream3);
+    cuda::multiply(finalImageG,0.75,channelGhigh,1,-1,stream3);
+    //cuda::multiply(finalImage, 0.55,channelBhigh,1,-1,stream1);
 
     cuda::GpuMat bg;
     cuda::add(channelBlow,channelGhigh,bg, cuda::GpuMat(),-1,stream1);
@@ -1375,11 +1392,359 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
     cuda::GpuMat r;
     cuda::subtract(finalImageR,bg,r,cuda::GpuMat(),-1,stream1);
     cuda::subtract(finalImageG,br,g,cuda::GpuMat(),-1,stream3);
-    cuda::subtract(finalImage,rg,b,cuda::GpuMat(),-1,stream2);
+    cuda::subtract(finalImageB,rg,b,cuda::GpuMat(),-1,stream2);
+
 
 #ifdef TESTLEDS
     cuda::GpuMat yay;
-    cuda::multiply(r,3.0,yay,1,-1,stream2);
+    cuda::multiply(g,3.0,yay,1,-1,stream2);
+    yay.download(display);
+    cv::cvtColor(display,display,CV_GRAY2RGB);
+#endif
+
+    int circlyness = 7;
+
+    QVector < bool > isBlue;
+    isBlue.resize(this->kilos.size());
+
+    QVector < bool > updated;
+    updated.resize(this->kilos.size());
+// BLUE
+    {
+
+
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(b,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+//#ifdef TESTLEDS
+//        Mat xCpu;
+//        Mat yCpu;
+//        circChans[0].download(xCpu);
+//        circChans[1].download(yCpu);
+
+//        for (int i = 0; i < xCpu.size().width;++i) {
+//            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+//        }
+//#endif
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                // work out if we should update...
+                if (*min < float(this->kbMaxSize)/1.8) {
+
+                    lightColour col;
+                    col = BLUE;
+                    isBlue[i] = true;
+                    updated[i] = true;
+
+                    // on the cpu
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                }
+            }
+
+        }
+    }
+// RED
+    {
+
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(r,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+        //qDebug() << circChans[0].size().width;
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                // work out if we should update...
+                if (*min < float(this->kbMaxSize)/1.8) {
+
+                    lightColour col;
+                    col = RED;
+                    updated[i] = true;
+
+                    //                    if (isBlue[i]){
+                    //                        qDebug() << "  * * * * * WE GOT A POSSIBLE DETECTION ERROR! (on robot " << kilos[i]->getID() << ") * * * * *";
+                    //                    }
+
+                    // on the cpu
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                }
+
+//                else {
+//                    if (!updated[i]){
+//                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
+//                        kilos[i]->colBuffer.addColour(OFF);
+//                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+//                    }
+//                }
+            }
+
+        }
+    }
+// Green
+    {
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(g,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+        //qDebug() << circChans[0].size().width;
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                // work out if we should update...
+                if (*min < float(this->kbMaxSize)/1.8) {
+
+                    lightColour col;
+                    col = GREEN;
+                    updated[i] = true;
+
+                    //                    if (isBlue[i]){
+                    //                        qDebug() << "  * * * * * WE GOT A POSSIBLE DETECTION ERROR! (on robot " << kilos[i]->getID() << ") * * * * *";
+                    //                    }
+
+                    // on the cpu
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                } else {
+                    if (!updated[i]){
+                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
+                        kilos[i]->colBuffer.addColour(OFF);
+                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    }
+                }
+            }
+
+        }
+    }
+}
+
+/*
+ *
+void KilobotTracker::getKiloBotLights(Mat &display) {
+    // use CUDA to find the kilobot lights...
+
+    // set up three streams to try to get concurrent kernels
+    cuda::Stream stream1;
+    cuda::Stream stream2;
+    cuda::Stream stream3;
+
+    // calculate differences
+    cuda::GpuMat channelRGlow;
+    cuda::GpuMat channelRBlow;
+
+    cuda::GpuMat channelGRlow;
+    cuda::GpuMat channelGBlow;
+
+    cuda::GpuMat channelBRlow;
+    cuda::GpuMat channelBGlow;
+
+    cuda::multiply(finalImageR,0.7,channelRGlow,1,-1,stream2);
+    cuda::multiply(finalImageR,0.6,channelRBlow,1,-1,stream2);
+
+
+    cuda::multiply(finalImageG,0.6,channelGRlow,1,-1,stream3);
+    cuda::multiply(finalImageG,0.6,channelGBlow,1,-1,stream3);
+
+    cuda::multiply(finalImageB,0.6,channelBGlow,1,-1,stream1);
+    cuda::multiply(finalImageB,0.7,channelBRlow,1,-1,stream1);
+
+
+    cuda::GpuMat bg;
+    cuda::add(channelBRlow,channelGRlow,bg, cuda::GpuMat(),-1,stream1);
+
+    cuda::GpuMat rg;
+    cuda::add(channelRBlow,channelGBlow,rg, cuda::GpuMat(),-1,stream2);
+
+    cuda::GpuMat br;
+    cuda::add(channelRGlow,channelBGlow,br, cuda::GpuMat(),-1,stream3);
+
+    cuda::GpuMat b;
+    cuda::GpuMat g;
+    cuda::GpuMat r;
+    cuda::subtract(finalImageR,bg,r,cuda::GpuMat(),-1,stream1);
+    cuda::subtract(finalImageG,br,g,cuda::GpuMat(),-1,stream3);
+    cuda::subtract(finalImageB,rg,b,cuda::GpuMat(),-1,stream2);
+
+#ifdef TESTLEDS
+    cuda::GpuMat yay;
+    cuda::multiply(g,3.0,yay,1,-1,stream2);
     yay.download(display);
     cv::cvtColor(display,display,CV_GRAY2RGB);
 #endif
@@ -1467,8 +1832,8 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
             // min
             for (int i = 0; i < this->kilos.size(); ++i) {
                 minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
-//                qDebug() << "robot" << kilos[i]->getID();
-//                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
                 if (*min < float(this->kbMaxSize)/1.8) {
 
@@ -1478,7 +1843,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                     updated[i] = true;
 
                     // on the cpu
-//                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
                     kilos[i]->colBuffer.addColour(col);
                     kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
                 }
@@ -1553,8 +1918,8 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
             // min
             for (int i = 0; i < this->kilos.size(); ++i) {
                 minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
-//                qDebug() << "robot" << kilos[i]->getID();
-//                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
                 if (*min < float(this->kbMaxSize)/1.8) {
 
@@ -1562,17 +1927,114 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                     col = RED;
                     updated[i] = true;
 
-//                    if (isBlue[i]){
-//                        qDebug() << "  * * * * * WE GOT A POSSIBLE DETECTION ERROR! (on robot " << kilos[i]->getID() << ") * * * * *";
-//                    }
+                    //                    if (isBlue[i]){
+                    //                        qDebug() << "  * * * * * WE GOT A POSSIBLE DETECTION ERROR! (on robot " << kilos[i]->getID() << ") * * * * *";
+                    //                    }
 
                     // on the cpu
-//                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                }
+
+//                else {
+//                    if (!updated[i]){
+//                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
+//                        kilos[i]->colBuffer.addColour(OFF);
+//                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+//                    }
+//                }
+            }
+
+        }
+    }
+
+
+    {
+        // Green
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(g,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+        //qDebug() << circChans[0].size().width;
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                // work out if we should update...
+                if (*min < float(this->kbMaxSize)/1.8) {
+
+                    lightColour col;
+                    col = GREEN;
+                    updated[i] = true;
+
+                    //                    if (isBlue[i]){
+                    //                        qDebug() << "  * * * * * WE GOT A POSSIBLE DETECTION ERROR! (on robot " << kilos[i]->getID() << ") * * * * *";
+                    //                    }
+
+                    // on the cpu
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
                     kilos[i]->colBuffer.addColour(col);
                     kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
                 } else {
                     if (!updated[i]){
-//                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
+                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
                         kilos[i]->colBuffer.addColour(OFF);
                         kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
                     }
@@ -1581,10 +2043,1416 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
         }
     }
+}
+*/
+/*
+void KilobotTracker::getKiloBotLights(Mat &display) {
+    // use CUDA to find the kilobot lights...
+
+    // set up three streams to try to get concurrent kernels
+    cuda::Stream stream1;
+    cuda::Stream stream2;
+    cuda::Stream stream3;
+
+    // Create the mask on the CPU then transfert it to the GPU
+    Mat kbLocsCPU;
+    Mat kbLocsCPUchans[2];
+    kbLocs.download(kbLocsCPU);
+    cv::split(kbLocsCPU,kbLocsCPUchans);
+
+    cv::Mat maskCPU(finalImageR.size(),finalImageR.type(), Scalar(255,255,255));
+    cuda::GpuMat maskGPU(finalImageR.size(),finalImageR.type(), Scalar(0,0,0));
+
+    for(int i=0;i<kbLocs.cols;i++){
+        cv::circle(maskCPU,Point(cvRound(kbLocsCPUchans[0].at<float>(i)),cvRound(kbLocsCPUchans[1].at<float>(i))),kbMinSize+6,Scalar(0,0,0),-1);
+        cv::circle(maskCPU,Point(cvRound(kbLocsCPUchans[0].at<float>(i)),cvRound(kbLocsCPUchans[1].at<float>(i))),kbMinSize,Scalar(255,255,255),-1);
+    }
+
+    maskGPU.upload(maskCPU);
+
+
+    // Mask the three channels using the created mask
+    cuda::GpuMat finalImageRmasked;
+    cuda::GpuMat finalImageGmasked;
+    cuda::GpuMat finalImageBmasked;
+
+    cuda::GpuMat finalImageRthresh;
+    cuda::GpuMat finalImageGthresh;
+    cuda::GpuMat finalImageBthresh;
+
+    cuda::subtract(finalImageR,maskGPU,finalImageRmasked,noArray(),-1,stream1);
+    cuda::subtract(finalImageG,maskGPU,finalImageGmasked,noArray(),-1,stream2);
+    cuda::subtract(finalImageB,maskGPU,finalImageBmasked,noArray(),-1,stream3);
+
+    // Threshold the three masked channels
+    cuda::threshold(finalImageRmasked, finalImageRthresh,185, 255, finalImageR.type(),stream1);
+    cuda::threshold(finalImageGmasked, finalImageGthresh,160, 255, finalImageG.type(),stream2);
+    cuda::threshold(finalImageBmasked, finalImageBthresh,160, 255, finalImageG.type(),stream3);
+
+    // Get the full brightness threshold
+    cuda::GpuMat fullthresh;
+    cuda::add(finalImageRthresh,finalImageGthresh,fullthresh,cuda::GpuMat(),-1,stream1);
+    cuda::add(fullthresh,finalImageBthresh,fullthresh,cuda::GpuMat(),-1,stream2);
+
+
+
+#ifdef TESTLEDS
+//    cuda::GpuMat yay;
+//    cuda::multiply(fullthresh,3.0,yay,1,-1,stream2);
+//    mask.download(display);
+    fullthresh.download(display);
+    cv::cvtColor(display,display,CV_GRAY2RGB);
+#endif
+
+    int circlyness = 2;
+
+    QVector < bool > isBlue;
+    isBlue.resize(this->kilos.size());
+
+    QVector < bool > updated;
+    updated.resize(this->kilos.size());
+
+    {
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(fullthresh,circlesGpu,stream3);
+
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream2);
+
+
+
+        qDebug() << " LEDs detected:" << (int) circChans[0].cols;
+
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+#ifdef TESTLEDS
+        Mat xCpu;
+        Mat yCpu;
+        circChans[0].download(xCpu);
+        circChans[1].download(yCpu);
+
+        for (int i = 0; i < xCpu.size().width;++i) {
+            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+        }
+#endif
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                // work out if we should update...
+
+//                  qDebug() << "min_x:" << minLoc->x << "   "<< "min_y" << minLoc->y;
+
+                if (*min < float(this->kbMaxSize)/1.6) {
+                    int circle=minLoc->y ;
+
+                    Point circloc;
+                    circloc.x=cvRound(circChansXCpu.at<float>(circle));
+                    circloc.y=cvRound(circChansYCpu.at<float>(circle));
+//                    qDebug() << "X: " << circloc.x << "   "<< "Y: " << circloc.y;
+
+//                    Vec3b intensity = finalImageCol.at<Vec3b>(circloc);
+//                    uint8_t blue = intensity.val[0];
+//                    uint8_t green = intensity.val[1];
+//                    uint8_t red = intensity.val[2];
+
+
+                    Mat finalImageRCPU;
+                    Mat finalImageGCPU;
+                    Mat finalImageBCPU;
+
+
+                    finalImageRmasked.download(finalImageRCPU);
+                    finalImageGmasked.download(finalImageGCPU);
+                    finalImageBmasked.download(finalImageBCPU);
+
+//                    uint8_t blue = finalImageBCPU.at<uint8_t>(circloc);
+//                    uint8_t green = finalImageGCPU.at<uint8_t>(circloc);
+//                    uint8_t red = finalImageRCPU.at<uint8_t>(circloc);
+
+                    int rect=10;
+
+// Rectangle averaging
+
+                    double red = mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                    double green = mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                    double blue = mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+
+// Vertical & Horizontal averaging
+//                    double red_v = mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,1)))[0];
+//                    double green_v = mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,1)))[0];
+//                    double blue_v= mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,1)))[0];
+
+//                    double red_h= mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,1,rect*2)))[0];
+//                    double green_h= mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,1,rect*2)))[0];
+//                    double blue_h= mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,1,rect*2)))[0];
+
+//                    double red=(red_v+red_h)/2;
+//                    double green=(green_v+green_h)/2;
+//                    double blue=(blue_v+blue_h)/2;
+
+
+
+////             Red
+//                    double distance_red=sqrt(pow(255-red,2)+pow(0-green,2)+pow(0-blue,2));
+////             Red
+//                    double distance_red=sqrt(pow(198-red,2)+pow(129-green,2)+pow(148-blue,2));
+////          Yellow
+//                    double distance_green=sqrt(pow(207-red,2)+pow(175-green,2)+pow(178-blue,2));
+////            pink
+//                    double distance_green=sqrt(pow(156-red,2)+pow(105-green,2)+pow(146-blue,2));
+////           green
+//                    double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(0-blue,2));
+////            Blue
+//                    distance_blue=sqrt(pow(0-red,2)+pow(0-green,2)+pow(255-blue,2));
+
+
+                    // YCM detection
+////             Red
+//                    double distance_red=sqrt(pow(255-red,2)+pow(0-green,2)+pow(0-blue,2));
+////           green
+//                    double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(0-blue,2));
+////            Blue
+//                    double distance_blue=sqrt(pow(0-red,2)+pow(0-green,2)+pow(255-blue,2));
+
+                    // YCM detection
+////                    Yellow
+//                    double distance_red=sqrt(pow(255-red,2)+pow(255-green,2)+pow(0-blue,2));
+////                    Cyan
+//                    double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(255-blue,2));
+////                    Magenta
+//                    double distance_blue=sqrt(pow(255-red,2)+pow(0-green,2)+pow(255-blue,2));
+
+
+//                    if(distance_red/distance_blue<=1) {
+//                        qDebug() << "red<blue" << distance_red << distance_blue << "Green:" << distance_green;
+//                    }
+//                    qDebug() << "red" << distance_red << "   "<< "green" << distance_green << "   "<< "blue" << distance_blue ;
+//                    if(distance_red<distance_green && distance_red<distance_blue) col = RED;
+
+//                    if(distance_green<distance_red && distance_green<distance_blue) col = GREEN;
+
+//                    if(distance_blue<distance_red && distance_blue<distance_green) col = BLUE;
+
+
+
+                    lightColour col=OFF;
+
+                    if(red-green>2 && red-blue>2) col = RED;
+
+                    if(green-red>2 && green-blue>2) col = GREEN;
+
+                    if(blue-red>2 && blue-green>2) col = BLUE;
+
+                    //                    if(red>blue) {
+                    //                    if(((red/green)>=1.2) && (green/blue<0.98)) col=RED;
+                    //                    else col=GREEN;
+                    //                    }
+                    //                    else col=BLUE;
+
+                    qDebug() << "red" << red << "   "<< "green" << green << "   "<< "blue" << blue ;
+
+//                    if(col!=OFF) updated[i] = true;
+
+
+
+
+
+
+
+                    // on the cpu
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    //                    Yellow
+                                        double distance_red=sqrt(pow(255-red,2)+pow(255-green,2)+pow(0-blue,2));
+                    //                    Cyan
+                                        double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(255-blue,2));
+                    //                    Magenta
+                                        double distance_blue=sqrt(pow(255-red,2)+pow(0-green,2)+pow(255-blue,2));
+                }
+            }
+      }
+}
+
+}
+*/
+/*
+void KilobotTracker::getKiloBotLights(Mat &display) {
+    // use CUDA to find the kilobot lights...
+
+    // set up three streams to try to get concurrent kernels
+    cuda::Stream stream1;
+    cuda::Stream stream2;
+    cuda::Stream stream3;
+
+    cuda::GpuMat colorimageRGB,colorimageLAB;
+    cuda::merge(vector < cuda::GpuMat > ({finalImageR,finalImageG,finalImageB}),colorimageRGB,stream1);
+    cuda::cvtColor(colorimageRGB,colorimageLAB,CV_BGR2Lab,3,stream2);
+    vector < cuda::GpuMat > colorimagechans(3);
+    cuda::split(colorimageLAB,colorimagechans,stream3);
+
+    clahe=cuda::createCLAHE(10);
+    cuda::GpuMat dst;
+
+    clahe->apply(colorimagechans[0],dst,stream1);
+    dst.copyTo(colorimagechans[0]);
+
+    clahe->apply(colorimagechans[1],dst,stream2);
+    dst.copyTo(colorimagechans[1]);
+
+
+    clahe->apply(colorimagechans[2],dst,stream3);
+    dst.copyTo(colorimagechans[2]);
+
+
+    cuda::merge(colorimagechans,colorimageLAB,stream1);
+    cuda::cvtColor(colorimageLAB,colorimageRGB,CV_Lab2RGB,3,stream2);
+    cuda::split(colorimageRGB,colorimagechans,stream3);
+
+
+    // Create the mask on the CPU then transfert it to the GPU
+    Mat kbLocsCPU;
+    Mat kbLocsCPUchans[2];
+    kbLocs.download(kbLocsCPU);
+    cv::split(kbLocsCPU,kbLocsCPUchans);
+
+    cv::Mat maskCPU(finalImageR.size(),finalImageR.type(), Scalar(255,255,255));
+    cuda::GpuMat maskGPU(finalImageR.size(),finalImageR.type(), Scalar(0,0,0));
+
+    for(int i=0;i<kbLocs.cols;i++){
+        cv::circle(maskCPU,Point(cvRound(kbLocsCPUchans[0].at<float>(i)),
+                   cvRound(kbLocsCPUchans[1].at<float>(i))),
+                   kbMinSize+8,Scalar(0,0,0),-1);
+        cv::circle(maskCPU,Point(cvRound(kbLocsCPUchans[0].at<float>(i)),cvRound(kbLocsCPUchans[1].at<float>(i))),kbMinSize,Scalar(255,255,255),-1);
+    }
+
+    maskGPU.upload(maskCPU);
+
+
+    // Mask the three channels using the created mask
+    cuda::GpuMat finalImageRmasked;
+    cuda::GpuMat finalImageGmasked;
+    cuda::GpuMat finalImageBmasked;
+
+    cuda::GpuMat finalImageRthresh;
+    cuda::GpuMat finalImageGthresh;
+    cuda::GpuMat finalImageBthresh;
+
+    cuda::subtract(colorimagechans[2],maskGPU,finalImageRmasked,noArray(),-1,stream1);
+    cuda::subtract(colorimagechans[1],maskGPU,finalImageGmasked,noArray(),-1,stream2);
+    cuda::subtract(colorimagechans[0],maskGPU,finalImageBmasked,noArray(),-1,stream3);
+
+    cuda::merge(vector < cuda::GpuMat > ({finalImageRmasked,finalImageGmasked,finalImageBmasked}),colorimageRGB,stream1);
+    cannydet=cuda::createCannyEdgeDetector(300,310);
+    cannydet->detect(finalImageRmasked,finalImageRthresh,stream1);
+    cannydet->detect(finalImageGmasked,finalImageGthresh,stream2);
+    cannydet->detect(finalImageBmasked,finalImageBthresh,stream3);
+
+    // Threshold the three masked channels
+//    cuda::threshold(finalImageRmasked, finalImageRthresh,100, 255, finalImageR.type(),stream1);
+//    cuda::threshold(finalImageGmasked, finalImageGthresh,100, 255, finalImageR.type(),stream2);
+//    cuda::threshold(finalImageBmasked, finalImageBthresh,100, 255, finalImageR.type(),stream3);
+
+//    // Get the full brightness threshold
+    cuda::GpuMat fullthresh;
+    cuda::add(finalImageRthresh,finalImageGthresh,dst,cuda::GpuMat(),-1,stream1);
+    cuda::add(dst,finalImageBthresh,fullthresh,cuda::GpuMat(),-1,stream2);
+//        cuda::bitwise_and(finalImageRthresh,finalImageGthresh,dst,cuda::GpuMat(),stream1);
+//        cuda::bitwise_and(dst,finalImageBthresh,fullthresh,cuda::GpuMat(),stream2);
+
+
+#ifdef TESTLEDS
+//    cuda::GpuMat yay;
+//    cuda::multiply(fullthresh,3.0,yay,1,-1,stream2);
+//    mask.download(display);
+    fullthresh.download(display);
+    cv::cvtColor(display,display,CV_GRAY2RGB);
+#endif
+
+/*
+    int circlyness = 6;
+
+    QVector < bool > isBlue;
+    isBlue.resize(this->kilos.size());
+
+    QVector < bool > updated;
+    updated.resize(this->kilos.size());
+
+    {
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(fullthresh,circlesGpu,stream3);
+
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream2);
+
+
+
+        qDebug() << " LEDs detected:" << (int) circChans[0].cols;
+
+
+#ifdef TESTLEDS
+        Mat xCpu;
+        Mat yCpu;
+        circChans[0].download(xCpu);
+        circChans[1].download(yCpu);
+
+        for (int i = 0; i < xCpu.size().width;++i) {
+            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+        }
+#endif
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                // work out if we should update...
+
+//                  qDebug() << "min_x:" << minLoc->x << "   "<< "min_y" << minLoc->y;
+
+                if (*min < float(this->kbMaxSize)/1.6) {
+                    int circle=minLoc->y ;
+
+                    Point circloc;
+                    circloc.x=cvRound(circChansXCpu.at<float>(circle));
+                    circloc.y=cvRound(circChansYCpu.at<float>(circle));
+//                    qDebug() << "X: " << circloc.x << "   "<< "Y: " << circloc.y;
+
+//                    Vec3b intensity = finalImageCol.at<Vec3b>(circloc);
+//                    uint8_t blue = intensity.val[0];
+//                    uint8_t green = intensity.val[1];
+//                    uint8_t red = intensity.val[2];
+
+
+                    Mat finalImageRCPU;
+                    Mat finalImageGCPU;
+                    Mat finalImageBCPU;
+
+
+                    finalImageRmasked.download(finalImageRCPU);
+                    finalImageGmasked.download(finalImageGCPU);
+                    finalImageBmasked.download(finalImageBCPU);
+
+//                    uint8_t blue = finalImageBCPU.at<uint8_t>(circloc);
+//                    uint8_t green = finalImageGCPU.at<uint8_t>(circloc);
+//                    uint8_t red = finalImageRCPU.at<uint8_t>(circloc);
+
+                    int rect=10;
+
+// Rectangle averaging =
+
+                    double red = mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                    double green = mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                    double blue = mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+
+// Vertical & Horizontal averaging
+//                    double red_v = mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,1)))[0];
+//                    double green_v = mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,1)))[0];
+//                    double blue_v= mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,1)))[0];
+
+//                    double red_h= mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,1,rect*2)))[0];
+//                    double green_h= mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,1,rect*2)))[0];
+//                    double blue_h= mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,1,rect*2)))[0];
+
+//                    double red=(red_v+red_h)/2;
+//                    double green=(green_v+green_h)/2;
+//                    double blue=(blue_v+blue_h)/2;
+
+
+
+////             Red
+//                    double distance_red=sqrt(pow(255-red,2)+pow(0-green,2)+pow(0-blue,2));
+////             Red
+//                    double distance_red=sqrt(pow(198-red,2)+pow(129-green,2)+pow(148-blue,2));
+////          Yellow
+//                    double distance_green=sqrt(pow(207-red,2)+pow(175-green,2)+pow(178-blue,2));
+////            pink
+//                    double distance_green=sqrt(pow(156-red,2)+pow(105-green,2)+pow(146-blue,2));
+////           green
+//                    double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(0-blue,2));
+////            Blue
+//                    distance_blue=sqrt(pow(0-red,2)+pow(0-green,2)+pow(255-blue,2));
+
+
+                    // YCM detection
+////             Red
+//                    double distance_red=sqrt(pow(255-red,2)+pow(0-green,2)+pow(0-blue,2));
+////           green
+//                    double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(0-blue,2));
+////            Blue
+//                    double distance_blue=sqrt(pow(0-red,2)+pow(0-green,2)+pow(255-blue,2));
+
+                    // YCM detection
+////                    Yellow
+//                    double distance_red=sqrt(pow(255-red,2)+pow(255-green,2)+pow(0-blue,2));
+////                    Cyan
+//                    double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(255-blue,2));
+////                    Magenta
+//                    double distance_blue=sqrt(pow(255-red,2)+pow(0-green,2)+pow(255-blue,2));
+
+
+//                    if(distance_red/distance_blue<=1) {
+//                        qDebug() << "red<blue" << distance_red << distance_blue << "Green:" << distance_green;
+//                    }
+//                    qDebug() << "red" << distance_red << "   "<< "green" << distance_green << "   "<< "blue" << distance_blue ;
+//                    if(distance_red<distance_green && distance_red<distance_blue) col = RED;
+
+//                    if(distance_green<distance_red && distance_green<distance_blue) col = GREEN;
+
+//                    if(distance_blue<distance_red && distance_blue<distance_green) col = BLUE;
+
+
+
+                    lightColour col=OFF;
+
+                    if(red->green && red>blue) col = RED;
+
+                    if(green>red && green>blue) col = GREEN;
+
+                    if(blue>red && blue>green) col = BLUE;
+
+                    //                    if(red>blue) {
+                    //                    if(((red/green)>=1.2) && (green/blue<0.98)) col=RED;
+                    //                    else col=GREEN;
+                    //                    }
+                    //                    else col=BLUE;
+
+                    qDebug() << "red" << red << "   "<< "green" << green << "   "<< "blue" << blue ;
+
+//                    if(col!=OFF) updated[i] = true;
+
+
+
+
+
+
+
+                    // on the cpu
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    //                    Yellow
+//                                        double distance_red=sqrt(pow(255-red,2)+pow(255-green,2)+pow(0-blue,2));
+                    //                    Cyan
+//                                        double distance_green=sqrt(pow(0-red,2)+pow(255-green,2)+pow(255-blue,2));
+                    //                    Magenta
+//                                        double distance_blue=sqrt(pow(255-red,2)+pow(0-green,2)+pow(255-blue,2));
+                }
+            }
+      }
 
 }
 
+}
+*/
+/*
+void KilobotTracker::getKiloBotLights(Mat &display) {
+    // use CUDA to find the kilobot lights...
 
+    // set up three streams to try to get concurrent kernels
+    cuda::Stream stream1;
+    cuda::Stream stream2;
+    cuda::Stream stream3;
+
+    cuda::GpuMat colorimageRGB,colorimageLAB;
+    cuda::merge(vector < cuda::GpuMat > ({finalImageR,finalImageG,finalImageB}),colorimageRGB,stream1);
+    cuda::cvtColor(colorimageRGB,colorimageLAB,CV_BGR2Lab,3,stream2);
+    vector < cuda::GpuMat > colorimagechans(3);
+    cuda::split(colorimageLAB,colorimagechans,stream3);
+
+    clahe=cuda::createCLAHE(10);
+    cuda::GpuMat dst;
+
+    clahe->apply(colorimagechans[0],dst,stream1);
+    dst.copyTo(colorimagechans[0]);
+
+    clahe->apply(colorimagechans[1],dst,stream2);
+    dst.copyTo(colorimagechans[1]);
+
+
+    clahe->apply(colorimagechans[2],dst,stream3);
+    dst.copyTo(colorimagechans[2]);
+
+
+    cuda::merge(colorimagechans,colorimageLAB,stream1);
+    cuda::cvtColor(colorimageLAB,colorimageRGB,CV_Lab2BGR,3,stream2);
+    cuda::split(colorimageRGB,colorimagechans,stream3);
+
+
+
+
+    // Create the mask on the CPU then transfert it to the GPU
+    Mat kbLocsCPU;
+    Mat kbLocsCPUchans[2];
+    kbLocs.download(kbLocsCPU);
+    cv::split(kbLocsCPU,kbLocsCPUchans);
+
+    cv::Mat maskCPU(finalImageR.size(),finalImageR.type(), Scalar(255,255,255));
+    cuda::GpuMat maskGPU(finalImageR.size(),finalImageR.type(), Scalar(0,0,0));
+
+    for(int i=0;i<kbLocs.cols;i++){
+        cv::circle(maskCPU,Point(cvRound(kbLocsCPUchans[0].at<float>(i)),
+                   cvRound(kbLocsCPUchans[1].at<float>(i))),
+                   kbMaxSize,Scalar(0,0,0),-1);
+//        cv::circle(maskCPU,Point(cvRound(kbLocsCPUchans[0].at<float>(i)),cvRound(kbLocsCPUchans[1].at<float>(i))),kbMinSize,Scalar(255,255,255),-1);
+    }
+
+    maskGPU.upload(maskCPU);
+
+
+    // Mask the three channels using the created mask
+    cuda::GpuMat finalImageRmasked;
+    cuda::GpuMat finalImageGmasked;
+    cuda::GpuMat finalImageBmasked;
+
+    cuda::GpuMat finalImageRthresh;
+    cuda::GpuMat finalImageGthresh;
+    cuda::GpuMat finalImageBthresh;
+
+    cuda::subtract(colorimagechans[2],maskGPU,finalImageRmasked,cuda::GpuMat(),-1,stream1);
+    cuda::subtract(colorimagechans[1],maskGPU,finalImageGmasked,cuda::GpuMat(),-1,stream2);
+    cuda::subtract(colorimagechans[0],maskGPU,finalImageBmasked,cuda::GpuMat(),-1,stream3);
+
+    Mat finalImageRCPU;
+    Mat finalImageGCPU;
+    Mat finalImageBCPU;
+
+
+    finalImageRmasked.download(finalImageRCPU);
+    finalImageGmasked.download(finalImageGCPU);
+    finalImageBmasked.download(finalImageBCPU);
+
+
+//    cuda::merge(vector < cuda::GpuMat > ({finalImageBmasked,finalImageGmasked,finalImageRmasked}),colorimageRGB,stream1);
+//    colorimageRGB.download(display);
+//    vector<int> compression_params;
+//    compression_params.push_back(CV_IMWRITE_JPEG_QUALITY);
+//    compression_params.push_back(95);
+//    imwrite("test1.jpg", display, compression_params);
+
+
+    // Threshold the three masked channels
+    cuda::threshold(finalImageRmasked, finalImageRthresh,200, 255, finalImageR.type(),stream1);
+    cuda::threshold(finalImageGmasked, finalImageGthresh,200, 255, finalImageG.type(),stream2);
+    cuda::threshold(finalImageBmasked, finalImageBthresh,200, 255, finalImageG.type(),stream3);
+
+
+    cuda::GpuMat RGBthreshold;
+    cuda::add(finalImageRthresh,finalImageGthresh,dst,cuda::GpuMat(),-1,stream1);
+    cuda::add(dst,finalImageBthresh,RGBthreshold,cuda::GpuMat(),-1,stream1);
+
+#ifdef TESTLEDS
+//    cuda::GpuMat yay;
+//    cuda::multiply(fullthresh,3.0,yay,1,-1,stream2);
+//    mask.download(display);
+    RGBthreshold.download(display);
+    cv::cvtColor(display,display,CV_GRAY2RGB);
+#endif
+
+    return;
+        int circlyness = 5;
+
+        QVector < bool > isBlue;
+        isBlue.resize(this->kilos.size());
+
+        QVector < bool > updated;
+        updated.resize(this->kilos.size());
+
+        {
+            int circle_acc = circlyness;
+            cuda::GpuMat circlesGpu;
+
+            vector < cuda::GpuMat > circChans;
+            vector < cuda::GpuMat > kbChans;
+
+            this->hough2->setVotesThreshold(circle_acc);
+            this->hough2->detect(RGBthreshold,circlesGpu,stream3);
+
+
+            // get the channels so we can get rid of the sizes and use locations only
+            cuda::split(circlesGpu,circChans,stream1);
+            cuda::split(kbLocs,kbChans,stream2);
+
+
+
+            qDebug() << " LEDs detected:" << (int) circChans[0].cols;
+
+
+    #ifdef TESTLEDS
+            Mat xCpu;
+            Mat yCpu;
+            circChans[0].download(xCpu);
+            circChans[1].download(yCpu);
+
+            for (int i = 0; i < xCpu.size().width;++i) {
+                cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+            }
+    #endif
+
+
+            // create ones
+            cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+            cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+            // expanded mats
+            cuda::GpuMat all_x_c;
+            cuda::GpuMat all_y_c;
+            cuda::GpuMat all_x_kb;
+            cuda::GpuMat all_y_kb;
+
+
+            if (circChans[0].size().width  > 0) {
+
+
+                // expand circle x's & y's
+                vector < cuda::Stream > streams(4);
+                cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+                cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+                // expand kb x's & y's
+                cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+                cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+                // diffs
+                cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+                cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+                // distances
+                cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+                double * min = new double;
+                Point * minLoc = new Point();
+
+                Mat localDists;
+
+                all_x_c.download(localDists);
+
+                //cout << endl << localDists << endl;
+
+                // download circChans
+                Mat circChansXCpu;
+                Mat circChansYCpu;
+
+                circChans[0].download(circChansXCpu);
+                circChans[1].download(circChansYCpu);
+
+                // min
+                for (int i = 0; i < this->kilos.size(); ++i) {
+                    minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                    //                qDebug() << "robot" << kilos[i]->getID();
+                    //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                    // work out if we should update...
+
+    //                  qDebug() << "min_x:" << minLoc->x << "   "<< "min_y" << minLoc->y;
+
+                    if (*min < float(this->kbMaxSize)/1.4) {
+                        int circle=minLoc->y ;
+
+                        Point circloc;
+                        circloc.x=cvRound(circChansXCpu.at<float>(circle));
+                        circloc.y=cvRound(circChansYCpu.at<float>(circle));
+
+                        int rect=5;
+
+                        double blue = mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                        double green = mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                        double red = mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+
+                        lightColour col=OFF;
+
+                        if(red>green && red>blue) col = RED;
+
+                        if(green>red && green>blue) col = GREEN;
+
+                        if(blue>red && blue>green) col = BLUE;
+
+                        qDebug() << "red" << red << "   "<< "green" << green << "   "<< "blue" << blue ;
+
+                        kilos[i]->colBuffer.addColour(col);
+                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    }
+                }
+          }
+
+    }
+
+}
+*/
+/*
+void KilobotTracker::getKiloBotLights(Mat &display) {
+    // use CUDA to find the kilobot lights...
+
+    // set up three streams to try to get concurrent kernels
+    cuda::Stream stream1;
+    cuda::Stream stream2;
+    cuda::Stream stream3;
+
+    cuda::GpuMat colorimageRGB,colorimageLAB;
+    cuda::merge(vector < cuda::GpuMat > ({finalImageR,finalImageG,finalImageB}),colorimageRGB,stream1);
+    cuda::cvtColor(colorimageRGB,colorimageLAB,CV_BGR2Lab,3,stream2);
+    vector < cuda::GpuMat > colorimagechans(3);
+    cuda::split(colorimageLAB,colorimagechans,stream3);
+
+    cuda::GpuMat dst;
+    clahe->apply(colorimagechans[0],dst,stream1);
+    dst.copyTo(colorimagechans[0]);
+
+    clahe->apply(colorimagechans[1],dst,stream2);
+    dst.copyTo(colorimagechans[1]);
+
+
+    clahe->apply(colorimagechans[2],dst,stream3);
+    dst.copyTo(colorimagechans[2]);
+
+
+    cuda::merge(colorimagechans,colorimageLAB,stream1);
+    cuda::cvtColor(colorimageLAB,colorimageRGB,CV_Lab2BGR,3,stream2);
+
+    cuda::GpuMat maskGPU;
+    cuda::cvtColor(colorimageRGB,maskGPU,CV_BGR2GRAY,1,stream3);
+    cuda::threshold(maskGPU,maskGPU,80,255,THRESH_BINARY_INV,stream1);
+
+    dilateFilter->apply(maskGPU, maskGPU,stream1);
+
+
+
+
+    // Create the mask on the CPU then transfert it to the GPU
+
+    cuda::cvtColor(maskGPU,maskGPU,CV_GRAY2BGR,3,stream3);
+    cuda::bitwise_and(colorimageRGB,maskGPU,colorimageRGB,cuda::GpuMat(),stream1);
+    cuda::split(colorimageRGB,colorimagechans,stream2);
+
+    cuda::GpuMat finalImageRthresh;
+    cuda::GpuMat finalImageGthresh;
+    cuda::GpuMat finalImageBthresh;
+
+    cuda::threshold(colorimagechans[2], finalImageRthresh,200, 255, finalImageR.type(),stream3);
+    cuda::threshold(colorimagechans[1], finalImageGthresh,200, 255, finalImageG.type(),stream1);
+    cuda::threshold(colorimagechans[0], finalImageBthresh,200, 255, finalImageG.type(),stream2);
+
+
+    cuda::GpuMat RGBthreshold;
+    cuda::add(finalImageRthresh,finalImageGthresh,dst,cuda::GpuMat(),-1,stream3);
+    cuda::add(dst,finalImageBthresh,RGBthreshold,cuda::GpuMat(),-1,stream1);
+
+#ifdef TESTLEDS
+//    cuda::GpuMat yay;
+//    cuda::multiply(fullthresh,3.0,yay,1,-1,stream2);
+//    mask.download(display);
+    RGBthreshold.download(display);
+ cv::cvtColor(display,display,CV_GRAY2RGB);
+#endif
+        int circlyness = 7;
+
+        QVector < bool > isBlue;
+        isBlue.resize(this->kilos.size());
+
+        QVector < bool > updated;
+        updated.resize(this->kilos.size());
+
+        {
+            int circle_acc = circlyness;
+            cuda::GpuMat circlesGpu;
+
+            vector < cuda::GpuMat > circChans;
+            vector < cuda::GpuMat > kbChans;
+
+            this->hough2->setVotesThreshold(circle_acc);
+            this->hough2->detect(RGBthreshold,circlesGpu,stream3);
+
+
+            // get the channels so we can get rid of the sizes and use locations only
+            cuda::split(circlesGpu,circChans,stream1);
+            cuda::split(kbLocs,kbChans,stream2);
+
+
+
+            qDebug() << " LEDs detected:" << (int) circChans[0].cols;
+
+    #ifdef TESTLEDS
+            Mat xCpu;
+            Mat yCpu;
+            circChans[0].download(xCpu);
+            circChans[1].download(yCpu);
+
+            for (int i = 0; i < xCpu.size().width;++i) {
+                cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+            }
+    #endif
+
+            // create ones
+            cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+            cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+            // expanded mats
+            cuda::GpuMat all_x_c;
+            cuda::GpuMat all_y_c;
+            cuda::GpuMat all_x_kb;
+            cuda::GpuMat all_y_kb;
+
+
+            if (circChans[0].size().width  > 0) {
+
+
+                // expand circle x's & y's
+                vector < cuda::Stream > streams(4);
+                cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+                cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+                // expand kb x's & y's
+                cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+                cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+                // diffs
+                cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+                cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+                // distances
+                cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+                double * min = new double;
+                Point * minLoc = new Point();
+
+                Mat localDists;
+
+                all_x_c.download(localDists);
+
+                //cout << endl << localDists << endl;
+
+                // download circChans
+                Mat circChansXCpu;
+                Mat circChansYCpu;
+
+                circChans[0].download(circChansXCpu);
+                circChans[1].download(circChansYCpu);
+
+
+                Mat finalImageRCPU;
+                Mat finalImageGCPU;
+                Mat finalImageBCPU;
+
+
+                colorimagechans[2].download(finalImageRCPU);
+                colorimagechans[1].download(finalImageGCPU);
+                colorimagechans[0].download(finalImageBCPU);
+
+
+                for (int i = 0; i < this->kilos.size(); ++i) {
+                    minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+
+
+                    if (*min < float(this->kbMaxSize)/1.4) {
+                        int circle=minLoc->y ;
+
+                        Point circloc;
+                        circloc.x=cvRound(circChansXCpu.at<float>(circle));
+                        circloc.y=cvRound(circChansYCpu.at<float>(circle));
+
+                        int rect=10;
+
+                        double blue = mean(finalImageRCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                        double green = mean(finalImageGCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+                        double red = mean(finalImageBCPU(Rect(circloc.x-rect,circloc.y-rect,rect*2,rect*2)))[0];
+
+
+                        lightColour col=OFF;
+
+                        if(red>green && red>blue) col = RED;
+
+                        if(green>red && green>blue) col = GREEN;
+
+                        if(blue>red && blue>green) col = BLUE;
+
+                        qDebug() << "red" << red << "   "<< "green" << green << "   "<< "blue" << blue ;
+
+                        kilos[i]->colBuffer.addColour(col);
+                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    }
+                }
+          }
+
+    }
+}
+*/
+/*
+void KilobotTracker::getKiloBotLights(Mat &display) {
+    // use CUDA to find the kilobot lights...
+
+    // set up three streams to try to get concurrent kernels
+    cuda::Stream stream1;
+    cuda::Stream stream2;
+    cuda::Stream stream3;
+
+
+    cuda::GpuMat colorimageRGB,colorimageLAB;
+    cuda::merge(vector < cuda::GpuMat > ({finalImageR,finalImageG,finalImageB}),colorimageRGB,stream1);
+    cuda::cvtColor(colorimageRGB,colorimageLAB,CV_BGR2Lab,3,stream2);
+    vector < cuda::GpuMat > colorimagechans(3);
+    cuda::split(colorimageLAB,colorimagechans,stream3);
+
+    clahe=cuda::createCLAHE(10);
+    cuda::GpuMat dst;
+
+    clahe->apply(colorimagechans[0],dst,stream1);
+    dst.copyTo(colorimagechans[0]);
+
+    clahe->apply(colorimagechans[1],dst,stream2);
+    dst.copyTo(colorimagechans[1]);
+
+    clahe=cuda::createCLAHE(5);
+    clahe->apply(colorimagechans[2],dst,stream3);
+    dst.copyTo(colorimagechans[2]);
+
+
+    cuda::merge(colorimagechans,colorimageLAB,stream1);
+    cuda::cvtColor(colorimageLAB,colorimageRGB,CV_Lab2BGR,3,stream2);
+    cuda::split(colorimageRGB,colorimagechans,stream3);
+
+
+    cuda::GpuMat channelRlow;
+    cuda::GpuMat channelGlow;
+    cuda::GpuMat channelBlow;
+    cuda::GpuMat channelGhigh;
+
+    cuda::GpuMat channelR_G;
+    cuda::GpuMat channelB_G;
+
+    cuda::multiply(finalImageR,0.6,channelRlow,1,-1,stream2);
+    cuda::multiply(finalImageG,0.56,channelGlow,1,-1,stream3);
+    cuda::multiply(finalImageB,0.65,channelBlow,1,-1,stream1);
+    cuda::multiply(finalImageG,0.75,channelGhigh,1,-1,stream3);
+
+    cuda::add(finalImageR,colorimagechans[0],colorimagechans[0], cuda::GpuMat(),-1,stream1);
+    cuda::add(finalImageG,colorimagechans[1],colorimagechans[1], cuda::GpuMat(),-1,stream1);
+    // finalImageB instead of finalImageG
+    cuda::add(finalImageG,colorimagechans[2],colorimagechans[2], cuda::GpuMat(),-1,stream1);
+
+    cuda::multiply(colorimagechans[0],0.7,channelR_G,1,-1,stream1);
+    cuda::multiply(colorimagechans[2],0.6,channelB_G,1,-1,stream3);
+
+    cuda::GpuMat bg;
+    cuda::add(channelBlow,channelGhigh,bg, cuda::GpuMat(),-1,stream1);
+
+    cuda::GpuMat rg;
+    cuda::add(channelRlow,channelGlow,rg, cuda::GpuMat(),-1,stream2);
+
+    cuda::GpuMat br;
+    cuda::add(channelB_G,channelR_G,br, cuda::GpuMat(),-1,stream3);
+
+    cuda::GpuMat b;
+    cuda::GpuMat g;
+    cuda::GpuMat r;
+
+    cuda::subtract(finalImageR,bg,r,cuda::GpuMat(),-1,stream1);
+    cuda::subtract(colorimagechans[1],br,g,cuda::GpuMat(),-1,stream3);
+    cuda::threshold(g,g,15,255,CV_THRESH_BINARY,stream3);
+    cuda::subtract(finalImageB,rg,b,cuda::GpuMat(),-1,stream2);
+
+
+
+#ifdef TESTLEDS
+//    cuda::GpuMat yay;
+//    cuda::multiply(fullthresh,3.0,yay,1,-1,stream2);
+//    mask.download(display);
+    g.download(display);
+    cv::cvtColor(display,display,CV_GRAY2RGB);
+#endif
+
+
+    int circlyness = 7;
+    QVector < bool > updated;
+    updated.resize(this->kilos.size());
+
+    {
+        // BLUE
+
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(b,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+//#ifdef TESTLEDS
+//        Mat xCpu;
+//        Mat yCpu;
+//        circChans[0].download(xCpu);
+//        circChans[1].download(yCpu);
+
+//        for (int i = 0; i < xCpu.size().width;++i) {
+//            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+//        }
+//#endif
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            for (int i = 0; i < this->kilos.size(); ++i) {
+
+                if (!updated[i]){
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                //                qDebug() << "robot" << kilos[i]->getID();
+                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                // work out if we should update...
+                if (*min < float(this->kbMaxSize)/1.8) {
+
+                    lightColour col;
+                    col = BLUE;
+                    updated[i] = true;
+
+                    // on the cpu
+                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                }
+            }
+            }
+
+        }
+    }
+
+    {
+        // RED
+
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(r,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+        //qDebug() << circChans[0].size().width;
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+
+                if (!updated[i]){
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+
+                if (*min < float(this->kbMaxSize)/1.8) {
+
+                    lightColour col;
+                    col = RED;
+                    updated[i] = true;
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                }
+                }
+            }
+
+        }
+    }
+
+    {
+        // Green
+        int circle_acc = circlyness;
+        cuda::GpuMat circlesGpu;
+
+        vector < cuda::GpuMat > circChans;
+        vector < cuda::GpuMat > kbChans;
+
+        this->hough2->setVotesThreshold(circle_acc);
+        this->hough2->detect(g,circlesGpu,stream1);
+
+        // get the channels so we can get rid of the sizes and use locations only
+        cuda::split(circlesGpu,circChans,stream1);
+        cuda::split(kbLocs,kbChans,stream1);
+
+        // create ones
+        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+
+        // expanded mats
+        cuda::GpuMat all_x_c;
+        cuda::GpuMat all_y_c;
+        cuda::GpuMat all_x_kb;
+        cuda::GpuMat all_y_kb;
+
+        //qDebug() << circChans[0].size().width;
+
+        if (circChans[0].size().width  > 0) {
+
+
+            // expand circle x's & y's
+            vector < cuda::Stream > streams(4);
+            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+
+            // expand kb x's & y's
+            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+
+            // diffs
+            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+
+            // distances
+            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+
+            double * min = new double;
+            Point * minLoc = new Point();
+
+            Mat localDists;
+
+            all_x_c.download(localDists);
+
+            //cout << endl << localDists << endl;
+
+            // download circChans
+            Mat circChansXCpu;
+            Mat circChansYCpu;
+
+            circChans[0].download(circChansXCpu);
+            circChans[1].download(circChansYCpu);
+
+            // min
+            for (int i = 0; i < this->kilos.size(); ++i) {
+
+                if (!updated[i]){
+                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                if (*min < float(this->kbMaxSize)/1.8) {
+
+                    lightColour col;
+
+                    col = GREEN;
+                    updated[i] = true;
+                    kilos[i]->colBuffer.addColour(col);
+                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    }
+//                    else {
+//                    if (!updated[i]){
+//                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
+//                        kilos[i]->colBuffer.addColour(OFF);
+//                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+//                    }
+//                }
+
+                }
+            }
+
+        }
+    }
+
+
+    for (int i = 0; i < this->kilos.size(); ++i) {
+
+    if (!updated[i]){
+        kilos[i]->colBuffer.addColour(OFF);
+        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+    }
+    }
+
+}
+*/
 #ifdef USE_CUDA
 kiloLight KilobotTracker::getKiloBotLight(cuda::GpuMat channelsG[3], Point centreOfBox, int index)
 #else
@@ -1693,14 +3561,17 @@ kiloLight KilobotTracker::getKiloBotLightAdaptive(Mat channels[3], Point centreO
         light.pos = centreOfLight - centreOfBox;
 
     }
-    #endif
+#endif
     return light;
 
 }
 
 void KilobotTracker::SETUPloadCalibration()
 {
-
+    if( (this->srcType==VIDEO) && (this->videoPath.isEmpty()))
+        emit errorMessage("No video file selected!");
+    else
+    {
     // Load the calibration data
 
     // nicety - load last used directory
@@ -1780,7 +3651,7 @@ void KilobotTracker::SETUPloadCalibration()
     this->time = 0;
 
     this->haveCalibration = true;
-
+}
 }
 
 void KilobotTracker::SETUPstitcher()
@@ -1804,33 +3675,33 @@ void KilobotTracker::SETUPstitcher()
     }
 
 
-   int min_x = INT_MAX;
-   int min_y = INT_MAX;
-   int max_x = -INT_MAX;
-   int max_y = -INT_MAX;
+    int min_x = INT_MAX;
+    int min_y = INT_MAX;
+    int max_x = -INT_MAX;
+    int max_y = -INT_MAX;
 
-   for (int j = 0; j < 4; ++j) {
-       if (corners[j].x < min_x) min_x = corners[j].x;
-       if (corners[j].y < min_y) min_y = corners[j].y;
-       if (corners[j].x + sizes[j].width > max_x) max_x = corners[j].x + sizes[j].width;
-       if (corners[j].y + sizes[j].height > max_y) max_y = corners[j].y + sizes[j].height;
-   }
+    for (int j = 0; j < 4; ++j) {
+        if (corners[j].x < min_x) min_x = corners[j].x;
+        if (corners[j].y < min_y) min_y = corners[j].y;
+        if (corners[j].x + sizes[j].width > max_x) max_x = corners[j].x + sizes[j].width;
+        if (corners[j].y + sizes[j].height > max_y) max_y = corners[j].y + sizes[j].height;
+    }
 
-   fullSize =  Size(max_x-min_x+1, max_y-min_y+1);
-   fullCorner =  Point(min_x, min_y);
+    fullSize =  Size(max_x-min_x+1, max_y-min_y+1);
+    fullCorner =  Point(min_x, min_y);
 
-   // assign indices...
-   for (int j = 0; j < 4; ++j) {
-       if (corners[j].x - fullCorner.x < fullSize.width/4 && corners[j].y - fullCorner.y < fullSize.height/4) {
-        clData.inds[0] = j;
-       } else if (corners[j].x - fullCorner.x > fullSize.width/4 && corners[j].y - fullCorner.y < fullSize.height/4) {
-        clData.inds[1] = j;
-       } else if (corners[j].x - fullCorner.x < fullSize.width/4 && corners[j].y - fullCorner.y > fullSize.height/4) {
-        clData.inds[2] = j;
-       } else if (corners[j].x - fullCorner.x > fullSize.width/4 && corners[j].y - fullCorner.y > fullSize.height/4) {
-        clData.inds[3] = j;
-       }
-   }
+    // assign indices...
+    for (int j = 0; j < 4; ++j) {
+        if (corners[j].x - fullCorner.x < fullSize.width/4 && corners[j].y - fullCorner.y < fullSize.height/4) {
+            clData.inds[0] = j;
+        } else if (corners[j].x - fullCorner.x > fullSize.width/4 && corners[j].y - fullCorner.y < fullSize.height/4) {
+            clData.inds[1] = j;
+        } else if (corners[j].x - fullCorner.x < fullSize.width/4 && corners[j].y - fullCorner.y > fullSize.height/4) {
+            clData.inds[2] = j;
+        } else if (corners[j].x - fullCorner.x > fullSize.width/4 && corners[j].y - fullCorner.y > fullSize.height/4) {
+            clData.inds[3] = j;
+        }
+    }
 
 }
 
@@ -1938,9 +3809,30 @@ void KilobotTracker::SETUPsetCamOrder()
             }
             qDebug() << "Cam order set";
         }
+
     }
 
 }
 
+void KilobotTracker::RefreshDisplayedImage()
+{
+    if(this->haveCalibration){
+        // launch threads
+        for (int i=0;i<2;i++){
+            this->THREADSlaunch();
 
+            this->time =0;
+            // run stitcher once
+            this->loadFirstIm = true;
+            this->trackType=NO_TRACK;
+            this->LOOPiterate();
+            this->trackType=CIRCLES_NAIVE;
+            this->loadFirstIm = false;
+            this->THREADSstop();
+
+            this->time = 0;
+        }
+    }
+    else emit errorMessage(QString("No arena calibration loaded yet!"));
+}
 
