@@ -88,7 +88,7 @@ void KilobotIDAssignment::run()
     }
 
 
-
+    // check if this needs to be deleted as LED & ADAPTIVE_LED do the samething!
     if (time > 2.0f && time < 2.15f) {
         // finish adaptation
         emit setTrackingType(LED);
@@ -138,12 +138,12 @@ void KilobotIDAssignment::run()
                 this->switchSegment = false;
 
                 // when we have all segments
-                if (numSegments > 10) {
+                if (numSegments > 7) {
                     for (int i = 0; i < tempIDs.size(); ++i) {
                         qDebug() << i << "[" << this->isAssigned[i] << "]:" << this->tempIDs[i];
                     }
                     this->dupesFound = false;
-                    // work out if we have have duplicates, if so fix them
+                    // work out if we have duplicates, if so fix them
                     for (int i = 0; i < this->tempIDs.size(); ++i) {
                         // if we haven't already been identified as a dupe, or assigned
                         if (tempIDs[i] != DUPE && !this->isAssigned[i]) {
@@ -160,7 +160,7 @@ void KilobotIDAssignment::run()
                         }
                     }
 
-                    this->stage = SEND;
+                    this->stage = CONFIRM;
 
                 }
 
@@ -180,10 +180,63 @@ void KilobotIDAssignment::run()
 
             break;
         }
+
+        case CONFIRM:
+        {
+//            qDebug() << "CONFIRMING" << lastTime;
+
+
+            if((this->confirmationrequestsent==false)){
+
+            // get the next tempID to confirm
+//            while( (this->tempIDs[increment] == DUPE || this->isAssigned[increment]) && (increment<tempIDs.size()-1)  )
+//                increment++;
+
+
+            // send a confirmation request to the current tempID holder
+                    QVector<uint8_t> data;
+                    data.resize(9);
+                    // current temp ID
+                    data[0] = (this->tempIDs[increment] >> 8)&0xFF;
+                    data[1] = this->tempIDs[increment]&0xFF;
+                    kilobot_broadcast msg;
+                    msg.type = 5;
+                    msg.data = data;
+                    emit broadcastMessage(msg);
+                    t_since=20;
+                    this->confirmationrequestsent=true;
+                    qDebug() << "Message sent to robot: " << increment;
+
+
+            }
+            else {
+            // get the confirmation
+
+                if(t_since==0){
+                qDebug() << "Confirming robot: " << increment+1;
+                emit updateKilobotStates();
+                this->confirmationrequestsent=false;
+                increment++;
+                }
+            }
+
+                if(increment>=tempIDs.size()){
+                    increment=0;
+                    this->stage = SEND;
+                }
+
+                break;
+        }
+
+
         case SEND:
         {
-            if (lastTime > 25.0f) {
-                //if (t_since < 4) {
+//            if (lastTime > 25.0f) {
+              if (lastTime > 25.0f) {
+                  for (int i = 0; i < tempIDs.size(); ++i) {
+                      qDebug() << i << "[" << this->isAssigned[i] << "]:" << this->tempIDs[i];
+                  }
+
                     for (int id = 0; id < tempIDs.size(); ++id) {
                         qDebug() << "SEND" << lastTime;
                         if (this->tempIDs[id] != DUPE && !this->isAssigned[id]) {
@@ -201,16 +254,14 @@ void KilobotIDAssignment::run()
                             emit broadcastMessage(msg);
                             this->isAssigned[id] = true; // set as assigned
                         }
-//                        ++numFound;
                     }
+
                     t_since = tempIDs.size() + 2;
                     if (dupesFound) {
                         this->stage = RETRY;
                     } else {
-                        // end
                         this->stage = COMPLETE;
                     }
-               //}
             }
             break;
         }
@@ -266,7 +317,7 @@ void KilobotIDAssignment::setupInitialKilobotState(Kilobot kilobotCopy)
 void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
 {
     // check colours
-
+ if(this->stage==TEST){
     if (isAssigned[kilobotCopy.getID()]) return;
 
     lightColour col = kilobotCopy.getLedColour();
@@ -287,11 +338,15 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
     }
     else if (col == BLUE) {
         col2 = 1;
-    } else {
+    }
+    else if (col == GREEN) {
+        col2 = 2;
+    }
+    else {
         qDebug() << "DETECTION ERROR";
     }
 
-    this->tempIDs[kilobotCopy.getID()] += int(col2) * binaryMultipliers[numSegments-1];
+    this->tempIDs[kilobotCopy.getID()] += int(col2) * baseThreeMultipliers[numSegments-1];
 
     if (saveImages){
         kilobot_id kID = kilobotCopy.getID();
@@ -302,7 +357,31 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
         this->updatedCol = true;
         this->allKilos[kID].digits[numSegments-1] = col2;
     }
+}
+ if(this->stage==CONFIRM){
+     if (isAssigned[kilobotCopy.getID()]) return;
+     lightColour col = kilobotCopy.getLedColour();
 
+     QString colName;
+     if (col == OFF) colName = "OFF";
+     if (col == RED) colName = "RED";
+     if (col == GREEN) colName = "GREEN";
+     if (col == BLUE) colName = "BLUE";
+     qDebug() << "KB" << kilobotCopy.getID() << "confirming " << increment << " = " << colName ;
+
+
+     if(kilobotCopy.getID()==increment){
+     if (col != RED) {tempIDs[increment]=DUPE;
+     this->dupesFound = true;}
+     }
+     else{
+         if (col == RED){
+         tempIDs[increment]=DUPE;
+         tempIDs[kilobotCopy.getID()]=DUPE;
+         this->dupesFound = true;
+         }
+     }
+}
 //    clearDrawings();
 //    QColor rgbColor(0,0,0);
 //    switch (col){

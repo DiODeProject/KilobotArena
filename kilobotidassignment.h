@@ -10,15 +10,15 @@ enum assignStage {
     START,
     SEND,
     TEST,
+    CONFIRM,
     RETRY,
     COMPLETE,
 };
 
 const int baseFourMultipliers[6] = {1,4,16,64,256,1024};
 const int binaryMultipliers[11] = {1,2,4,8,16,32,64,128,256,512,1024};
+const int baseThreeMultipliers[8] = {1,3,9,27,81,243,729,2187};
 
-//static const double MM_TO_PIXEL = 2000.0/2200.0;
-//static const double PIXEL_TO_MM = 2200.0/2000.0;
 static const double MM_TO_PIXEL = 2000.0/2000.0;
 static const double PIXEL_TO_MM = 2000.0/2000.0;
 
@@ -31,7 +31,7 @@ public:
     KiloLog() {}
     KiloLog(kilobot_id id, QPointF pos, double rot, kilobot_colour col) :
         id(id), position(pos), orientation(rot), colour(col) {
-        this->digits.resize(11);
+        this->digits.resize(8);
         this->digits.fill(-1);
     }
 
@@ -96,8 +96,13 @@ private:
         QString log_filename_prefix="log_id_ass";
         QTextStream log_stream;
         //QVector < kilobot_id >  allKiloIDs;
-        QVector <KiloLog> allKilos;
+        QVector <
+        KiloLog> allKilos;
         bool updatedCol = false;
+
+        //confirmation stage variables
+        int increment=0;
+        bool confirmationrequestsent=false;
 
 };
 

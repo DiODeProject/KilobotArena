@@ -60,7 +60,7 @@ linux {
 CONFIG += link_pkgconfig
 PKGCONFIG += opencv
 
-}
+}KilobotArena.pro
 
 use_opencv3 {
 

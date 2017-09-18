@@ -18,7 +18,7 @@
 
 //#define TEST_WITHOUT_CAMERAS
 //#define TESTLEDS
-#define COLDET_V1
+#define COLDET_V2
 
 QSemaphore srcFree[4];
 QSemaphore srcUsed[4];
