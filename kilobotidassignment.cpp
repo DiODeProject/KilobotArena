@@ -1,27 +1,41 @@
 #include "kilobotidassignment.h"
 #include <QDebug>
 
-KilobotIDAssignment::KilobotIDAssignment()
+KilobotIDAssignment::KilobotIDAssignment(assignmethod method): method(method)
 {
-
 }
 
 
 void KilobotIDAssignment::initialise(bool)
 {
 
-    emit clearDrawings();
+    if(method==BINARY) {
+     numofdigits=11;
+    }
 
+    if(method==BASETHREE) {
+        numofdigits=8;
+    }
+
+    emit clearDrawings();
     // calibrate LEDs
     emit setTrackingType(ADAPTIVE_LED);
     emit getInitialKilobotStates();
+    QVector<uint8_t> data;
+    data.resize(9);
+    // current temp ID
+    data[0] = method;
     kilobot_broadcast msg;
     msg.type = 10;
+    msg.data = data;
     emit broadcastMessage(msg);
     this->time = 0.0;
     this->lastTime = 0.0;
 //    this->numFound = 0;
     this->numSegments = 0;
+
+
+
     this->switchSegment = true;
     this->stage = START;
     qDebug() << "INIT";
@@ -138,7 +152,7 @@ void KilobotIDAssignment::run()
                 this->switchSegment = false;
 
                 // when we have all segments
-                if (numSegments > 7) {
+                if (numSegments > (numofdigits-1)) {
                     for (int i = 0; i < tempIDs.size(); ++i) {
                         qDebug() << i << "[" << this->isAssigned[i] << "]:" << this->tempIDs[i];
                     }
@@ -228,7 +242,6 @@ void KilobotIDAssignment::run()
                 break;
         }
 
-
         case SEND:
         {
 //            if (lastTime > 25.0f) {
@@ -306,7 +319,7 @@ void KilobotIDAssignment::setupInitialKilobotState(Kilobot kilobotCopy)
     this->isAssigned[kilobotCopy.getID()] = false;
 
     if (saveImages){
-        KiloLog kLog(kilobotCopy.getID(), kilobotCopy.getPosition()*PIXEL_TO_MM, 0, kilobotCopy.getLedColour());
+        KiloLog kLog(kilobotCopy.getID(), kilobotCopy.getPosition()*PIXEL_TO_MM, 0, kilobotCopy.getLedColour(),numofdigits);
         this->allKilos[kilobotCopy.getID()] = kLog;
         updatedCol = true;
     }
@@ -333,6 +346,20 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
 
     int col2 = 0;
 
+    if(method==BINARY){
+    if (col == RED) {
+        col2 = 0;
+    }
+    else if (col == BLUE) {
+        col2 = 1;
+    }
+    else {
+        qDebug() << "DETECTION ERROR";
+    }
+    this->tempIDs[kilobotCopy.getID()] += int(col2) * binaryMultipliers[numSegments-1];
+    }
+
+    if(method==BASETHREE){
     if (col == RED) {
         col2 = 0;
     }
@@ -347,6 +374,9 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
     }
 
     this->tempIDs[kilobotCopy.getID()] += int(col2) * baseThreeMultipliers[numSegments-1];
+    }
+
+
 
     if (saveImages){
         kilobot_id kID = kilobotCopy.getID();
@@ -360,8 +390,8 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
 }
  if(this->stage==CONFIRM){
      if (isAssigned[kilobotCopy.getID()]) return;
+     else{
      lightColour col = kilobotCopy.getLedColour();
-
      QString colName;
      if (col == OFF) colName = "OFF";
      if (col == RED) colName = "RED";
@@ -380,6 +410,7 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
          tempIDs[kilobotCopy.getID()]=DUPE;
          this->dupesFound = true;
          }
+     }
      }
 }
 //    clearDrawings();

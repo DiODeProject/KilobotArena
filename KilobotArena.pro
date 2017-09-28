@@ -145,3 +145,6 @@ LIBS += -framework AVFoundation
 
 
 }
+
+RESOURCES += \
+    ressources.qrc

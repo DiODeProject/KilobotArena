@@ -164,11 +164,19 @@ class KilobotExperiment;
 class KilobotTracker : public QObject
 {
     Q_OBJECT
+
 public:
     explicit KilobotTracker(QPoint smallImageSize = QPoint(300,300), QObject *parent = 0);
     ~KilobotTracker();
 
     KilobotExperiment * expt;
+
+    //Default tracking parameters and identification parameters
+    int kbMinSize = 12;
+    int kbMaxSize = 26;
+    int houghAcc = 19;
+    int cannyThresh = 50;
+    uint maxIDtoCheck = 100;
 
 
 signals:
@@ -428,11 +436,6 @@ private:
 
     bool loadFirstIm = false;
 
-    int kbMinSize = 12;
-    int kbMaxSize = 26;
-    int houghAcc = 19;
-    int cannyThresh = 50;
-
     srcDataType srcType = CAMERA;
     QString videoPath;
 
@@ -457,7 +460,6 @@ private:
     uint found = IDENTIFY_TIMEOUT;
     QVector < uint > foundIDs;
     QVector < int > assignedCircles;
-    uint maxIDtoCheck = 100;
 
     stageType stage = TRACK;
 

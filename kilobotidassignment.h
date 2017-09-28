@@ -15,6 +15,11 @@ enum assignStage {
     COMPLETE,
 };
 
+enum assignmethod {
+    BINARY,
+    BASETHREE,
+};
+
 const int baseFourMultipliers[6] = {1,4,16,64,256,1024};
 const int binaryMultipliers[11] = {1,2,4,8,16,32,64,128,256,512,1024};
 const int baseThreeMultipliers[8] = {1,3,9,27,81,243,729,2187};
@@ -28,10 +33,10 @@ static const double PIXEL_TO_MM = 2000.0/2000.0;
 class KiloLog {
 public:
     // constructors
-    KiloLog() {}
-    KiloLog(kilobot_id id, QPointF pos, double rot, kilobot_colour col) :
-        id(id), position(pos), orientation(rot), colour(col) {
-        this->digits.resize(8);
+    KiloLog(){}
+    KiloLog(kilobot_id id, QPointF pos, double rot, kilobot_colour col,int numofdigits) :
+        id(id), position(pos), orientation(rot), colour(col){
+        this->digits.resize(numofdigits);
         this->digits.fill(-1);
     }
 
@@ -64,7 +69,7 @@ class KilobotIDAssignment : public KilobotExperiment
 {
     Q_OBJECT
 public:
-    KilobotIDAssignment();
+    KilobotIDAssignment(assignmethod method=BINARY);
     virtual ~KilobotIDAssignment() {}
 
 public slots:
@@ -77,6 +82,7 @@ private:
         void setupInitialKilobotState(Kilobot kilobotCopy);
 
 // internal vars
+        assignmethod method;
         QVector < uint16_t > tempIDs;
         QVector < bool > isAssigned;
         assignStage stage;
@@ -84,6 +90,7 @@ private:
         //int numFound = 0;
         bool dupesFound = 0;
         int numSegments = 0;
+        int numofdigits =0;
 
         bool switchSegment = true;
         QElapsedTimer t;
@@ -96,8 +103,7 @@ private:
         QString log_filename_prefix="log_id_ass";
         QTextStream log_stream;
         //QVector < kilobot_id >  allKiloIDs;
-        QVector <
-        KiloLog> allKilos;
+        QVector <KiloLog> allKilos;
         bool updatedCol = false;
 
         //confirmation stage variables

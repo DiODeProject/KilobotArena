@@ -27,6 +27,13 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->find_details_frame->setVisible(false);
 
+    //show default settings on the GUI
+    ui->kbMax_slider->setValue(kbtracker.kbMaxSize);
+    ui->kbMin_slider->setValue(kbtracker.kbMinSize);
+    ui->houghAcc_slider->setValue(kbtracker.houghAcc);
+    ui->cannyThresh_slider->setValue(kbtracker.cannyThresh);
+    ui->maxIDtoTry_input->setText(QString::number(kbtracker.maxIDtoCheck));
+
     // thread for usercode
     this->thread = new UserThread(&kbtracker, &ohc);
 
@@ -179,7 +186,8 @@ void MainWindow::assignIDs() {
         ui->assignIDs->setText("Start IDs Assignment");
     }
 
-    this->thread->chooseInternalExperiments(0);
+    if(ui->binary_radio->isChecked()) this->thread->chooseInternalExperiments(0);
+    else this->thread->chooseInternalExperiments(1);
     this->kbtracker.LOOPstartstop(TRACK);
 }
 
@@ -190,7 +198,7 @@ void MainWindow::calibrate() {
     if(ui->calibrate->text() == "Stop Motors Calibration")
         ui->calibrate->setText("Start Motors Calibration");
     }
-    this->thread->chooseInternalExperiments(1);
+    this->thread->chooseInternalExperiments(2);
     this->kbtracker.LOOPstartstop(TRACK);
 }
 

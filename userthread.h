@@ -117,17 +117,24 @@ public slots:
 
         void chooseInternalExperiments(int num) {
             this->currExptFilename = "";
-            if (num < 2) {
+            if (num < 3) {
                 while (this->expts.size() > 0) {
                     this->expts[0]->deleteLater();
                     this->expts.pop_front();
                 }
-                if (num == 0) { // assign IDs
-                    this->expts.push_back(new KilobotIDAssignment);
+                if (num == 0) { // assign IDs                           
+                    this->expts.push_back(new KilobotIDAssignment(BINARY));
                     this->currExpt = expts.size()-1;
                     this->connectExpt(this->currExpt);
                 }
-                if (num == 1) { // calibrate
+
+                if (num == 1) { // assign IDs
+                    this->expts.push_back(new KilobotIDAssignment(BASETHREE));
+                    this->currExpt = expts.size()-1;
+                    this->connectExpt(this->currExpt);
+                }
+
+                if (num == 2) { // calibrate
                     this->expts.push_back(new KilobotCalibrate);
                     this->currExpt = expts.size()-1;
                     this->connectExpt(this->currExpt);

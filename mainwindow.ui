@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>885</width>
-    <height>707</height>
+    <width>972</width>
+    <height>748</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -18,7 +18,7 @@
   </property>
   <property name="maximumSize">
    <size>
-    <width>885</width>
+    <width>1024</width>
     <height>16777215</height>
    </size>
   </property>
@@ -29,8 +29,8 @@
    <widget class="QLabel" name="error_label">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>610</y>
+      <x>20</x>
+      <y>650</y>
       <width>851</width>
       <height>31</height>
      </rect>
@@ -52,7 +52,7 @@
     <property name="geometry">
      <rect>
       <x>610</x>
-      <y>20</y>
+      <y>40</y>
       <width>16</width>
       <height>571</height>
      </rect>
@@ -65,7 +65,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>10</y>
+      <y>40</y>
       <width>600</width>
       <height>600</height>
      </rect>
@@ -144,8 +144,8 @@
    <widget class="QPushButton" name="left">
     <property name="geometry">
      <rect>
-      <x>780</x>
-      <y>650</y>
+      <x>880</x>
+      <y>680</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -157,8 +157,8 @@
    <widget class="QPushButton" name="straight">
     <property name="geometry">
      <rect>
-      <x>810</x>
-      <y>650</y>
+      <x>910</x>
+      <y>680</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -170,8 +170,8 @@
    <widget class="QPushButton" name="right">
     <property name="geometry">
      <rect>
-      <x>840</x>
-      <y>650</y>
+      <x>940</x>
+      <y>680</y>
       <width>21</width>
       <height>22</height>
      </rect>
@@ -196,8 +196,8 @@
    <widget class="QLineEdit" name="test_id">
     <property name="geometry">
      <rect>
-      <x>780</x>
-      <y>680</y>
+      <x>880</x>
+      <y>710</y>
       <width>81</width>
       <height>22</height>
      </rect>
@@ -207,8 +207,8 @@
     <property name="geometry">
      <rect>
       <x>630</x>
-      <y>10</y>
-      <width>251</width>
+      <y>50</y>
+      <width>321</width>
       <height>581</height>
      </rect>
     </property>
@@ -220,7 +220,7 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>251</width>
+       <width>321</width>
        <height>457</height>
       </rect>
      </property>
@@ -230,9 +230,9 @@
      <widget class="QFrame" name="frame">
       <property name="geometry">
        <rect>
-        <x>-10</x>
+        <x>0</x>
         <y>0</y>
-        <width>251</width>
+        <width>301</width>
         <height>181</height>
        </rect>
       </property>
@@ -247,7 +247,7 @@
         <rect>
          <x>10</x>
          <y>10</y>
-         <width>231</width>
+         <width>291</width>
          <height>32</height>
         </rect>
        </property>
@@ -260,7 +260,7 @@
         <rect>
          <x>10</x>
          <y>50</y>
-         <width>231</width>
+         <width>291</width>
          <height>131</height>
         </rect>
        </property>
@@ -268,6 +268,9 @@
         <string>Source</string>
        </property>
        <widget class="QRadioButton" name="vid_radio">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="geometry">
          <rect>
           <x>20</x>
@@ -278,6 +281,9 @@
         </property>
         <property name="text">
          <string>Video</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
         </property>
         <property name="checked">
          <bool>false</bool>
@@ -304,7 +310,7 @@
          <rect>
           <x>160</x>
           <y>100</y>
-          <width>51</width>
+          <width>61</width>
           <height>22</height>
          </rect>
         </property>
@@ -315,9 +321,9 @@
        <widget class="QLabel" name="label">
         <property name="geometry">
          <rect>
-          <x>70</x>
+          <x>60</x>
           <y>100</y>
-          <width>81</width>
+          <width>91</width>
           <height>20</height>
          </rect>
         </property>
@@ -325,25 +331,12 @@
          <string>Source order:</string>
         </property>
        </widget>
-       <widget class="QPushButton" name="sel_video">
-        <property name="geometry">
-         <rect>
-          <x>130</x>
-          <y>30</y>
-          <width>80</width>
-          <height>22</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Select</string>
-        </property>
-       </widget>
        <widget class="QLabel" name="vid_path">
         <property name="geometry">
          <rect>
           <x>20</x>
           <y>50</y>
-          <width>181</width>
+          <width>281</width>
           <height>30</height>
          </rect>
         </property>
@@ -352,45 +345,23 @@
         </property>
        </widget>
       </widget>
-     </widget>
-     <widget class="QPushButton" name="refresh">
-      <property name="geometry">
-       <rect>
-        <x>70</x>
-        <y>190</y>
-        <width>99</width>
-        <height>27</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>refresh</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="rotate_neg">
-      <property name="geometry">
-       <rect>
-        <x>190</x>
-        <y>190</y>
-        <width>31</width>
-        <height>27</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>r-</string>
-      </property>
-     </widget>
-     <widget class="QPushButton" name="rotate_pos">
-      <property name="geometry">
-       <rect>
-        <x>20</x>
-        <y>190</y>
-        <width>31</width>
-        <height>27</height>
-       </rect>
-      </property>
-      <property name="text">
-       <string>r+</string>
-      </property>
+      <widget class="QPushButton" name="sel_video">
+       <property name="geometry">
+        <rect>
+         <x>190</x>
+         <y>80</y>
+         <width>91</width>
+         <height>22</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Select</string>
+       </property>
+      </widget>
+      <zorder>load_calib</zorder>
+      <zorder>src_group</zorder>
+      <zorder>sel_video</zorder>
+      <zorder>sel_video</zorder>
      </widget>
     </widget>
     <widget class="QWidget" name="page_setup">
@@ -398,8 +369,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>321</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -410,7 +381,7 @@
        <rect>
         <x>0</x>
         <y>257</y>
-        <width>251</width>
+        <width>301</width>
         <height>170</height>
        </rect>
       </property>
@@ -453,7 +424,7 @@
         <rect>
          <x>60</x>
          <y>70</y>
-         <width>161</width>
+         <width>201</width>
          <height>20</height>
         </rect>
        </property>
@@ -473,7 +444,7 @@
       <widget class="QLabel" name="kbMax_label">
        <property name="geometry">
         <rect>
-         <x>230</x>
+         <x>270</x>
          <y>90</y>
          <width>31</width>
          <height>16</height>
@@ -501,7 +472,7 @@
         <rect>
          <x>60</x>
          <y>30</y>
-         <width>161</width>
+         <width>201</width>
          <height>20</height>
         </rect>
        </property>
@@ -521,7 +492,7 @@
       <widget class="QLabel" name="cannyThresh_label">
        <property name="geometry">
         <rect>
-         <x>230</x>
+         <x>270</x>
          <y>30</y>
          <width>31</width>
          <height>16</height>
@@ -534,7 +505,7 @@
       <widget class="QLabel" name="houghAcc_label">
        <property name="geometry">
         <rect>
-         <x>230</x>
+         <x>270</x>
          <y>50</y>
          <width>31</width>
          <height>16</height>
@@ -562,7 +533,7 @@
         <rect>
          <x>60</x>
          <y>90</y>
-         <width>161</width>
+         <width>201</width>
          <height>20</height>
         </rect>
        </property>
@@ -584,7 +555,7 @@
         <rect>
          <x>60</x>
          <y>50</y>
-         <width>161</width>
+         <width>201</width>
          <height>20</height>
         </rect>
        </property>
@@ -630,7 +601,7 @@
       <widget class="QLabel" name="kbMin_label">
        <property name="geometry">
         <rect>
-         <x>230</x>
+         <x>270</x>
          <y>70</y>
          <width>31</width>
          <height>16</height>
@@ -645,7 +616,7 @@
         <rect>
          <x>10</x>
          <y>0</y>
-         <width>231</width>
+         <width>311</width>
          <height>16</height>
         </rect>
        </property>
@@ -684,7 +655,7 @@
         <rect>
          <x>60</x>
          <y>120</y>
-         <width>161</width>
+         <width>201</width>
          <height>20</height>
         </rect>
        </property>
@@ -704,7 +675,7 @@
       <widget class="QLabel" name="arena_height_label">
        <property name="geometry">
         <rect>
-         <x>230</x>
+         <x>270</x>
          <y>120</y>
          <width>31</width>
          <height>16</height>
@@ -714,14 +685,32 @@
         <string>10</string>
        </property>
       </widget>
+      <zorder>houghAcc_slider</zorder>
+      <zorder>label_6</zorder>
+      <zorder>kbMin_slider</zorder>
+      <zorder>kbMax_label</zorder>
+      <zorder>label_3</zorder>
+      <zorder>cannyThresh_slider</zorder>
+      <zorder>cannyThresh_label</zorder>
+      <zorder>houghAcc_label</zorder>
+      <zorder>label_5</zorder>
+      <zorder>kbMax_slider</zorder>
+      <zorder>label_2</zorder>
+      <zorder>label_4</zorder>
+      <zorder>kbMin_label</zorder>
+      <zorder>line</zorder>
+      <zorder>line_2</zorder>
+      <zorder>label_7</zorder>
+      <zorder>arena_height_slider</zorder>
+      <zorder>arena_height_label</zorder>
      </widget>
-     <widget class="QWidget" name="layoutWidget">
+     <widget class="QWidget" name="">
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>10</y>
-        <width>248</width>
-        <height>219</height>
+        <y>2</y>
+        <width>301</width>
+        <height>249</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -776,6 +765,30 @@
         </layout>
        </item>
        <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_3">
+         <item>
+          <widget class="QRadioButton" name="binary_radio">
+           <property name="text">
+            <string>Binary</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QRadioButton" name="basethree_radio">
+           <property name="text">
+            <string>Base three</string>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
         <widget class="QPushButton" name="assignIDs">
          <property name="text">
           <string>Start IDs Assignment</string>
@@ -808,14 +821,17 @@
        </item>
       </layout>
      </widget>
+     <zorder>find_details_frame</zorder>
+     <zorder>layoutWidget</zorder>
+     <zorder>frame_2</zorder>
     </widget>
     <widget class="QWidget" name="page_expt">
      <property name="geometry">
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>321</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -826,7 +842,7 @@
        <rect>
         <x>10</x>
         <y>0</y>
-        <width>231</width>
+        <width>291</width>
         <height>22</height>
        </rect>
       </property>
@@ -839,7 +855,7 @@
        <rect>
         <x>10</x>
         <y>30</y>
-        <width>231</width>
+        <width>311</width>
         <height>16</height>
        </rect>
       </property>
@@ -853,9 +869,9 @@
      <widget class="QPushButton" name="run">
       <property name="geometry">
        <rect>
-        <x>10</x>
-        <y>430</y>
-        <width>231</width>
+        <x>20</x>
+        <y>410</y>
+        <width>271</width>
         <height>32</height>
        </rect>
       </property>
@@ -868,8 +884,8 @@
        <rect>
         <x>10</x>
         <y>70</y>
-        <width>231</width>
-        <height>351</height>
+        <width>291</width>
+        <height>331</height>
        </rect>
       </property>
       <property name="verticalScrollBarPolicy">
@@ -889,8 +905,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>216</width>
-         <height>336</height>
+         <width>276</width>
+         <height>316</height>
         </rect>
        </property>
       </widget>
@@ -917,8 +933,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>321</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -929,7 +945,7 @@
        <rect>
         <x>10</x>
         <y>30</y>
-        <width>91</width>
+        <width>121</width>
         <height>121</height>
        </rect>
       </property>
@@ -1011,9 +1027,9 @@
      <widget class="QPushButton" name="ohc_set_prog">
       <property name="geometry">
        <rect>
-        <x>120</x>
+        <x>160</x>
         <y>50</y>
-        <width>121</width>
+        <width>141</width>
         <height>22</height>
        </rect>
       </property>
@@ -1024,9 +1040,9 @@
      <widget class="QPushButton" name="ohc_upload_prog">
       <property name="geometry">
        <rect>
-        <x>120</x>
+        <x>160</x>
         <y>80</y>
-        <width>121</width>
+        <width>141</width>
         <height>22</height>
        </rect>
       </property>
@@ -1039,7 +1055,7 @@
        <rect>
         <x>10</x>
         <y>0</y>
-        <width>231</width>
+        <width>291</width>
         <height>22</height>
        </rect>
       </property>
@@ -1082,13 +1098,110 @@
     </property>
     <layout class="QVBoxLayout" name="verticalLayout_2"/>
    </widget>
+   <widget class="QPushButton" name="rotate_pos">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>9</y>
+      <width>31</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="icon">
+     <iconset>
+      <normalon>:/images/rotate_left.png</normalon>
+     </iconset>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="refresh">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>9</y>
+      <width>31</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="icon">
+     <iconset>
+      <normalon>:/images/refresh.png</normalon>
+     </iconset>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="rotate_neg">
+    <property name="geometry">
+     <rect>
+      <x>100</x>
+      <y>9</y>
+      <width>31</width>
+      <height>27</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="icon">
+     <iconset>
+      <normalon>:/images/rotate_right.png</normalon>
+     </iconset>
+    </property>
+   </widget>
+   <widget class="Line" name="line_3">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>30</y>
+      <width>941</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="Line" name="line_5">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>0</y>
+      <width>941</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
+   <zorder>toolBox</zorder>
+   <zorder>error_label</zorder>
+   <zorder>line_4</zorder>
+   <zorder>result_final</zorder>
+   <zorder>left</zorder>
+   <zorder>straight</zorder>
+   <zorder>right</zorder>
+   <zorder>test</zorder>
+   <zorder>test_id</zorder>
+   <zorder>layoutWidget</zorder>
+   <zorder>layoutWidget</zorder>
+   <zorder>layoutWidget</zorder>
+   <zorder>rotate_pos</zorder>
+   <zorder>refresh</zorder>
+   <zorder>rotate_neg</zorder>
+   <zorder>line_3</zorder>
+   <zorder>line_5</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>885</width>
+     <width>972</width>
      <height>25</height>
     </rect>
    </property>
