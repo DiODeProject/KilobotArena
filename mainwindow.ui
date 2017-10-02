@@ -358,10 +358,6 @@
         <string>Select</string>
        </property>
       </widget>
-      <zorder>load_calib</zorder>
-      <zorder>src_group</zorder>
-      <zorder>sel_video</zorder>
-      <zorder>sel_video</zorder>
      </widget>
     </widget>
     <widget class="QWidget" name="page_setup">
@@ -369,8 +365,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>457</height>
+       <width>100</width>
+       <height>30</height>
       </rect>
      </property>
      <attribute name="label">
@@ -704,7 +700,7 @@
       <zorder>arena_height_slider</zorder>
       <zorder>arena_height_label</zorder>
      </widget>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <property name="geometry">
        <rect>
         <x>0</x>
@@ -821,17 +817,14 @@
        </item>
       </layout>
      </widget>
-     <zorder>find_details_frame</zorder>
-     <zorder>layoutWidget</zorder>
-     <zorder>frame_2</zorder>
     </widget>
     <widget class="QWidget" name="page_expt">
      <property name="geometry">
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>457</height>
+       <width>100</width>
+       <height>30</height>
       </rect>
      </property>
      <attribute name="label">
@@ -933,8 +926,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>457</height>
+       <width>100</width>
+       <height>30</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1178,6 +1171,32 @@
      <enum>Qt::Horizontal</enum>
     </property>
    </widget>
+   <widget class="Line" name="line_6">
+    <property name="geometry">
+     <rect>
+      <x>130</x>
+      <y>7</y>
+      <width>20</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Vertical</enum>
+    </property>
+   </widget>
+   <widget class="Line" name="line_7">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>7</y>
+      <width>20</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Vertical</enum>
+    </property>
+   </widget>
    <zorder>toolBox</zorder>
    <zorder>error_label</zorder>
    <zorder>line_4</zorder>
@@ -1195,6 +1214,8 @@
    <zorder>rotate_neg</zorder>
    <zorder>line_3</zorder>
    <zorder>line_5</zorder>
+   <zorder>line_6</zorder>
+   <zorder>line_7</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">

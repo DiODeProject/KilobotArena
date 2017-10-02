@@ -203,8 +203,8 @@ void KilobotIDAssignment::run()
             if((this->confirmationrequestsent==false)){
 
             // get the next tempID to confirm
-//            while( (this->tempIDs[increment] == DUPE || this->isAssigned[increment]) && (increment<tempIDs.size()-1)  )
-//                increment++;
+            while( (this->tempIDs[increment] == DUPE || this->isAssigned[increment]) && (increment<tempIDs.size()-1)  )
+                increment++;
 
 
             // send a confirmation request to the current tempID holder
