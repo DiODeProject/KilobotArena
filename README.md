@@ -24,4 +24,5 @@ If you use or adapt ARK in order to generate experimental results, please cite t
 
 ### See Also
 
-ARK makes use of a redesigned overhead controller: [ARK_OHC](https://github.com/DiODeProject/ARK_OHC)
+* ARK makes use of a redesigned overhead controller: [ARK_OHC](https://github.com/DiODeProject/ARK_OHC)
+* [Kilobot Wiki](http://diode.group.shef.ac.uk/kilobots/index.php/Kilobots)
