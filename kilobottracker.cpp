@@ -27,7 +27,6 @@ QSemaphore srcStop[4];
 QSemaphore camUsage;
 
 int camOrder[4] = {0,1,2,3};
-//int camOrder[4] = {1,2,3,0};
 
 /*!
  * \brief The acquireThread class
@@ -55,13 +54,14 @@ public:
     Point fullCorner;
     Point2f arenaCorners[4];
     QString videoDir = "";
+    int height_x_adj;
+    int height_y_adj;
 
     // the index of the source
     uint index = 0;
 
     bool keepRunning = true;
 
-    int height_adj = 10;
 
     srcDataType type = CAMERA;
 
@@ -192,28 +192,24 @@ private:
                 // only do this if we are not loading calibration
                 if (!(this->corner.x == -1 && this->corner.y == -1)) {
 
-                    // test without big Mats
-#define ADJ 10 // adjustment used to compensate for placing calibration images on table, and not at kilobot height
-                    MAT_TYPE temp2;
-#ifdef ADJ
+                    // adjustment used to compensate for placing calibration images on table, and not at kilobot height
                     MAT_TYPE temp;
 #ifdef USE_CUDA
-                    cv::cuda::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-height_adj,size.height-height_adj),0,0, INTER_LINEAR, stream);
-                    cv::cuda::resize(temp, temp2,Size((1536*(size.width-height_adj))/fullSize.width,(1536*(size.height-height_adj))/fullSize.height),0,0, INTER_LINEAR, stream);
+//                    qDebug() << "Size w: " << size.width << " h: " << size.height;
+//                    qDebug() << "Full-Size w: " << fullSize.width << " h: " << fullSize.height;
+//                    cv::cuda::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-height_adj,size.height-height_adj),0,0, INTER_LINEAR, stream);
+//                    cv::cuda::resize(temp, temp2,Size((2048*(size.width-height_adj))/fullSize.width,(1536*(size.height-height_adj))/fullSize.height),0,0, INTER_LINEAR, stream);
+                    cv::cuda::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size((min(IM_HEIGHT,IM_WIDTH)*(size.width-height_x_adj))/fullSize.width,(min(IM_HEIGHT,IM_WIDTH)*(size.height-height_y_adj))/fullSize.height),0,0, INTER_LINEAR, stream);
 #else
-                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp, Size(size.width-height_adj,size.height-height_adj));
-                    cv::resize(temp, temp2,Size((1536*(size.width-height_adj))/fullSize.width,(1536*(size.height-height_adj))/fullSize.height));
-#endif
-#else
-                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp2,Size((1536*(size.width-ADJ))/fullSize.width,(1536*(size.height-ADJ))/fullSize.height));
+                    cv::resize(srcBuff[index][time % BUFF_SIZE].warped_image, temp,Size((min(IM_HEIGHT,IM_WIDTH)*(size.width-height_x_adj))/fullSize.width,(min(IM_HEIGHT,IM_WIDTH)*(size.height-height_y_adj))/fullSize.height));
 #endif
 
                     Point2f arenaCorners_adj[4];
                     Point2f outputQuad_adj[4];
-                    //qDebug() << "Thread " << this->index << " corner " << corner.x << "," << corner.y << " full Corner " << fullCorner.x << "," << fullCorner.y;
+//                    qDebug() << "Thread " << this->index << " corner " << corner.x << "," << corner.y << " full Corner " << fullCorner.x << "," << fullCorner.y;
                     for (int i = 0; i < 4; ++i) {
-                        arenaCorners_adj[i] = arenaCorners[i] - Point2f(((corner.x-fullCorner.x)*1536)/fullSize.width,((corner.y-fullCorner.y)*1536)/fullSize.height);
-                        //qDebug() << "arenaCorners_adj " << i << " is " << arenaCorners_adj[i].x << "," << arenaCorners_adj[i].y;
+                        arenaCorners_adj[i] = arenaCorners[i] - Point2f(((corner.x-fullCorner.x)*min(IM_HEIGHT,IM_WIDTH))/fullSize.width,((corner.y-fullCorner.y)*min(IM_HEIGHT,IM_WIDTH))/fullSize.height);
+//                        qDebug() << "arenaCorners_adj " << i << " is " << arenaCorners_adj[i].x << "," << arenaCorners_adj[i].y;
                         // shift the location for all but the first camera, and add 100 pixel overlap around the images
                         outputQuad_adj[i] = outputQuad[i] - Point2f((fabs(corner.x-fullCorner.x)>100)*1000-100, (fabs(corner.y-fullCorner.y)>100)*1000-100);
                     }
@@ -221,9 +217,9 @@ private:
                     Mat M = getPerspectiveTransform(arenaCorners_adj,outputQuad_adj);
                     // 1200 x 1200 output includes 100 pixel overlap aound entire image
 #ifdef USE_CUDA
-                    cuda::warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1200,1200),INTER_LINEAR,BORDER_CONSTANT,Scalar(),stream);
+                    cuda::warpPerspective(temp, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1200,1200),INTER_LINEAR,BORDER_CONSTANT,Scalar(),stream);
 #else
-                    warpPerspective(temp2, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1200,1200));
+                    warpPerspective(temp, srcBuff[index][time % BUFF_SIZE].full_warped_image, M, Size(1200,1200));
 #endif
 
                 }
@@ -2305,8 +2301,8 @@ void KilobotTracker::SETUPstitcher()
         if (corners[j].y + sizes[j].height > max_y) max_y = corners[j].y + sizes[j].height;
     }
 
-    fullSize =  Size(max_x-min_x+1, max_y-min_y+1);
     fullCorner =  Point(min_x, min_y);
+    fullSize =  Size(max_x-min_x+1, max_y-min_y+1);
 
     // assign indices...
     for (int j = 0; j < 4; ++j) {
@@ -2345,6 +2341,8 @@ void KilobotTracker::THREADSlaunch()
         this->threads[i]->index = i;
         this->threads[i]->type = this->srcType;
         this->threads[i]->videoDir = this->videoPath;
+        this->threads[i]->height_x_adj = this->height_x_adj;
+        this->threads[i]->height_y_adj = this->height_y_adj;
         this->threads[i]->start();
     }
 }

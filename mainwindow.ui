@@ -232,8 +232,8 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>301</width>
-        <height>181</height>
+        <width>311</width>
+        <height>191</height>
        </rect>
       </property>
       <property name="frameShape">
@@ -365,8 +365,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>100</width>
-       <height>30</height>
+       <width>321</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -638,20 +638,20 @@
         <rect>
          <x>0</x>
          <y>120</y>
-         <width>61</width>
+         <width>91</width>
          <height>20</height>
         </rect>
        </property>
        <property name="text">
-        <string>Hght adj:</string>
+        <string>Height adj x:</string>
        </property>
       </widget>
-      <widget class="QSlider" name="arena_height_slider">
+      <widget class="QSlider" name="arena_height_x_slider">
        <property name="geometry">
         <rect>
-         <x>60</x>
+         <x>90</x>
          <y>120</y>
-         <width>201</width>
+         <width>171</width>
          <height>20</height>
         </rect>
        </property>
@@ -668,11 +668,59 @@
         <enum>Qt::Horizontal</enum>
        </property>
       </widget>
-      <widget class="QLabel" name="arena_height_label">
+      <widget class="QLabel" name="arena_height_y_label">
        <property name="geometry">
         <rect>
          <x>270</x>
          <y>120</y>
+         <width>31</width>
+         <height>16</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>10</string>
+       </property>
+      </widget>
+      <widget class="QSlider" name="arena_height_y_slider">
+       <property name="geometry">
+        <rect>
+         <x>90</x>
+         <y>140</y>
+         <width>171</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>20</number>
+       </property>
+       <property name="value">
+        <number>10</number>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_13">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>140</y>
+         <width>91</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Height adj y:</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="arena_height_x_label_2">
+       <property name="geometry">
+        <rect>
+         <x>270</x>
+         <y>140</y>
          <width>31</width>
          <height>16</height>
         </rect>
@@ -697,8 +745,11 @@
       <zorder>line</zorder>
       <zorder>line_2</zorder>
       <zorder>label_7</zorder>
-      <zorder>arena_height_slider</zorder>
-      <zorder>arena_height_label</zorder>
+      <zorder>arena_height_x_slider</zorder>
+      <zorder>arena_height_y_label</zorder>
+      <zorder>arena_height_y_slider</zorder>
+      <zorder>label_13</zorder>
+      <zorder>arena_height_x_label_2</zorder>
      </widget>
      <widget class="QWidget" name="layoutWidget">
       <property name="geometry">
@@ -823,8 +874,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>100</width>
-       <height>30</height>
+       <width>321</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -926,8 +977,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>100</width>
-       <height>30</height>
+       <width>321</width>
+       <height>457</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1254,12 +1305,12 @@
    <slot>setNum(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>735</x>
-     <y>203</y>
+     <x>734</x>
+     <y>477</y>
     </hint>
     <hint type="destinationlabel">
-     <x>855</x>
-     <y>203</y>
+     <x>900</x>
+     <y>477</y>
     </hint>
    </hints>
   </connection>
@@ -1270,12 +1321,12 @@
    <slot>setNum(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>735</x>
-     <y>163</y>
+     <x>734</x>
+     <y>437</y>
     </hint>
     <hint type="destinationlabel">
-     <x>855</x>
-     <y>163</y>
+     <x>900</x>
+     <y>437</y>
     </hint>
    </hints>
   </connection>
@@ -1286,12 +1337,12 @@
    <slot>setNum(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>735</x>
-     <y>183</y>
+     <x>734</x>
+     <y>457</y>
     </hint>
     <hint type="destinationlabel">
-     <x>855</x>
-     <y>183</y>
+     <x>900</x>
+     <y>457</y>
     </hint>
    </hints>
   </connection>
@@ -1303,27 +1354,27 @@
    <hints>
     <hint type="sourcelabel">
      <x>803</x>
-     <y>606</y>
+     <y>399</y>
     </hint>
     <hint type="destinationlabel">
-     <x>755</x>
-     <y>685</y>
+     <x>754</x>
+     <y>576</y>
     </hint>
    </hints>
   </connection>
   <connection>
-   <sender>arena_height_slider</sender>
+   <sender>arena_height_x_slider</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>arena_height_label</receiver>
+   <receiver>arena_height_y_label</receiver>
    <slot>setNum(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>770</x>
-     <y>387</y>
+     <x>769</x>
+     <y>527</y>
     </hint>
     <hint type="destinationlabel">
-     <x>875</x>
-     <y>385</y>
+     <x>900</x>
+     <y>527</y>
     </hint>
    </hints>
   </connection>
@@ -1334,12 +1385,28 @@
    <slot>setNum(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>735</x>
-     <y>223</y>
+     <x>734</x>
+     <y>497</y>
     </hint>
     <hint type="destinationlabel">
-     <x>855</x>
-     <y>223</y>
+     <x>900</x>
+     <y>497</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>arena_height_y_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>arena_height_x_label_2</receiver>
+   <slot>setNum(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>886</x>
+     <y>556</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>907</x>
+     <y>557</y>
     </hint>
    </hints>
   </connection>

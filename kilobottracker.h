@@ -178,6 +178,9 @@ public:
     int cannyThresh = 50;
     uint maxIDtoCheck = 100;
 
+    // camera parameters
+    int height_x_adj = 10;
+    int height_y_adj = 10;
 
 signals:
     /*!
@@ -292,6 +295,8 @@ public slots:
     void setKbMax(int val) {this->kbMaxSize = val;}
     void setCannyThresh(int val) {this->cannyThresh = val;}
     void setHoughAcc(int val) {this->houghAcc = val;}
+    void setHeightXSlider(int val) {this->height_x_adj = val;}
+    void setHeightYSlider(int val) {this->height_y_adj = val;}
 
     /*!
      * \brief setVideoDir

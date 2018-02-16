@@ -52,11 +52,12 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->lineEdit, SIGNAL(editingFinished()), &this->kbtracker, SLOT(SETUPsetCamOrder()));
     connect(ui->refresh, SIGNAL(clicked(bool)), &this->kbtracker,SLOT(RefreshDisplayedImage()));
 
-
     connect(ui->houghAcc_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHoughAcc(int)));
     connect(ui->cannyThresh_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setCannyThresh(int)));
     connect(ui->kbMax_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMax(int)));
     connect(ui->kbMin_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMin(int)));
+    connect(ui->arena_height_x_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHeightXSlider(int)));
+    connect(ui->arena_height_y_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHeightYSlider(int)));
 
     if (ui->show_ids->isChecked()) this->kbtracker.showIds(true);
     connect(ui->show_ids, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(showIds(bool)));
