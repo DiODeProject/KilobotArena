@@ -18,7 +18,7 @@
 
 //#define TEST_WITHOUT_CAMERAS
 //#define TESTLEDS
-#define COLDET_V2
+#define COLDET_V1
 
 QSemaphore srcFree[4];
 QSemaphore srcUsed[4];
@@ -308,7 +308,8 @@ void KilobotTracker::LOOPstartstop(int stage)
     kbLocs.upload(tempKbLocs);
     
     //     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,5000); // kilobot detection
-    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
+    //this->hough = cuda::createHoughCirclesDetector(1.0,this->kbMinSize/1.4,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
+    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,10000); // kilobot detection
     this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize/7,this->kbMinSize*10/7,10000);// led detection
 //    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,1,this->kbMinSize*10/7,10000);// led detection
 
@@ -565,7 +566,7 @@ void KilobotTracker::SETUPfindKilobots()
         //circle( result, center, 3, Scalar(0,255,0), -1, 8, 0 );
         // draw the circle outline
         circle( display, center, radius, Scalar(0,0,255), 3, 8, 0 );
-        putText(display, to_string(i), center, FONT_HERSHEY_PLAIN, 3, Scalar(0,0,255), 3);
+        putText(display, this->showIDs?to_string(i):"", center, FONT_HERSHEY_PLAIN, 3, Scalar(0,0,255), 3);
     }
 
     cv::resize(display,display,Size(this->smallImageSize.x()*2, this->smallImageSize.y()*2));
@@ -596,6 +597,124 @@ void KilobotTracker::SETUPfindKilobots()
     this->kiloHeadings.resize(this->kilos.size());
     emit errorMessage(QString::fromStdString(to_string(kilos.size()))+ QString(" kilobots found!"));
 }
+
+/*
+void KilobotTracker::identifyKilobots()
+{
+
+    if (this->kilos.isEmpty()){
+        qDebug() << "There are no Kilobots to be indetified. Stopping the operation";
+        LOOPstartstop(IDENTIFY);
+        return;
+    }
+
+#ifdef USE_CUDA
+    Mat display;
+    this->finalImageB.download(display);
+    cv::cvtColor(display, display, CV_GRAY2RGB);
+#else
+    Mat display;
+    cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
+#endif
+
+    if (time == 0)
+    {
+        qDebug() << "Max ID to test is" << maxIDtoCheck;
+        identifystartmovetime=-1;
+        robotinmovement=false;
+        // check that max id is higher than number of tracked kilobots
+        if (maxIDtoCheck < (uint)qMax(0,kilos.size()-2)){
+            qDebug() << "ERROR! More robots than possible IDs. Change the max ID to test (currently it's" << maxIDtoCheck << ")";
+            return;
+        }
+
+        // Reset lists and counters
+        currentID = 0;
+        foundIDs.clear();
+        assignedCircles.clear();
+        this->circsToDraw.clear();
+
+        // broadcast ID
+        identifyKilobot(currentID);
+        qDebug() << "Try ID" << currentID;
+    }
+
+    // Restart from current ID=0 if we reached MaxIDtoCheck
+    if (currentID > maxIDtoCheck){
+        if (identifystartmovetime==-1){
+            identifystartmovetime=time;
+            identifyKilobot(-1); // ask the robot for which the Identification failed to move (Probably their LEDs where not seen)
+            robotinmovement=true;
+        }
+        else if((time-identifystartmovetime)>2){
+            robotinmovement=false;
+            identifystartmovetime=-1;
+            currentID = 0;
+
+            while( foundIDs.contains(currentID) ){
+                currentID++;
+            }
+            // broadcast ID
+            identifyKilobot(currentID);
+            qDebug() << "Try ID" << currentID;
+        }
+    }
+
+    this->getKiloBotLights(display);
+
+    if (time % 7 == 6)
+    {
+        if(!robotinmovement){
+        int blueBots = 0;
+        int bot = -1;
+        for (uint i = 0; i < (uint) kilos.size(); ++i) {
+
+            if (kilos[i]->getLedColour() == BLUE) {
+                qDebug() << "Found ID" << currentID;
+                blueBots++;
+                bot = i;
+            }
+
+        }
+
+        if (blueBots == 1 && !assignedCircles.contains(bot)){
+            kilos[bot]->setID((uint8_t) currentID);
+            this->circsToDraw.push_back(drawnCircle {Point(kilos[bot]->getPosition().x(),kilos[bot]->getPosition().y()), 4, QColor(0,255,0), 2, ""});
+            foundIDs.push_back(currentID);
+            assignedCircles.push_back(bot);
+            qDebug() << "Success!! ID n." << currentID << " successfully assigned!!";
+        } else if (blueBots > 1) {
+            qDebug() << "Multiple detections. ID n." << currentID << " has not been assigned";
+        } else if (blueBots < 1) {
+            qDebug() << "No bot found for ID n." << currentID;
+        } else if (blueBots == 1 && assignedCircles.contains(bot)) {
+            qDebug() << "Trying to re-assign the same circle to a second ID. I don't make this assigment and I undo the previous, i.e., ID" << kilos[bot]->getID();
+            foundIDs.remove( kilos[bot]->getID() );
+            assignedCircles.removeOne(bot);
+        }
+
+        if (foundIDs.size() == kilos.size()) { // all robots has been found
+            qDebug() << "All" << kilos.size() << "robots have been correcly identified. Well Done, mate! Now, it's time for serious stuff.";
+            this->LOOPstartstop(IDENTIFY);
+        }
+        else { // next id
+
+            ++currentID;
+            while( foundIDs.contains(currentID) ){
+                currentID++;
+            }
+            identifyKilobot(currentID);
+            qDebug() << "Try ID " << currentID;
+        }
+        }
+    }
+
+    this->drawOverlay(display);
+
+    this->showMat(display);
+
+}*/
+
 void KilobotTracker::identifyKilobots()
 {
 
@@ -672,6 +791,7 @@ void KilobotTracker::identifyKilobots()
             qDebug() << "Multiple detections. ID n." << currentID << " has not been assigned";
         } else if (blueBots < 1) {
             qDebug() << "No bot found for ID n." << currentID;
+            identifyKilobot(currentID,1); // ask robot to move
         } else if (blueBots == 1 && assignedCircles.contains(bot)) {
             qDebug() << "Trying to re-assign the same circle to a second ID. I don't make this assigment and I undo the previous, i.e., ID" << kilos[bot]->getID();
             foundIDs.remove( kilos[bot]->getID() );
@@ -697,20 +817,27 @@ void KilobotTracker::identifyKilobots()
     this->showMat(display);
 
 }
-void KilobotTracker::identifyKilobot(int id)
-{
 
-    // decompose id
+void KilobotTracker::identifyKilobot(int id,int type)
+{
+    kilobot_broadcast msg;
     QVector < uint8_t > data(9);
+//    if(id>=0){
+    // decompose id
     data[0] = id >> 8;
     data[1] = id & 0xFF;
+    data[2] = type; // specify that it is an identification message not a movement message
+//    }
+//    else {
+//       data[2] = 1; // specify that it is a movement message not an identification message.
+//    qDebug() << "Robot asked to move!";
+//    }
 
-    kilobot_broadcast msg;
     msg.type = 120;
     msg.data = data;
     emit this->broadcastMessage(msg);
-
 }
+
 QString type2str(int type) {
     QString r;
 
@@ -766,6 +893,19 @@ void KilobotTracker::trackKilobots()
 
             this->hough->setVotesThreshold(circle_acc);
             this->hough->detect(this->finalImageB,circlesGpu,stream);
+
+            //***************************************************************
+            // FOR DEGUB: draw all the circles found through GPU-hough
+//            vector<Vec3f> circles;
+//            circlesGpu.download(circles);
+//            for( size_t i = 0; i < circles.size(); i++ )
+//            {
+//                Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+//                int radius = cvRound(circles[i][2]);
+//                // draw the circle outline
+//                circle( display, center, radius, Scalar(250,250,50), 1, 8, 0 );
+//            }
+            //***************************************************************
 
             // get the channels so we can get rid of the sizes and use locations only
             cuda::split(circlesGpu,circChans);
@@ -843,7 +983,7 @@ void KilobotTracker::trackKilobots()
                     // find the closest circle
                     minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                     // work out if we should update...
-                    if (*min < float(this->kbMinSize)/1.2) { // check if the distance between the old and new position is small enough // was 1.0
+                    if (*min < float(this->kbMinSize)/1.3) { // check if the distance between the old and new position is small enough // was 1.0
                         circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
                         circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
                         //cout << endl << circChansXCpu << endl;
@@ -876,7 +1016,7 @@ void KilobotTracker::trackKilobots()
                                 bool foundCirc = false;
                                 for (int k = 0; k < kilos.size(); ++k) {
                                     // check if within small distance to a KB
-                                    if (qAbs(kilos[k]->getPosition().x()-cur_x) < 16 && qAbs(kilos[k]->getPosition().y()-cur_y) < 16) {
+                                    if (qAbs(kilos[k]->getPosition().x()-cur_x) < (this->kbMinSize*1.5) && qAbs(kilos[k]->getPosition().y()-cur_y) < (this->kbMinSize*1.5)) { // it was 16
                                         foundCirc = true;
                                     }
                                 }
@@ -1409,7 +1549,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
     QVector < bool > updated;
     updated.resize(this->kilos.size());
 // BLUE
-    {
+    if(m_detectblue){
 
 
         int circle_acc = circlyness;
@@ -1487,7 +1627,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 //                qDebug() << "robot" << kilos[i]->getID();
                 //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = BLUE;
@@ -1504,7 +1644,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         }
     }
 // RED
-    {
+    if(m_detectred){
 
         int circle_acc = circlyness;
         cuda::GpuMat circlesGpu;
@@ -1572,7 +1712,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 //                qDebug() << "robot" << kilos[i]->getID();
                 //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = RED;
@@ -1587,20 +1727,12 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                     kilos[i]->colBuffer.addColour(col);
                     kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
                 }
-
-//                else {
-//                    if (!updated[i]){
-//                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
-//                        kilos[i]->colBuffer.addColour(OFF);
-//                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-//                    }
-//                }
             }
 
         }
     }
 // Green
-    {
+    if(m_detectgreen){
         int circle_acc = circlyness;
         cuda::GpuMat circlesGpu;
 
@@ -1667,7 +1799,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 //                qDebug() << "robot" << kilos[i]->getID();
                 //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = GREEN;
@@ -1681,16 +1813,18 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                     //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
                     kilos[i]->colBuffer.addColour(col);
                     kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-                } else {
-                    if (!updated[i]){
-                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
-                        kilos[i]->colBuffer.addColour(OFF);
-                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-                    }
                 }
             }
 
         }
+    }
+    // Set the robots which have not been updated as LED=off
+    for (int i = 0; i < this->kilos.size(); ++i) {
+
+    if (!updated[i]){
+        kilos[i]->colBuffer.addColour(OFF);
+        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+    }
     }
 }
 #endif
@@ -1785,7 +1919,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
     QVector < bool > updated;
     updated.resize(this->kilos.size());
 
-    {
+    if(m_detectblue){
         // BLUE
 
         int circle_acc = circlyness;
@@ -1864,7 +1998,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 //                qDebug() << "robot" << kilos[i]->getID();
                 //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = BLUE;
@@ -1881,7 +2015,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         }
     }
 
-    {
+    if(m_detectred){
         // RED
 
         int circle_acc = circlyness;
@@ -1892,6 +2026,17 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
         this->hough2->setVotesThreshold(circle_acc);
         this->hough2->detect(r,circlesGpu,stream1);
+
+//        // FOR DEGUB: draw all the circles found through GPU-hough
+//        vector<Vec3f> circles;
+//        circlesGpu.download(circles);
+//        for( size_t i = 0; i < circles.size(); i++ )
+//        {
+//            Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+//            int radius = cvRound(circles[i][2]);
+//            // draw the circle outline
+//            circle( display, center, radius, Scalar(250,250,50), 1, 8, 0 );
+//        }
 
         // get the channels so we can get rid of the sizes and use locations only
         cuda::split(circlesGpu,circChans,stream1);
@@ -1950,7 +2095,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 if (!updated[i]){
                 minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
 
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = RED;
@@ -1964,7 +2109,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         }
     }
 
-    {
+    if(m_detectgreen){
         // Green
         int circle_acc = circlyness;
         cuda::GpuMat circlesGpu;
@@ -2040,13 +2185,6 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                     kilos[i]->colBuffer.addColour(col);
                     kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
                     }
-//                    else {
-//                    if (!updated[i]){
-//                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
-//                        kilos[i]->colBuffer.addColour(OFF);
-//                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-//                    }
-//                }
 
                 }
             }
@@ -2450,5 +2588,20 @@ void KilobotTracker::RefreshDisplayedImage()
         }
     }
     else emit errorMessage(QString("No arena calibration loaded yet!"));
+}
+
+/* method to move the position of kilobot (with known ID) to specific position inicated by the user through a mouse click */
+void KilobotTracker::manuallyassignID(QPoint position){
+    if((manualID<kilos.size()) && m_assignIDmanually){
+        qDebug() << "robot: " << manualID << "has been repositioned" ;
+        kilos[manualID]->updateState(position,kilos[manualID]->getVelocity(),kilos[manualID]->getLedColour());
+        Mat tempKbLocs(1,kilos.size(), CV_32FC2);
+        float * data = (float *) tempKbLocs.data;
+        for (int i = 0; i < kilos.size(); ++i) {
+            data[i*2] = kilos[i]->getPosition().x();
+            data[i*2+1] = kilos[i]->getPosition().y();
+        }
+        kbLocs.upload(tempKbLocs);
+    }
 }
 

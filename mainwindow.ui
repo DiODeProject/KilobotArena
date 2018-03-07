@@ -209,19 +209,19 @@
       <x>630</x>
       <y>50</y>
       <width>321</width>
-      <height>581</height>
+      <height>621</height>
      </rect>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="page_src">
      <property name="geometry">
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>457</height>
+       <width>100</width>
+       <height>30</height>
       </rect>
      </property>
      <attribute name="label">
@@ -366,19 +366,22 @@
        <x>0</x>
        <y>0</y>
        <width>321</width>
-       <height>457</height>
+       <height>497</height>
       </rect>
      </property>
      <attribute name="label">
       <string>Setup</string>
      </attribute>
      <widget class="QFrame" name="find_details_frame">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>257</y>
+        <y>240</y>
         <width>301</width>
-        <height>170</height>
+        <height>251</height>
        </rect>
       </property>
       <property name="minimumSize">
@@ -390,7 +393,7 @@
       <property name="maximumSize">
        <size>
         <width>16777215</width>
-        <height>170</height>
+        <height>340</height>
        </size>
       </property>
       <property name="frameShape">
@@ -573,7 +576,7 @@
         <rect>
          <x>20</x>
          <y>10</y>
-         <width>171</width>
+         <width>211</width>
          <height>20</height>
         </rect>
        </property>
@@ -610,9 +613,9 @@
       <widget class="Line" name="line">
        <property name="geometry">
         <rect>
-         <x>10</x>
+         <x>0</x>
          <y>0</y>
-         <width>311</width>
+         <width>301</width>
          <height>16</height>
         </rect>
        </property>
@@ -623,10 +626,10 @@
       <widget class="Line" name="line_2">
        <property name="geometry">
         <rect>
-         <x>10</x>
+         <x>0</x>
          <y>110</y>
-         <width>231</width>
-         <height>16</height>
+         <width>301</width>
+         <height>20</height>
         </rect>
        </property>
        <property name="orientation">
@@ -729,6 +732,94 @@
         <string>10</string>
        </property>
       </widget>
+      <widget class="QLabel" name="label_9">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>170</y>
+         <width>159</width>
+         <height>17</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Color detection details:</string>
+       </property>
+      </widget>
+      <widget class="QWidget" name="layoutWidget">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>190</y>
+         <width>204</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_4">
+        <item>
+         <widget class="QCheckBox" name="red_checkBox">
+          <property name="text">
+           <string>Red</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="green_checkBox">
+          <property name="text">
+           <string>Green</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="blue_checkBox">
+          <property name="text">
+           <string>Blue</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="Line" name="line_8">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>155</y>
+         <width>301</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+      <widget class="QWidget" name="">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>220</y>
+         <width>251</width>
+         <height>29</height>
+        </rect>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_5">
+        <item>
+         <widget class="QCheckBox" name="ManualIDunable">
+          <property name="text">
+           <string>Set ID manually:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="manualIDinput"/>
+        </item>
+       </layout>
+      </widget>
+      <zorder>layoutWidget</zorder>
       <zorder>houghAcc_slider</zorder>
       <zorder>label_6</zorder>
       <zorder>kbMin_slider</zorder>
@@ -750,12 +841,16 @@
       <zorder>arena_height_y_slider</zorder>
       <zorder>label_13</zorder>
       <zorder>arena_height_x_label_2</zorder>
+      <zorder>label_9</zorder>
+      <zorder>layoutWidget</zorder>
+      <zorder>line_8</zorder>
+      <zorder>ManualIDunable</zorder>
      </widget>
      <widget class="QWidget" name="layoutWidget">
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>2</y>
+        <y>0</y>
         <width>301</width>
         <height>249</height>
        </rect>
@@ -874,8 +969,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>457</height>
+       <width>100</width>
+       <height>30</height>
       </rect>
      </property>
      <attribute name="label">
@@ -977,8 +1072,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>457</height>
+       <width>100</width>
+       <height>30</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1248,6 +1343,19 @@
      <enum>Qt::Vertical</enum>
     </property>
    </widget>
+   <widget class="clickSignalQLabel" name="clicksignallabel">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>40</y>
+      <width>600</width>
+      <height>600</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+   </widget>
    <zorder>toolBox</zorder>
    <zorder>error_label</zorder>
    <zorder>line_4</zorder>
@@ -1267,6 +1375,7 @@
    <zorder>line_5</zorder>
    <zorder>line_6</zorder>
    <zorder>line_7</zorder>
+   <zorder>clicksignallabel</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -1294,6 +1403,11 @@
    <class>dragZoomQLabel</class>
    <extends>QLabel</extends>
    <header>dragzoomqlabel.h</header>
+  </customwidget>
+  <customwidget>
+   <class>clickSignalQLabel</class>
+   <extends>QLabel</extends>
+   <header>clicksignalqlabel.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -88,6 +88,7 @@ using namespace cv;
 #include <QElapsedTimer>
 #include <QTime>
 //#include <QColor>
+#include <QDebug>
 
 #include "kilobot.h"
 
@@ -173,11 +174,11 @@ public:
 
     //Default tracking parameters and identification parameters
     int kbMinSize = 12;
-    int kbMaxSize = 26;
-    int houghAcc = 19;
+    int kbMaxSize = 22;
+    int houghAcc = 16;
     int cannyThresh = 50;
     uint maxIDtoCheck = 100;
-
+    uint manualID;
     // camera parameters
     int height_x_adj = 10;
     int height_y_adj = 10;
@@ -298,6 +299,8 @@ public slots:
     void setHeightXSlider(int val) {this->height_x_adj = val;}
     void setHeightYSlider(int val) {this->height_y_adj = val;}
 
+    void manuallyassignID(QPoint position);
+
     /*!
      * \brief setVideoDir
      * \param dir
@@ -318,9 +321,14 @@ public slots:
      * Accessor to allow drawing of KiloBot IDs
      */
     void showIds(bool toggle) {this->showIDs = toggle;}
+    void detectred(bool toggle) {this->m_detectred = toggle;}
+    void detectgreen(bool toggle) {this->m_detectgreen = toggle;}
+    void detectblue(bool toggle) {this->m_detectblue = toggle;}
+    void manualIDassignment(bool toggle) {this->m_assignIDmanually = toggle;}
+
 
     void maxIDtoTry(QString maxIdStr) {this->maxIDtoCheck = maxIdStr.toUInt();}
-
+    void setManualID(QString manID) {this->manualID = manID.toUInt();}
     void setFlipangle(double angle) {flipangle=flipangle+angle;
                                      if( (flipangle==360) || (flipangle==-360) ) flipangle=0;}
 
@@ -388,7 +396,7 @@ private:
 
     void THREADSstop();
 
-    void identifyKilobot(int);
+    void identifyKilobot(int, int type=0);
 
     void drawOverlay(Mat &);
 
@@ -427,7 +435,6 @@ private:
     acquireThread * threads[4] = {NULL,NULL,NULL,NULL};
 
     int time = 0;
-
     /*!
      * \brief smallImageSize
      * Assigned in the constructor
@@ -486,6 +493,10 @@ private:
 
     bool showIDs = true;
     int flipangle = 0;
+    bool m_detectred=true;
+    bool m_detectgreen=false;
+    bool m_detectblue=true;
+    bool m_assignIDmanually=false;
 
 
     QVector <int> lost_count;

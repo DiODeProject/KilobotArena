@@ -122,10 +122,8 @@ void KilobotIDAssignment::run()
 //            this->numFound = 0;
             this->numSegments = 0;
             for (int i = 0; i < tempIDs.size(); ++i) {
-
                 // reset dupes
                 if (this->tempIDs[i] == DUPE) this->tempIDs[i] = 0;
-
             }
             // get num
             kilobot_broadcast msg;
@@ -187,6 +185,7 @@ void KilobotIDAssignment::run()
             if (lastTime > 2.0f*float(numSegments+1)+0.21f) {
 
                 ++numSegments;
+                clearDrawings();
                 emit updateKilobotStates();
                 this->switchSegment = true;
 
@@ -194,7 +193,6 @@ void KilobotIDAssignment::run()
 
             break;
         }
-
         case CONFIRM:
         {
 //            qDebug() << "CONFIRMING" << lastTime;
@@ -219,7 +217,7 @@ void KilobotIDAssignment::run()
                     emit broadcastMessage(msg);
                     t_since=20;
                     this->confirmationrequestsent=true;
-                    qDebug() << "Message sent to robot: " << increment;
+                    qDebug() << "Confirmation message sent to robot: " << increment;
 
 
             }
@@ -227,10 +225,11 @@ void KilobotIDAssignment::run()
             // get the confirmation
 
                 if(t_since==0){
-                qDebug() << "Confirming robot: " << increment+1;
-                emit updateKilobotStates();
-                this->confirmationrequestsent=false;
-                increment++;
+                    //qDebug() << "Confirming robot: " << increment-1;
+                    clearDrawings();
+                    emit updateKilobotStates();
+                    this->confirmationrequestsent=false;
+                    increment++;
                 }
             }
 
@@ -241,7 +240,6 @@ void KilobotIDAssignment::run()
 
                 break;
         }
-
         case SEND:
         {
 //            if (lastTime > 25.0f) {
@@ -286,7 +284,12 @@ void KilobotIDAssignment::run()
                 msg.type = 3;
                 emit broadcastMessage(msg);
                 t_since = 2;
-                this->stage = START;
+                if(t_move>0){
+                    t_move--;}
+                else{
+                    this->stage = START;
+                    t_move=30;
+                }
             }
             break;
         }
@@ -329,9 +332,17 @@ void KilobotIDAssignment::setupInitialKilobotState(Kilobot kilobotCopy)
 // run once for each kilobot after emitting updateKilobotStates() signal
 void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
 {
+    if (isAssigned[kilobotCopy.getID()]){
+        // mark with a small green dot the assigned robots
+        //for (int id = 0; id < tempIDs.size(); ++id) {
+        //if (this->isAssigned[id]){
+        drawCircle(QPointF(kilobotCopy.getPosition().x(),kilobotCopy.getPosition().y()),2, QColor(0,255,0), 2,"");
+    }
     // check colours
  if(this->stage==TEST){
-    if (isAssigned[kilobotCopy.getID()]) return;
+    if (isAssigned[kilobotCopy.getID()]){
+        return;
+    }
 
     lightColour col = kilobotCopy.getLedColour();
 
@@ -387,32 +398,33 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
         this->updatedCol = true;
         this->allKilos[kID].digits[numSegments-1] = col2;
     }
+
 }
  if(this->stage==CONFIRM){
-     if (isAssigned[kilobotCopy.getID()]) return;
+     if (isAssigned[kilobotCopy.getID()])
+         return;
      else{
-     lightColour col = kilobotCopy.getLedColour();
-     QString colName;
-     if (col == OFF) colName = "OFF";
-     if (col == RED) colName = "RED";
-     if (col == GREEN) colName = "GREEN";
-     if (col == BLUE) colName = "BLUE";
-     qDebug() << "KB" << kilobotCopy.getID() << "confirming " << increment << " = " << colName ;
+         lightColour col = kilobotCopy.getLedColour();
+         if (col == BLUE){
+             QString colName  = "BLUE";
+             qDebug() << "KB" << kilobotCopy.getID() << "confirming " << increment << " = " << colName ;
+         }
 
-
-     if(kilobotCopy.getID()==increment){
-     if (col != RED) {tempIDs[increment]=DUPE;
-     this->dupesFound = true;}
-     }
-     else{
-         if (col == RED){
-         tempIDs[increment]=DUPE;
-         tempIDs[kilobotCopy.getID()]=DUPE;
-         this->dupesFound = true;
+         if(kilobotCopy.getID()==increment){
+             if (col != BLUE) {
+                 tempIDs[increment]=DUPE;
+                 this->dupesFound = true;
+             }
+         }
+         else{
+             if (col == BLUE){
+                 tempIDs[increment]=DUPE;
+                 tempIDs[kilobotCopy.getID()]=DUPE;
+                 this->dupesFound = true;
+             }
          }
      }
-     }
-}
+ }
 //    clearDrawings();
 //    QColor rgbColor(0,0,0);
 //    switch (col){

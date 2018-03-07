@@ -58,11 +58,16 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->kbMin_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMin(int)));
     connect(ui->arena_height_x_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHeightXSlider(int)));
     connect(ui->arena_height_y_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHeightYSlider(int)));
-
+    ui->arena_height_x_slider->setValue(11);
+    ui->arena_height_y_slider->setValue(4);
     if (ui->show_ids->isChecked()) this->kbtracker.showIds(true);
     connect(ui->show_ids, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(showIds(bool)));
-
+    connect(ui->red_checkBox, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(detectred(bool)));
+    connect(ui->green_checkBox, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(detectgreen(bool)));
+    connect(ui->clicksignallabel, SIGNAL(clicked(QPoint)), &this->kbtracker, SLOT(manuallyassignID(QPoint)));
     connect(ui->maxIDtoTry_input, SIGNAL(textChanged(QString)), &this->kbtracker, SLOT(maxIDtoTry(QString)));
+    connect(ui->manualIDinput, SIGNAL(textChanged(QString)), &this->kbtracker, SLOT(setManualID(QString)));
+    connect(ui->ManualIDunable, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(manualIDassignment(bool)));
 
 
     QSignalMapper *mapper = new QSignalMapper(this);
