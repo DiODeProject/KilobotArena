@@ -122,8 +122,10 @@ void KilobotIDAssignment::run()
 //            this->numFound = 0;
             this->numSegments = 0;
             for (int i = 0; i < tempIDs.size(); ++i) {
+
                 // reset dupes
                 if (this->tempIDs[i] == DUPE) this->tempIDs[i] = 0;
+
             }
             // get num
             kilobot_broadcast msg;
@@ -193,6 +195,7 @@ void KilobotIDAssignment::run()
 
             break;
         }
+
         case CONFIRM:
         {
 //            qDebug() << "CONFIRMING" << lastTime;
@@ -240,6 +243,7 @@ void KilobotIDAssignment::run()
 
                 break;
         }
+
         case SEND:
         {
 //            if (lastTime > 25.0f) {
@@ -398,7 +402,6 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
         this->updatedCol = true;
         this->allKilos[kID].digits[numSegments-1] = col2;
     }
-
 }
  if(this->stage==CONFIRM){
      if (isAssigned[kilobotCopy.getID()])
