@@ -67,8 +67,10 @@ use_opencv3 {
 DEFINES += USE_OPENCV3
 
 # OpenCV 3
-INCLUDEPATH += /opt/local/include/
-LIBS += -L/opt/local/lib \
+#INCLUDEPATH += /opt/local/include/
+#LIBS += -L/opt/local/lib \
+INCLUDEPATH += /usr/local/include/
+LIBS += -L/usr/local/lib/ \
         -lopencv_ocl \
         -lopencv_core \
         -lopencv_imgproc \

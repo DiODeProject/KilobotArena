@@ -18,7 +18,7 @@
 
 //#define TEST_WITHOUT_CAMERAS
 //#define TESTLEDS
-#define COLDET_V2
+#define COLDET_V1
 
 QSemaphore srcFree[4];
 QSemaphore srcUsed[4];
@@ -129,6 +129,7 @@ private:
                         cap.open(camOrder[index]);
                         // set REZ
                         if (cap.isOpened()) {
+                            cap.set(CV_CAP_PROP_FOURCC, CV_FOURCC('M','J','P','G'));
                             cap.set(CV_CAP_PROP_FRAME_WIDTH, IM_WIDTH);
                             cap.set(CV_CAP_PROP_FRAME_HEIGHT, IM_HEIGHT);
                         } else {
@@ -239,7 +240,13 @@ KilobotTracker::KilobotTracker(QPoint smallImageSize, QObject *parent) : QObject
     // select cuda device
 #ifdef USE_CUDA
     //qDebug() << "There are" << cuda::getCudaEnabledDeviceCount() << "CUDA devices";
-    cuda::setDevice(cuda::getCudaEnabledDeviceCount()-1);
+    try {
+        cuda::setDevice(cuda::getCudaEnabledDeviceCount()-2);
+    } catch (cv::Exception){
+        cuda::setDevice(cuda::getCudaEnabledDeviceCount()-1);
+    }
+    qDebug() << "Using CUDA device " << cuda::DeviceInfo().name();
+
 #endif
 
     this->smallImageSize = smallImageSize;
@@ -308,7 +315,8 @@ void KilobotTracker::LOOPstartstop(int stage)
     kbLocs.upload(tempKbLocs);
     
     //     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,5000); // kilobot detection
-    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
+    //this->hough = cuda::createHoughCirclesDetector(1.0,this->kbMinSize/1.4,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
+    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,10000); // kilobot detection
     this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize/7,this->kbMinSize*10/7,10000);// led detection
 //    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,1,this->kbMinSize*10/7,10000);// led detection
 
@@ -565,7 +573,7 @@ void KilobotTracker::SETUPfindKilobots()
         //circle( result, center, 3, Scalar(0,255,0), -1, 8, 0 );
         // draw the circle outline
         circle( display, center, radius, Scalar(0,0,255), 3, 8, 0 );
-        putText(display, to_string(i), center, FONT_HERSHEY_PLAIN, 3, Scalar(0,0,255), 3);
+        putText(display, this->showIDs?to_string(i):"", center, FONT_HERSHEY_PLAIN, 3, Scalar(0,0,255), 3);
     }
 
     cv::resize(display,display,Size(this->smallImageSize.x()*2, this->smallImageSize.y()*2));
@@ -767,6 +775,19 @@ void KilobotTracker::trackKilobots()
             this->hough->setVotesThreshold(circle_acc);
             this->hough->detect(this->finalImageB,circlesGpu,stream);
 
+            //***************************************************************
+            // FOR DEGUB: draw all the circles found through GPU-hough
+//            vector<Vec3f> circles;
+//            circlesGpu.download(circles);
+//            for( size_t i = 0; i < circles.size(); i++ )
+//            {
+//                Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+//                int radius = cvRound(circles[i][2]);
+//                // draw the circle outline
+//                circle( display, center, radius, Scalar(250,250,50), 1, 8, 0 );
+//            }
+            //***************************************************************
+
             // get the channels so we can get rid of the sizes and use locations only
             cuda::split(circlesGpu,circChans);
             cuda::split(kbLocs,kbChans);
@@ -840,10 +861,11 @@ void KilobotTracker::trackKilobots()
 
                 // min
                 for (int i = 0; i < this->kilos.size(); ++i) {
-                    // find the closest circle
+                    // find the closest circle (this operation is much quicker on the CPU than on GPU)
                     minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                    //cv::cuda::minMaxLoc(all_x_c(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                     // work out if we should update...
-                    if (*min < float(this->kbMinSize)/1.2) { // check if the distance between the old and new position is small enough // was 1.0
+                    if (*min < float(this->kbMinSize)/1.3) { // check if the distance between the old and new position is small enough // was 1.0
                         circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
                         circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
                         //cout << endl << circChansXCpu << endl;
@@ -876,7 +898,7 @@ void KilobotTracker::trackKilobots()
                                 bool foundCirc = false;
                                 for (int k = 0; k < kilos.size(); ++k) {
                                     // check if within small distance to a KB
-                                    if (qAbs(kilos[k]->getPosition().x()-cur_x) < 16 && qAbs(kilos[k]->getPosition().y()-cur_y) < 16) {
+                                    if (qAbs(kilos[k]->getPosition().x()-cur_x) < (this->kbMinSize*1.5) && qAbs(kilos[k]->getPosition().y()-cur_y) < (this->kbMinSize*1.5)) { // it was 16
                                         foundCirc = true;
                                     }
                                 }
@@ -1393,10 +1415,16 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
     cuda::subtract(finalImageG,br,g,cuda::GpuMat(),-1,stream3);
     cuda::subtract(finalImageB,rg,b,cuda::GpuMat(),-1,stream2);
 
-
+    // **********************************************************************
+    // *********************** FOR DEBUG ************************************
+//    for (size_t k = 0; k < kilos.size(); ++k) {
+//        Point center(kilos[k]->getPosition().x(),kilos[k]->getPosition().y());
+//        circle( display, center, float(this->kbMaxSize)/1.4, Scalar(250,250,50), 1, 8, 0 );
+//    }
+    // **********************************************************************
 #ifdef TESTLEDS
     cuda::GpuMat yay;
-    cuda::multiply(g,3.0,yay,1,-1,stream2);
+    cuda::multiply(b,3.0,yay,1,-1,stream2);
     yay.download(display);
     cv::cvtColor(display,display,CV_GRAY2RGB);
 #endif
@@ -1435,16 +1463,16 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         cuda::GpuMat all_x_kb;
         cuda::GpuMat all_y_kb;
 
-//#ifdef TESTLEDS
-//        Mat xCpu;
-//        Mat yCpu;
-//        circChans[0].download(xCpu);
-//        circChans[1].download(yCpu);
+#ifdef TESTLEDS
+        Mat xCpu;
+        Mat yCpu;
+        circChans[0].download(xCpu);
+        circChans[1].download(yCpu);
 
-//        for (int i = 0; i < xCpu.size().width;++i) {
-//            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
-//        }
-//#endif
+        for (int i = 0; i < xCpu.size().width;++i) {
+            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3, Scalar(250,250,50), 1, 8, 0);
+        }
+#endif
 
         if (circChans[0].size().width  > 0) {
 
@@ -1487,7 +1515,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 //                qDebug() << "robot" << kilos[i]->getID();
                 //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = BLUE;
@@ -1572,7 +1600,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 //                qDebug() << "robot" << kilos[i]->getID();
                 //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = RED;
@@ -1667,7 +1695,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                 //                qDebug() << "robot" << kilos[i]->getID();
                 //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
                 // work out if we should update...
-                if (*min < float(this->kbMaxSize)/1.8) {
+                if (*min < float(this->kbMaxSize)) {
 
                     lightColour col;
                     col = GREEN;
@@ -1681,16 +1709,25 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
                     //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
                     kilos[i]->colBuffer.addColour(col);
                     kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-                } else {
-                    if (!updated[i]){
-                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
-                        kilos[i]->colBuffer.addColour(OFF);
-                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-                    }
                 }
+
+//                else {
+//                    if (!updated[i]){
+//                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
+//                        kilos[i]->colBuffer.addColour(OFF);
+//                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+//                    }
+//                }
             }
 
         }
+    }
+    for (int i = 0; i < this->kilos.size(); ++i) {
+
+    if (!updated[i]){
+        kilos[i]->colBuffer.addColour(OFF);
+        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+    }
     }
 }
 #endif
@@ -1893,6 +1930,17 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         this->hough2->setVotesThreshold(circle_acc);
         this->hough2->detect(r,circlesGpu,stream1);
 
+//        // FOR DEGUB: draw all the circles found through GPU-hough
+//        vector<Vec3f> circles;
+//        circlesGpu.download(circles);
+//        for( size_t i = 0; i < circles.size(); i++ )
+//        {
+//            Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+//            int radius = cvRound(circles[i][2]);
+//            // draw the circle outline
+//            circle( display, center, radius, Scalar(250,250,50), 1, 8, 0 );
+//        }
+
         // get the channels so we can get rid of the sizes and use locations only
         cuda::split(circlesGpu,circChans,stream1);
         cuda::split(kbLocs,kbChans,stream1);
@@ -1964,95 +2012,95 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         }
     }
 
-    {
-        // Green
-        int circle_acc = circlyness;
-        cuda::GpuMat circlesGpu;
+//    {
+//        // Green
+//        int circle_acc = circlyness;
+//        cuda::GpuMat circlesGpu;
 
-        vector < cuda::GpuMat > circChans;
-        vector < cuda::GpuMat > kbChans;
+//        vector < cuda::GpuMat > circChans;
+//        vector < cuda::GpuMat > kbChans;
 
-        this->hough2->setVotesThreshold(circle_acc);
-        this->hough2->detect(g,circlesGpu,stream1);
+//        this->hough2->setVotesThreshold(circle_acc);
+//        this->hough2->detect(g,circlesGpu,stream1);
 
-        // get the channels so we can get rid of the sizes and use locations only
-        cuda::split(circlesGpu,circChans,stream1);
-        cuda::split(kbLocs,kbChans,stream1);
+//        // get the channels so we can get rid of the sizes and use locations only
+//        cuda::split(circlesGpu,circChans,stream1);
+//        cuda::split(kbLocs,kbChans,stream1);
 
-        // create ones
-        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
-        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
+//        // create ones
+//        cuda::GpuMat ones_kb(kbChans[0].size(),kbChans[0].type(),1);
+//        cuda::GpuMat ones_c(circChans[0].size(),circChans[0].type(),1);
 
-        // expanded mats
-        cuda::GpuMat all_x_c;
-        cuda::GpuMat all_y_c;
-        cuda::GpuMat all_x_kb;
-        cuda::GpuMat all_y_kb;
+//        // expanded mats
+//        cuda::GpuMat all_x_c;
+//        cuda::GpuMat all_y_c;
+//        cuda::GpuMat all_x_kb;
+//        cuda::GpuMat all_y_kb;
 
-        //qDebug() << circChans[0].size().width;
+//        //qDebug() << circChans[0].size().width;
 
-        if (circChans[0].size().width  > 0) {
+//        if (circChans[0].size().width  > 0) {
 
 
-            // expand circle x's & y's
-            vector < cuda::Stream > streams(4);
-            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
-            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
+//            // expand circle x's & y's
+//            vector < cuda::Stream > streams(4);
+//            cuda::gemm(circChans[0], ones_kb, 1.0, noArray(), 0.0, all_x_c,GEMM_1_T,streams[0]);
+//            cuda::gemm(circChans[1], ones_kb, 1.0, noArray(), 0.0, all_y_c,GEMM_1_T,streams[1]);
 
-            // expand kb x's & y's
-            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
-            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
+//            // expand kb x's & y's
+//            cuda::gemm(ones_c, kbChans[0], 1.0, noArray(), 0.0, all_x_kb,GEMM_1_T,streams[2]);
+//            cuda::gemm(ones_c, kbChans[1], 1.0, noArray(), 0.0, all_y_kb,GEMM_1_T,streams[3]);
 
-            // diffs
-            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
-            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
+//            // diffs
+//            cuda::subtract(all_x_c,all_x_kb,all_x_c,noArray(),-1,streams[0]);
+//            cuda::subtract(all_y_c,all_y_kb,all_y_c,noArray(),-1,streams[1]);
 
-            // distances
-            cuda::magnitude(all_x_c,all_y_c,all_x_c);
+//            // distances
+//            cuda::magnitude(all_x_c,all_y_c,all_x_c);
 
-            double * min = new double;
-            Point * minLoc = new Point();
+//            double * min = new double;
+//            Point * minLoc = new Point();
 
-            Mat localDists;
+//            Mat localDists;
 
-            all_x_c.download(localDists);
+//            all_x_c.download(localDists);
 
-            //cout << endl << localDists << endl;
+//            //cout << endl << localDists << endl;
 
-            // download circChans
-            Mat circChansXCpu;
-            Mat circChansYCpu;
+//            // download circChans
+//            Mat circChansXCpu;
+//            Mat circChansYCpu;
 
-            circChans[0].download(circChansXCpu);
-            circChans[1].download(circChansYCpu);
+//            circChans[0].download(circChansXCpu);
+//            circChans[1].download(circChansYCpu);
 
-            // min
-            for (int i = 0; i < this->kilos.size(); ++i) {
+//            // min
+//            for (int i = 0; i < this->kilos.size(); ++i) {
 
-                if (!updated[i]){
-                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
-                if (*min < float(this->kbMaxSize)/1.8) {
+//                if (!updated[i]){
+//                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+//                if (*min < float(this->kbMaxSize)/1.8) {
 
-                    lightColour col;
+//                    lightColour col;
 
-                    col = GREEN;
-                    updated[i] = true;
-                    kilos[i]->colBuffer.addColour(col);
-                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-                    }
-//                    else {
-//                    if (!updated[i]){
-//                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
-//                        kilos[i]->colBuffer.addColour(OFF);
-//                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+//                    col = GREEN;
+//                    updated[i] = true;
+//                    kilos[i]->colBuffer.addColour(col);
+//                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
 //                    }
+////                    else {
+////                    if (!updated[i]){
+////                        //                        qDebug() << "Mr. Robot " << kilos[i]->getID() << "has NOT been updated!! :-(";
+////                        kilos[i]->colBuffer.addColour(OFF);
+////                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+////                    }
+////                }
+
 //                }
+//            }
 
-                }
-            }
-
-        }
-    }
+//        }
+//    }
 
 
     for (int i = 0; i < this->kilos.size(); ++i) {

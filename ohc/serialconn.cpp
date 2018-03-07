@@ -2,6 +2,8 @@
 #include "packet.h"
 #include <QDir>
 #include <QDebug>
+//#include <algorithm>
+//#include <unistd.h>
 
 #ifdef _WIN32
 // based on http://playground.arduino.cc/Interfacing/CPPWindows
@@ -190,8 +192,10 @@ void SerialConnection::queueCommand(QByteArray cmd) {
 
 void SerialConnection::sendQueuedCommand() {
     if (delay.elapsed() < 50) {
-        QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
-        //qDebug() << "q func called";
+        if (!this->cmds.isEmpty()) {
+            QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+            //qDebug() << "q func called" << delay.currentTime();
+        }
     } else {
         // send next q'd command
         if (!this->cmds.isEmpty()) {
@@ -199,9 +203,12 @@ void SerialConnection::sendQueuedCommand() {
             delay.restart(); // AJC - sending a command - wait before sending another
             //qDebug() << "Command to send" << delay.currentTime();
             this->sendCommand(this->cmds[0]);
-            //qDebug() << "Command from send" << delay.currentTime();
-            cmds.pop_front();
-            QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+            //qDebug() << "Command sent" << delay.currentTime();
+            this->cmds.pop_front();
+            //qDebug() << "popped()" << delay.currentTime();
+            if (!this->cmds.isEmpty()) {
+                QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+            }
         }
     }
 }
