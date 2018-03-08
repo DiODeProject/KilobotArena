@@ -604,6 +604,7 @@ void KilobotTracker::SETUPfindKilobots()
     this->kiloHeadings.resize(this->kilos.size());
     emit errorMessage(QString::fromStdString(to_string(kilos.size()))+ QString(" kilobots found!"));
 }
+
 void KilobotTracker::identifyKilobots()
 {
 
@@ -656,7 +657,7 @@ void KilobotTracker::identifyKilobots()
 
     this->getKiloBotLights(display);
 
-    if (time % 7 == 6)
+    if(time % 7 == 6)
     {
         int blueBots = 0;
         int bot = -1;
@@ -680,7 +681,6 @@ void KilobotTracker::identifyKilobots()
             qDebug() << "Multiple detections. ID n." << currentID << " has not been assigned";
         } else if (blueBots < 1) {
             qDebug() << "No bot found for ID n." << currentID;
-            identifyKilobot(currentID,1); // ask robot to move
         } else if (blueBots == 1 && assignedCircles.contains(bot)) {
             qDebug() << "Trying to re-assign the same circle to a second ID. I don't make this assigment and I undo the previous, i.e., ID" << kilos[bot]->getID();
             foundIDs.remove( kilos[bot]->getID() );
@@ -707,21 +707,12 @@ void KilobotTracker::identifyKilobots()
 
 }
 
-void KilobotTracker::identifyKilobot(int id,int type)
+void KilobotTracker::identifyKilobot(int id)
 {
-    kilobot_broadcast msg;
-    QVector < uint8_t > data(9);
-//    if(id>=0){
     // decompose id
     QVector < uint8_t > data(9);
     data[0] = id >> 8;
     data[1] = id & 0xFF;
-    data[2] = type; // specify that it is an identification message not a movement message
-//    }
-//    else {
-//       data[2] = 1; // specify that it is a movement message not an identification message.
-//    qDebug() << "Robot asked to move!";
-//    }
 
     kilobot_broadcast msg;
     msg.type = 120;
@@ -729,6 +720,7 @@ void KilobotTracker::identifyKilobot(int id,int type)
     emit this->broadcastMessage(msg);
 
 }
+
 QString type2str(int type) {
     QString r;
 
@@ -1028,20 +1020,26 @@ void KilobotTracker::trackKilobots()
             // we add overlay circles and orientation */
             for (int i = 0; i < this->kilos.size(); ++i) {
                 //cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),10,Scalar(0,255,0),2);
-                Scalar rgbColor(0,0,0);
+                Scalar rgbColor(200,200,0);
                 switch (kilos[i]->getLedColour()){
                 case OFF:{
                     break;
                 }
                 case RED:{
                     rgbColor[0] = 255;
+                    rgbColor[1] = 0;
+                    rgbColor[2] = 0;
                     break;
                 }
                 case GREEN:{
+                    rgbColor[0] = 0;
                     rgbColor[1] = 255;
+                    rgbColor[2] = 0;
                     break;
                 }
                 case BLUE:{
+                    rgbColor[0] = 0;
+                    rgbColor[1] = 0;
                     rgbColor[2] = 255;
                     break;
                 }
@@ -2491,6 +2489,7 @@ void KilobotTracker::RefreshDisplayedImage()
 
 /* method to move the position of kilobot (with known ID) to specific position inicated by the user through a mouse click */
 void KilobotTracker::manuallyassignID(QPoint position){
+    position *= 2000.0/600.0;
     if((manualID<kilos.size()) && m_assignIDmanually){
         qDebug() << "robot: " << manualID << "has been repositioned" ;
         kilos[manualID]->updateState(position,kilos[manualID]->getVelocity(),kilos[manualID]->getLedColour());

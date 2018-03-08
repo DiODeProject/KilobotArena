@@ -246,7 +246,6 @@ void KilobotIDAssignment::run()
 
         case SEND:
         {
-//            if (lastTime > 25.0f) {
               if (lastTime > 25.0f) {
                   for (int i = 0; i < tempIDs.size(); ++i) {
                       qDebug() << i << "[" << this->isAssigned[i] << "]:" << this->tempIDs[i];
@@ -274,6 +273,7 @@ void KilobotIDAssignment::run()
                     t_since = tempIDs.size() + 2;
                     if (dupesFound) {
                         this->stage = RETRY;
+                        t_move=20;
                     } else {
                         this->stage = COMPLETE;
                     }
@@ -292,7 +292,6 @@ void KilobotIDAssignment::run()
                     t_move--;}
                 else{
                     this->stage = START;
-                    t_move=30;
                 }
             }
             break;

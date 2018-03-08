@@ -95,7 +95,7 @@ private:
         bool switchSegment = true;
         QElapsedTimer t;
         int t_since;
-        int t_move=30;
+        int t_move;
 
         // log variables
         bool saveImages = false;

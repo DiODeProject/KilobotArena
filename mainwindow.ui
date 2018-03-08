@@ -31,7 +31,7 @@
      <rect>
       <x>20</x>
       <y>650</y>
-      <width>851</width>
+      <width>591</width>
       <height>31</height>
      </rect>
     </property>
@@ -213,15 +213,15 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="page_src">
      <property name="geometry">
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>100</width>
-       <height>30</height>
+       <width>321</width>
+       <height>497</height>
       </rect>
      </property>
      <attribute name="label">
@@ -365,8 +365,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>497</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">
@@ -797,7 +797,7 @@
         <enum>Qt::Horizontal</enum>
        </property>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -844,7 +844,6 @@
       <zorder>label_9</zorder>
       <zorder>layoutWidget</zorder>
       <zorder>line_8</zorder>
-      <zorder>ManualIDunable</zorder>
      </widget>
      <widget class="QWidget" name="layoutWidget">
       <property name="geometry">
@@ -969,8 +968,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>100</width>
-       <height>30</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1072,8 +1071,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>100</width>
-       <height>30</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">

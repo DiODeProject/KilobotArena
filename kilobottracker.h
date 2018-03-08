@@ -396,7 +396,7 @@ private:
 
     void THREADSstop();
 
-    void identifyKilobot(int, int type=0);
+    void identifyKilobot(int);
 
     void drawOverlay(Mat &);
 
