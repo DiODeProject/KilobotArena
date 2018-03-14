@@ -316,7 +316,7 @@ void KilobotTracker::LOOPstartstop(int stage)
     
     //     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,5000); // kilobot detection
     //this->hough = cuda::createHoughCirclesDetector(1.0,this->kbMinSize/1.4,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
-    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,10000); // kilobot detection
+    this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,20000); // kilobot detection
     this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize/7,this->kbMinSize*10/7,10000);// led detection
 //    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,1,this->kbMinSize*10/7,10000);// led detection
 
@@ -573,7 +573,7 @@ void KilobotTracker::SETUPfindKilobots()
         //circle( result, center, 3, Scalar(0,255,0), -1, 8, 0 );
         // draw the circle outline
         circle( display, center, radius, Scalar(0,0,255), 3, 8, 0 );
-        putText(display, this->showIDs?to_string(i):"", center, FONT_HERSHEY_PLAIN, 3, Scalar(0,0,255), 3);
+        putText(display, this->showIDs?to_string(i):"", center, FONT_HERSHEY_PLAIN, 2.7, Scalar(0,0,255), 3);
     }
 
     cv::resize(display,display,Size(this->smallImageSize.x()*2, this->smallImageSize.y()*2));
@@ -786,7 +786,7 @@ void KilobotTracker::trackKilobots()
 //                Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 //                int radius = cvRound(circles[i][2]);
 //                // draw the circle outline
-//                circle( display, center, radius, Scalar(250,250,50), 1, 8, 0 );
+//                circle( display, center, radius, Scalar(50,255,255), 1, 8, 0 );
 //            }
             //***************************************************************
 
@@ -861,13 +861,13 @@ void KilobotTracker::trackKilobots()
                 circChans[0].download(circChansXCpu);
                 circChans[1].download(circChansYCpu);
 
-                // min
+                // assign the new position of each kilobot as the new closest detected circle (if within a small distance from previous pos)
                 for (int i = 0; i < this->kilos.size(); ++i) {
                     // find the closest circle (this operation is much quicker on the CPU than on GPU)
                     minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                     //cv::cuda::minMaxLoc(all_x_c(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                     // work out if we should update...
-                    if (*min < float(this->kbMinSize)/1.3) { // check if the distance between the old and new position is small enough // was 1.0
+                    if (*min < float(this->kbMinSize)/1.5 && this->lost_count[i] < 10) { // check if the distance between the old and new position is small enough
                         circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
                         circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
                         //cout << endl << circChansXCpu << endl;
@@ -880,7 +880,10 @@ void KilobotTracker::trackKilobots()
 
                         this->lost_count[i]++;
                         kilobot_id kID = kilos[i]->getID();
-                        if (this->lost_count[i]>5){ qDebug() << "Lost tag #" << kID << "!! (count is " << this->lost_count[i] << ")"; }
+                        if (this->lost_count[i]>5){
+                            qDebug() << "Lost tag #" << kID << "!! (count is " << this->lost_count[i] << ")";
+                            cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),15,Scalar(255,0,255),5);
+                        }
 
                         Mat kbLocsCpuX;
                         Mat kbLocsCpuY;
@@ -925,43 +928,53 @@ void KilobotTracker::trackKilobots()
                                     }
                                 }
                             }
-
-                            /*vector<Vec3f> circles;
-
-                                HoughCircles(temp_for_reacquire,circles,CV_HOUGH_GRADIENT,1.0,1.0this->cannyThresh ,this->houghAcc,this->kbMinSize,this->kbMaxSize);
-
-                                // check for a circle we can't account for
-                                for (size_t c = 0; c < circles.size(); ++c) {
-                                    bool foundCirc = false;
-                                    for (int k = 0; k < kilos.size(); ++k) {
-                                        if (qAbs(kilos[k]->getPosition().x()-circles[c][0]) < 16 && qAbs(kilos[k]->getPosition().y()-circles[c][1]) < 16) {
-                                            foundCirc = true;
-                                        }
-                                    }
-                                    if (!foundCirc) {
-                                        // check it is in a sane distance
-                                        if (qAbs(kilos[i]->getPosition().x()-circles[c][0]) < 50 && qAbs(kilos[i]->getPosition().y()-circles[c][1]) < 50) {
-                                            qDebug() << "Lost bot #" << kID << "has been Found(!!)";
-                                            // pair up on CPU!
-                                            kilos[i]->updateState(QPointF(circles[c][0],circles[c][1]),kilos[i]->getVelocity(),kilos[i]->getLedColour());
-                                            // and GPU
-                                            kbLocsCpuX(Rect(i,0,1,1)) = (circles[c][0]);
-                                            kbLocsCpuY(Rect(i,0,1,1)) = (circles[c][1]);
-
-                                            kbChans[0].upload(kbLocsCpuX);
-                                            kbChans[1].upload(kbLocsCpuY);
-
-                                            this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0), 2, ""});
-                                            this->lost_count[i] = 0;
-                                            break;
-                                        } else {
-                                            foundCirc = false;
-                                        }
-                                    }
-                                }*/
-
                         }
+                    }
+                }
 
+                /* undo the update if the new position is overlapping with another kilobot */
+                for (int i = 0; i < this->kilos.size()-1; ++i) {
+                    for (int j = i+1; j < this->kilos.size(); ++j) {
+                        /* if the positions are too close */
+                        if (qAbs(kilos[i]->getPosition().x()-kilos[j]->getPosition().x()) < (this->kbMinSize) && qAbs(kilos[i]->getPosition().y()-kilos[j]->getPosition().y()) < (this->kbMinSize)) {
+
+                            // need to download the full chans to update them (to check if instead it's quicker to re-upload the full kbLocs afterwards)
+                            Mat kbLocsCpuX;
+                            Mat kbLocsCpuY;
+                            kbChans[0].download(kbLocsCpuX);
+                            kbChans[1].download(kbLocsCpuY);
+
+                            /* I move back the robot that has moved more in the last timestep */
+                            if (  (pow(kilos[i]->getPosition().x()-previousPositions[i].x(),2)+pow(kilos[i]->getPosition().y()-previousPositions[i].y(),2))
+                                  >
+                                  (pow(kilos[j]->getPosition().x()-previousPositions[j].x(),2)+pow(kilos[j]->getPosition().y()-previousPositions[j].y(),2)) ){
+                                //qDebug() << "Reverted swap of tag #" << kilos[i]->getID() << " over robot #" << kilos[j]->getID() << ". Keep an eye on that area!";
+                                qDebug() << "Reverted swap of tag #" << kilos[i]->getID() << " ("<< kilos[i]->getPosition()<<", goes to pos:" <<previousPositions[i]<< ") over robot #" << kilos[j]->getID() << " ("<< kilos[j]->getPosition()<<"). Keep an eye on that area!";
+                                // update CPU
+                                kilos[i]->updateState(QPointF(previousPositions[i].x(),previousPositions[i].y()),kilos[i]->getVelocity(), kilos[i]->getLedColour());
+                                // and GPU
+                                kbLocsCpuX(Rect(i,0,1,1)) = previousPositions[i].x();
+                                kbLocsCpuY(Rect(i,0,1,1)) = previousPositions[i].y();
+
+                                this->lost_count[i]++;
+                                cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),10,Scalar(0,255,255),5);
+                                cv::circle(display,Point(kilos[j]->getPosition().x(),kilos[j]->getPosition().y()),10,Scalar(0,255,255),5);
+                            } else {
+                                //qDebug() << "Reverted swap of tag #" << kilos[j]->getID() << " over robot #" << kilos[i]->getID() << ". Keep an eye on that area!";
+                                qDebug() << "Reverted swap of tag #" << kilos[j]->getID() << " ("<< kilos[j]->getPosition()<<", goes to pos:" <<previousPositions[j]<< ") over robot #" << kilos[i]->getID() << " ("<< kilos[i]->getPosition()<<"). Keep an eye on that area!";
+                                // update CPU
+                                kilos[j]->updateState(QPointF(previousPositions[j].x(),previousPositions[j].y()),kilos[j]->getVelocity(), kilos[j]->getLedColour());
+                                // and GPU
+                                kbLocsCpuX(Rect(j,0,1,1)) = previousPositions[j].x();
+                                kbLocsCpuY(Rect(j,0,1,1)) = previousPositions[j].y();
+
+                                this->lost_count[j]++;
+                                cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),15,Scalar(0,255,255),5);
+                                cv::circle(display,Point(kilos[j]->getPosition().x(),kilos[j]->getPosition().y()),15,Scalar(0,255,255),5);
+                            }
+                            kbChans[0].upload(kbLocsCpuX);
+                            kbChans[1].upload(kbLocsCpuY);
+                        }
                     }
                 }
 
@@ -1058,7 +1071,7 @@ void KilobotTracker::trackKilobots()
                 //qDebug() << "Single vel is" << this->kilos[i]->getVelocity() << "AVG vel is" << this->kilos[i]->velocityBuffer.getAvgOrientation();
 
                 if (this->showIDs) {
-                    cv::putText(display, QString::number(this->kilos[i]->getID()).toStdString(), Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), FONT_HERSHEY_PLAIN, 3, rgbColor, 3);
+                    cv::putText(display, QString::number(this->kilos[i]->getID()).toStdString(), Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), FONT_HERSHEY_PLAIN, 2.7, rgbColor, 3);
                 }
             }
             this->drawOverlay(display);

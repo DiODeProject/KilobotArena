@@ -175,7 +175,7 @@ public:
     //Default tracking parameters and identification parameters
     int kbMinSize = 12;
     int kbMaxSize = 22;
-    int houghAcc = 16;
+    int houghAcc = 12;
     int cannyThresh = 50;
     uint maxIDtoCheck = 100;
     uint manualID;
