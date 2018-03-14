@@ -69,7 +69,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->clicksignallabel, SIGNAL(clicked(QPoint)), &this->kbtracker, SLOT(manuallyassignID(QPoint)));
     connect(ui->maxIDtoTry_input, SIGNAL(textChanged(QString)), &this->kbtracker, SLOT(maxIDtoTry(QString)));
     connect(ui->manualIDinput, SIGNAL(textChanged(QString)), &this->kbtracker, SLOT(setManualID(QString)));
-    connect(ui->ManualIDunable, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(manualIDassignment(bool)));
+    connect(ui->ManualIDenable, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(manualIDassignment(bool)));
 
 
     QSignalMapper *mapper = new QSignalMapper(this);
@@ -114,7 +114,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->identify , SIGNAL(clicked(bool)), this, SLOT(identify()));
     connect(ui->rotate_pos , SIGNAL(clicked(bool)), this, SLOT(rotate_pos()));
     connect(ui->rotate_neg , SIGNAL(clicked(bool)), this, SLOT(rotate_neg()));
-
+    connect(&this->kbtracker,SIGNAL(updateidentifybutton()),this,SLOT(identify()));
 
     // TESTING
     connect(ui->left, SIGNAL(clicked(bool)), this, SLOT(left()));

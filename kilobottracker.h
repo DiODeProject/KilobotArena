@@ -204,6 +204,8 @@ signals:
 
     void shownumberofdetectedkbs(int);
 
+    void updateidentifybutton();
+
 public slots:
     /*!
      * \brief startLoop
