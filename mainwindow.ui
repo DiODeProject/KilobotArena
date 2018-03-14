@@ -365,8 +365,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>321</width>
+       <height>497</height>
       </rect>
      </property>
      <attribute name="label">
@@ -808,7 +808,7 @@
        </property>
        <layout class="QHBoxLayout" name="horizontalLayout_5">
         <item>
-         <widget class="QCheckBox" name="ManualIDunable">
+         <widget class="QCheckBox" name="ManualIDenable">
           <property name="text">
            <string>Set ID manually:</string>
           </property>
@@ -968,8 +968,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>321</width>
+       <height>497</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1071,8 +1071,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>98</width>
-       <height>28</height>
+       <width>321</width>
+       <height>497</height>
       </rect>
      </property>
      <attribute name="label">

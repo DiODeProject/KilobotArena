@@ -677,6 +677,7 @@ void KilobotTracker::identifyKilobots()
             foundIDs.push_back(currentID);
             assignedCircles.push_back(bot);
             qDebug() << "Success!! ID n." << currentID << " successfully assigned!!";
+            emit updateidentifybutton();
         } else if (blueBots > 1) {
             qDebug() << "Multiple detections. ID n." << currentID << " has not been assigned";
         } else if (blueBots < 1) {
@@ -2489,13 +2490,17 @@ void KilobotTracker::RefreshDisplayedImage()
 
 /* method to move the position of kilobot (with known ID) to specific position inicated by the user through a mouse click */
 void KilobotTracker::manuallyassignID(QPoint position){
-    position *= 2000.0/600.0;
-    if((manualID<kilos.size()) && m_assignIDmanually){
-        qDebug() << "robot: " << manualID << "has been repositioned" ;
-        kilos[manualID]->updateState(position,kilos[manualID]->getVelocity(),kilos[manualID]->getLedColour());
+
+    if(m_assignIDmanually){
+        position *= 2000.0/600.0;
         Mat tempKbLocs(1,kilos.size(), CV_32FC2);
         float * data = (float *) tempKbLocs.data;
         for (int i = 0; i < kilos.size(); ++i) {
+            if(kilos[i]->getID()==manualID){
+                kilos[i]->updateState(position,kilos[i]->getVelocity(),kilos[i]->getLedColour());
+                qDebug() << "robot: " << manualID << "has been repositioned" ;
+            }
+
             data[i*2] = kilos[i]->getPosition().x();
             data[i*2+1] = kilos[i]->getPosition().y();
         }
