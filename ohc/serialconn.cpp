@@ -202,9 +202,11 @@ void SerialConnection::sendQueuedCommand() {
             // send
             delay.restart(); // AJC - sending a command - wait before sending another
             //qDebug() << "Command to send" << delay.currentTime();
-            this->sendCommand(this->cmds[0]);
+            //this->sendCommand(this->cmds[0]);
+            QByteArray tmp = !cmds.isEmpty() ? cmds[0] : QByteArray();
+            this->sendCommand(tmp);
             //qDebug() << "Command sent" << delay.currentTime();
-            this->cmds.pop_front();
+            !cmds.isEmpty() ? this->cmds.pop_front() : (void) 0;
             //qDebug() << "popped()" << delay.currentTime();
             if (!this->cmds.isEmpty()) {
                 QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
