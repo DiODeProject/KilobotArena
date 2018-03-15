@@ -86,7 +86,7 @@ public slots:
                 connect(mapper, SIGNAL(mapped(int)), kbtracker, SLOT(LOOPstartstop(int)));
 
                 // drawing signal / slots
-                connect(expts[currExpt], SIGNAL(drawCircle(QPointF,float,QColor,int, std::string)), this->kbtracker, SLOT(drawCircle(QPointF,float,QColor,int, std::string)));
+                connect(expts[currExpt], SIGNAL(drawCircle(QPointF,float,QColor,int, std::string, bool)), this->kbtracker, SLOT(drawCircle(QPointF,float,QColor,int, std::string, bool)));
                 connect(expts[currExpt], SIGNAL(clearDrawings()), this->kbtracker, SLOT(clearDrawings()));
                 connect(expts[currExpt], SIGNAL(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)), this->kbtracker, SLOT(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)));
                 connect(expts[currExpt], SIGNAL(clearDrawingsOnRecordedImage()), this->kbtracker, SLOT(clearDrawingsOnRecordedImage()));

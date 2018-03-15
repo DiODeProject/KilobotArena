@@ -33,7 +33,7 @@ signals:
     void setTrackingType(int);
 
     // drawing
-    void drawCircle(QPointF pos, float r, QColor col, int thickness, std::string text);
+    void drawCircle(QPointF pos, float r, QColor col, int thickness, std::string text, bool transparent=false);
     void clearDrawings();
     void drawCircleOnRecordedImage(QPointF pos, float r, QColor col, int thickness, std::string text);
     void clearDrawingsOnRecordedImage();

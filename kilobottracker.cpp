@@ -1356,22 +1356,44 @@ void KilobotTracker::trackKilobots()
 }
 void KilobotTracker::drawOverlay(Mat & display)
 {
-
+    QVector < drawnCircle > alphaCircles;
     for (int i = 0; i < this->circsToDraw.size(); ++i) {
 
-        cv::circle(display,this->circsToDraw[i].pos, this->circsToDraw[i].r,
-                   Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()),
-                   this->circsToDraw[i].thickness);
+        if (this->circsToDraw[i].transparent) {
+            alphaCircles.push_back(this->circsToDraw[i]);
+        } else{
+            cv::circle(display,this->circsToDraw[i].pos, this->circsToDraw[i].r,
+                       Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()),
+                       this->circsToDraw[i].thickness);
 
-        if (!this->circsToDraw[i].text.empty()){
-            cv::putText(display, this->circsToDraw[i].text,
-                        this->circsToDraw[i].pos+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
-                        FONT_HERSHEY_DUPLEX, 1,
-                        Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()), 2, 8);
+            if (!this->circsToDraw[i].text.empty()){
+                cv::putText(display, this->circsToDraw[i].text,
+                            this->circsToDraw[i].pos+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
+                            FONT_HERSHEY_DUPLEX, 1,
+                            Scalar(this->circsToDraw[i].col.red(),this->circsToDraw[i].col.green(),this->circsToDraw[i].col.blue()), 2, 8);
+            }
         }
     }
+    if (!alphaCircles.empty()){
+        cv::Mat overlay;
+        display.copyTo(overlay);
+        for (int i = 0; i < alphaCircles.size(); ++i) {
+            cv::circle(overlay,alphaCircles[i].pos, alphaCircles[i].r,
+                       Scalar(alphaCircles[i].col.red(),alphaCircles[i].col.green(),alphaCircles[i].col.blue()),
+                       alphaCircles[i].thickness);
 
+            if (!alphaCircles[i].text.empty()){
+                cv::putText(overlay, alphaCircles[i].text,
+                            alphaCircles[i].pos+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
+                            FONT_HERSHEY_DUPLEX, 1,
+                            Scalar(alphaCircles[i].col.red(),alphaCircles[i].col.green(),alphaCircles[i].col.blue()), 2, 8);
+            }
+        }
+        double alpha = 0.2;
+        cv::addWeighted(display, 1.0-alpha, overlay, alpha , 0.0, display);
+    }
 }
+
 Rect KilobotTracker::getKiloBotBoundingBox(int i, float scale)
 {
 

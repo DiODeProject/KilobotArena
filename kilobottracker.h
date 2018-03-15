@@ -151,6 +151,7 @@ struct drawnCircle {
     QColor col;
     int thickness;
     std::string text;
+    bool transparent;
 };
 
 class acquireThread;
@@ -245,10 +246,10 @@ public slots:
     void SETUPsetCamOrder();
 
     // drawing slots
-    void drawCircle(QPointF pos, float r, QColor col, int thickness = 2, std::string text ="") {
+    void drawCircle(QPointF pos, float r, QColor col, int thickness = 2, std::string text ="", bool transparent = false) {
 
         int r_int = r;
-        this->circsToDraw.push_back(drawnCircle {Point(pos.x(),pos.y()), r_int, col, thickness, text});
+        this->circsToDraw.push_back(drawnCircle {Point(pos.x(),pos.y()), r_int, col, thickness, text, transparent});
 
     }
 
