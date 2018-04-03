@@ -43,6 +43,7 @@ public slots:
     virtual void initialise(bool) = 0;
     virtual void stopExperiment() {}
     virtual void run() {}
+    void setRuntimeIdentificationLock(bool lock) {this->runtimeIdentificationLock = lock;}
 
 
     /*!
@@ -85,7 +86,7 @@ public slots:
 
 protected:
     double time;
-
+    bool runtimeIdentificationLock = false;
 
     void setCurrentKilobotEnvironment(KilobotEnvironment * environment) {
         if (currKilobot != NULL && environment != NULL) {

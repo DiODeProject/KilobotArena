@@ -178,7 +178,7 @@ public:
     int kbMaxSize = 22;
     int houghAcc = 12;
     int cannyThresh = 50;
-    uint maxIDtoCheck = 100;
+    int maxIDtoCheck = 100;
     uint manualID;
     // camera parameters
     int height_x_adj = 10;
@@ -201,11 +201,9 @@ signals:
 
     void stopExperiment();
 
-    void testtesttest(Kilobot*,Kilobot);
-
-    void shownumberofdetectedkbs(int);
-
     void updateidentifybutton();
+
+    void setRuntimeIdentificationLock(bool);
 
 public slots:
     /*!
@@ -328,9 +326,10 @@ public slots:
     void detectgreen(bool toggle) {this->m_detectgreen = toggle;}
     void detectblue(bool toggle) {this->m_detectblue = toggle;}
     void manualIDassignment(bool toggle) {this->m_assignIDmanually = toggle;}
+    void enableRuntimeIdentification(bool toggle) {this->m_runtimeIDenabled = toggle;}
 
 
-    void maxIDtoTry(QString maxIdStr) {this->maxIDtoCheck = maxIdStr.toUInt();}
+    void maxIDtoTry(QString maxIdStr) {this->maxIDtoCheck = maxIdStr.toInt();}
     void setManualID(QString manID) {this->manualID = manID.toUInt();}
     void setFlipangle(double angle) {flipangle=flipangle+angle;
                                      if( (flipangle==360) || (flipangle==-360) ) flipangle=0;}
@@ -400,6 +399,9 @@ private:
     void THREADSstop();
 
     void identifyKilobot(int);
+    void identifyKilobot(int,bool);
+
+    void runtimeIdentify();
 
     void drawOverlay(Mat &);
 
@@ -471,7 +473,7 @@ private:
     Size fullSize;
     Point fullCorner;
 
-    uint currentID = 0;
+    int currentID = 0;
     uint found = IDENTIFY_TIMEOUT;
     QVector < uint > foundIDs;
     QVector < int > assignedCircles;
@@ -500,9 +502,14 @@ private:
     bool m_detectgreen=false;
     bool m_detectblue=true;
     bool m_assignIDmanually=false;
-
+    bool m_runtimeIDenabled=true;
 
     QVector <int> lost_count;
+
+    int m_runtimeIdentificationTimer = 0;
+    bool m_ongoingRuntimeIdentification = false;
+    QVector <int> pendingRuntimeIdentification;
+    QElapsedTimer runtimeIDtimer;
 
     //video saving
     bool savecamerasframes=false;

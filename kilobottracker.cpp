@@ -365,8 +365,12 @@ void KilobotTracker::LOOPstartstop(int stage)
     this->tick.start();
     this->timer.start();
 
+    // reset tracking vectors
     this->lost_count.clear();
     this->lost_count.resize(this->kilos.size());
+    this->pendingRuntimeIdentification.clear();
+    this->m_ongoingRuntimeIdentification = false;
+    this->m_runtimeIdentificationTimer = 0;
 
 }
 void KilobotTracker::LOOPiterate()
@@ -506,12 +510,36 @@ void KilobotTracker::LOOPiterate()
         }
 
         switch (this->stage) {
-        case TRACK:
+        case TRACK:{
             this->trackKilobots();
+
+            /** determine if executing the runtime-identification (RTI) */
+            if (this->m_runtimeIDenabled){
+                bool runRTI = false;
+                if (this->m_ongoingRuntimeIdentification){ // if already running, keep running
+                    runRTI = true;
+                } else if (!this->pendingRuntimeIdentification.empty() && this->m_runtimeIdentificationTimer++ > 50){ // if there are pending request for more than 5s
+                    // I check that all pending request are not lost robots
+                    bool anyLost = false;
+                    for (int i=0; i<this->pendingRuntimeIdentification.size(); ++i){
+                        if (this->lost_count[this->pendingRuntimeIdentification[i]] > 0){
+                            anyLost = true;
+                            break;
+                        }
+                    }
+                    if (anyLost)
+                        this->m_runtimeIdentificationTimer -= 10; // delay the timer if there are lost robot (otherwise as soon it has been found it starts)
+                    else
+                        runRTI = true;
+                }
+                if (runRTI) runtimeIdentify();
+            }
             break;
-        case IDENTIFY:
+        }
+        case IDENTIFY:{
             this->identifyKilobots();
             break;
+        }
         }
 
         ++time;
@@ -525,6 +553,141 @@ void KilobotTracker::LOOPiterate()
     }
 
 }
+
+void KilobotTracker::runtimeIdentify(){
+    //qDebug() << "Runtime-ID: " << this->m_runtimeIdentificationTimer;
+    if (!this->m_ongoingRuntimeIdentification) {
+        qDebug() << "Runtime-ID: started for robots" << this->pendingRuntimeIdentification;
+
+        emit setRuntimeIdentificationLock(true);
+        this->m_ongoingRuntimeIdentification = true;
+        this->runtimeIDtimer.start();
+
+        // Reset lists and counters
+        this->m_runtimeIdentificationTimer = 0;
+        this->foundIDs.clear();
+        this->currentID = 0;
+
+        // broadcast ID
+        identifyKilobot(this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID(), true);
+        qDebug() << "Runtime-ID: Signalled ID" << this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID();
+    }
+
+//#ifdef USE_CUDA
+//    Mat display;
+//    this->finalImageB.download(display);
+//    cv::cvtColor(display, display, CV_GRAY2RGB);
+//#else
+//    Mat display;
+//    cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
+//#endif
+//    this->getKiloBotLights(display);
+
+    if(this->m_runtimeIdentificationTimer++ >= 10) {
+        this->m_runtimeIdentificationTimer = 0;
+        int blueBots = 0;
+        int bot = -1;
+
+        // I allow only swaps between robots on the pending list, if there is some false detect I update the list
+        for (int i = 0; i < this->pendingRuntimeIdentification.size(); ++i) {
+//            if (this->kilos[this->pendingRuntimeIdentification[i]]->getLedColour() == BLUE) {
+            if (this->lost_count[this->pendingRuntimeIdentification[i]] < 10 && this->kilos[this->pendingRuntimeIdentification[i]]->getLedColour() == BLUE) {
+                qDebug() << "Runtime-ID: found blue LED robot #" << this->kilos[this->pendingRuntimeIdentification[i]]->getID();
+                blueBots++;
+                bot = this->pendingRuntimeIdentification[i];
+            }
+        }
+
+        if (blueBots == 1){
+            //kilos[bot]->setID((uint8_t) currentID);
+            //this->circsToDraw.push_back(drawnCircle {Point(kilos[bot]->getPosition().x(),kilos[bot]->getPosition().y()), 4, QColor(0,255,0), 2, ""});
+            this->foundIDs.push_back(this->currentID);
+            qDebug() << "Looking for position " << this->pendingRuntimeIdentification[this->currentID] << " (id:"<<this->kilos[this->pendingRuntimeIdentification[currentID]]->getID()<<")"<<
+                        "and found position" << bot << " (id:"<<this->kilos[bot]->getID()<<")";
+            if (this->pendingRuntimeIdentification[this->currentID] == bot) {
+                qDebug() << "Runtime-ID: Kilobot #" << this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID() << "was correctly assigned";
+            } else {
+                // swapping robot positions (otherwise I lose the robot tracking)
+                qDebug() << "Runtime-ID: reassignment!! Kilobot #" << this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID() << "moved to new location.";
+                QPointF tmpPos = this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getPosition();
+                QPointF tmpVel = this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getVelocity();
+                kilobot_colour tmpCol = this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getLedColour();
+                this->kilos[this->pendingRuntimeIdentification[this->currentID]]->updateState(
+                            QPointF(this->kilos[bot]->getPosition().x(),this->kilos[bot]->getPosition().y()),
+                            this->kilos[bot]->getVelocity(),this->kilos[bot]->getLedColour() );
+                this->kilos[bot]->updateState( tmpPos, tmpVel, tmpCol );
+
+                // re-upload locations on GPU
+                Mat tempKbLocs(1,this->kilos.size(), CV_32FC2);
+                float * data = (float *) tempKbLocs.data;
+                for (int i = 0; i < this->kilos.size(); ++i) {
+                    data[i*2] = this->kilos[i]->getPosition().x();
+                    data[i*2+1] = this->kilos[i]->getPosition().y();
+                }
+                this->kbLocs.upload(tempKbLocs);
+            }
+        } else if (blueBots > 1) {
+            qDebug() << "Runtime-ID: Multiple detections. ID n." << this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID() << "has not been re-assigned";
+        } else if (blueBots < 1) {
+            qDebug() << "Runtime-ID: No bot found for ID n." << this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID() << "in the pending list";
+            blueBots = 0;
+            bot = -1;
+            for (int i = 0; i < this->kilos.size(); ++i) {
+                if (this->kilos[i]->getLedColour() == BLUE) {
+                    blueBots++;
+                    bot = i;
+                    qDebug() << "Runtime-ID: Found robot #" << kilos[i]->getID() << "with blue LED. Added to pending for runtime identification";
+                    this->pendingRuntimeIdentification.push_back(i);
+                }
+            }
+            if (!blueBots) qDebug() << "No Blue response from all the swarm.";
+        }
+
+        if (this->foundIDs.size() == this->pendingRuntimeIdentification.size() ) { // all robots has been found
+            // || currentID == this->pendingRuntimeIdentification.size()-2 ) {     OR I looped through all
+            qDebug() << "Runtime-ID: All" << this->foundIDs.size() << "robots have been correcly runtime-identified.";
+            // clearing pending list
+            this->pendingRuntimeIdentification.clear();
+            this->foundIDs.clear();
+            this->m_runtimeIdentificationTimer = 0;
+            // stopping the runtime identification process
+            this->m_ongoingRuntimeIdentification = false;
+            // inform the experiment the runtime ID has stopped
+            emit setRuntimeIdentificationLock(false);
+            // inform the kilobots
+            identifyKilobot(-1, true);
+        }
+        else { // next id
+            this->currentID++;
+            while( this->foundIDs.contains(this->currentID) || this->currentID >= this->pendingRuntimeIdentification.size() ){
+                if (++this->currentID >= this->pendingRuntimeIdentification.size()) this->currentID = 0;
+            }
+            identifyKilobot(this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID(), true);
+            qDebug() << "Runtime-ID: Signalled ID" << this->kilos[this->pendingRuntimeIdentification[currentID]]->getID();
+            // check if I am trying identifying on lost robots
+            for (int i = 0; i < this->pendingRuntimeIdentification.size(); ++i) {
+                /* if a missing robot has been lost for more than 10 step, the runtime identification is stopped but pending list only partially cleared */
+                /* also stop if the process is running for more than 10s */
+                if (!this->foundIDs.contains(i) && this->lost_count[this->pendingRuntimeIdentification[i]] > 10 || this->runtimeIDtimer.elapsed() > 10000 ){
+                    qDebug() << "Runtime-ID: Giving up runtime identification because involves lost robots or it's taking too much time, e.g. robot #" << this->kilos[this->pendingRuntimeIdentification[i]]->getID();
+                    this->foundIDs.clear();
+                    this->m_runtimeIdentificationTimer = 0;
+                    // stopping the runtime identification process
+                    this->m_ongoingRuntimeIdentification = false;
+                    // inform the experiment the runtime ID has stopped
+                    emit setRuntimeIdentificationLock(false);
+                    // inform the kilobots
+                    identifyKilobot(-1, true);
+                }
+            }
+        }
+    }
+
+    //this->drawOverlay(display);
+
+    //this->showMat(display);
+}
+
 void KilobotTracker::updateKilobotStates()
 {
     for (int i = 0; i < kilos.size(); ++i) {
@@ -628,7 +791,7 @@ void KilobotTracker::identifyKilobots()
         qDebug() << "Max ID to test is" << maxIDtoCheck;
 
         // check that max id is higher than number of tracked kilobots
-        if (maxIDtoCheck < (uint)qMax(0,kilos.size()-2)){
+        if (maxIDtoCheck < qMax(0,kilos.size()-2)){
             qDebug() << "ERROR! More robots than possible IDs. Change the max ID to test (currently it's" << maxIDtoCheck << ")";
             return;
         }
@@ -657,18 +820,16 @@ void KilobotTracker::identifyKilobots()
 
     this->getKiloBotLights(display);
 
-    if(time % 7 == 6)
+    if(time % 5 == 4)
     {
         int blueBots = 0;
         int bot = -1;
         for (uint i = 0; i < (uint) kilos.size(); ++i) {
-
             if (kilos[i]->getLedColour() == BLUE) {
                 qDebug() << "Found ID" << currentID;
                 blueBots++;
                 bot = i;
             }
-
         }
 
         if (blueBots == 1 && !assignedCircles.contains(bot)){
@@ -677,19 +838,19 @@ void KilobotTracker::identifyKilobots()
             foundIDs.push_back(currentID);
             assignedCircles.push_back(bot);
             qDebug() << "Success!! ID n." << currentID << " successfully assigned!!";
-            emit updateidentifybutton();
         } else if (blueBots > 1) {
             qDebug() << "Multiple detections. ID n." << currentID << " has not been assigned";
         } else if (blueBots < 1) {
             qDebug() << "No bot found for ID n." << currentID;
         } else if (blueBots == 1 && assignedCircles.contains(bot)) {
             qDebug() << "Trying to re-assign the same circle to a second ID. I don't make this assigment and I undo the previous, i.e., ID" << kilos[bot]->getID();
-            foundIDs.remove( kilos[bot]->getID() );
+            foundIDs.removeOne( kilos[bot]->getID() );
             assignedCircles.removeOne(bot);
         }
 
         if (foundIDs.size() == kilos.size()) { // all robots has been found
             qDebug() << "All" << kilos.size() << "robots have been correcly identified. Well Done, mate! Now, it's time for serious stuff.";
+            emit updateidentifybutton();
             this->LOOPstartstop(IDENTIFY);
         }
         else { // next id
@@ -698,7 +859,7 @@ void KilobotTracker::identifyKilobots()
                 currentID++;
             }
             identifyKilobot(currentID);
-            qDebug() << "Try ID" << currentID;
+            if (currentID <= maxIDtoCheck) qDebug() << "Try ID" << currentID;
         }
     }
 
@@ -706,6 +867,22 @@ void KilobotTracker::identifyKilobots()
 
     this->showMat(display);
 
+}
+
+void KilobotTracker::identifyKilobot(int id, bool runtime = false){
+    // decompose id
+    QVector < uint8_t > data(9);
+    data[0] = id >> 8;
+    data[1] = id & 0xFF;
+
+    kilobot_broadcast msg;
+    if (runtime) {
+        msg.type = 119;
+    } else {
+        msg.type = 120;
+    }
+    msg.data = data;
+    emit this->broadcastMessage(msg);
 }
 
 void KilobotTracker::identifyKilobot(int id)
@@ -769,7 +946,7 @@ void KilobotTracker::trackKilobots()
 
             if (this->kilos.size() == 0) break;
 
-            int circle_acc = this->houghAcc + 0;//-3
+            int circle_acc = this->houghAcc;
             cuda::GpuMat circlesGpu;
 
             vector < cuda::GpuMat > circChans;
@@ -862,13 +1039,20 @@ void KilobotTracker::trackKilobots()
                 circChans[0].download(circChansXCpu);
                 circChans[1].download(circChansYCpu);
 
+                QMap <int,int> previously_lost;
+//                previous_lost_count.resize(this->lost_count.size());
+//                for (int i=0; i<this->lost_count.size(); ++i){
+//                    previous_lost_count[i] = this->lost_count[i];
+//                }
+
                 // assign the new position of each kilobot as the new closest detected circle (if within a small distance from previous pos)
                 for (int i = 0; i < this->kilos.size(); ++i) {
                     // find the closest circle (this operation is much quicker on the CPU than on GPU)
                     minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                     //cv::cuda::minMaxLoc(all_x_c(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                    if (this->lost_count[i]>0) previously_lost[i] = this->lost_count[i];
                     // work out if we should update...
-                    if (*min < float(this->kbMinSize)/1.5 && this->lost_count[i] < 10) { // check if the distance between the old and new position is small enough
+                    if (*min < float(this->kbMinSize)/1.3 && this->lost_count[i] < 10) { // check if the distance between the old and new position is small enough
                         circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
                         circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
                         //cout << endl << circChansXCpu << endl;
@@ -892,31 +1076,116 @@ void KilobotTracker::trackKilobots()
                         kbChans[0].download(kbLocsCpuX);
                         kbChans[1].download(kbLocsCpuY);
 
-                        if (this->lost_count[i] > 10) {
+                        /*** if the area to search is small enough it might quicker to crop the image, find again cirlces and loop over a smaller set ***/
+                        if (this->lost_count[i] > 10 && this->lost_count[i] <= 150) {
+
+                            Rect bb = this->getKiloBotBoundingBox(i, this->lost_count[i]*5.0/this->kbMaxSize);
+#ifdef USE_CUDA
+                            cuda::GpuMat temp;
+#else
+                            Mat temp[3];
+#endif
+                            // switch cam/vid source depending on position...
+//                            if (bb.x < 2000/2 && bb.y < 2000/2) {
+//                                Rect bb_adj = bb;
+//                                bb_adj.x = bb_adj.x +100;
+//                                bb_adj.y = bb_adj.y +100;
+//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
+//                                temp = this->fullImages[clData.inds[0]][0](bb_adj);
+//                            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
+//                                Rect bb_adj = bb;
+//                                bb_adj.x = bb_adj.x -900;
+//                                bb_adj.y = bb_adj.y +100;
+//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
+//                                temp = this->fullImages[clData.inds[1]][0](bb_adj);
+//                            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
+//                                Rect bb_adj = bb;
+//                                bb_adj.x = bb_adj.x +100;
+//                                bb_adj.y = bb_adj.y -900;
+//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
+//                                temp = this->fullImages[clData.inds[2]][0](bb_adj);
+//                            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
+//                                Rect bb_adj = bb;
+//                                bb_adj.x = bb_adj.x -900;
+//                                bb_adj.y = bb_adj.y -900;
+//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
+//                                temp = this->fullImages[clData.inds[3]][0](bb_adj);
+//                            }
+                            temp = this->finalImageB(bb);
+
+                            std::vector<cv::Vec3f> circles_rematch;
+
+#ifdef USE_CUDA
+                            cuda::GpuMat circlesGpu_temp;
+                            this->hough->setVotesThreshold(this->houghAcc);
+                            this->hough->detect(temp,circlesGpu_temp,stream);
+                            if (circlesGpu_temp.size().width > 0) circlesGpu_temp.download(circles_rematch);
+#else
+                            // find circles
+                            HoughCircles(temp[0],circles_rematch,CV_HOUGH_GRADIENT,1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize);
+#endif
+
+//                            qDebug() << "circ size: " << circles_rematch.size();
+//                            this->circsToDraw.push_back(drawnCircle {Point(bb.x,bb.y), 4, QColor(0,255,0), 2, ""});
+//                            this->circsToDraw.push_back(drawnCircle {Point(qMin(this->finalImageB.size().width,bb.x+bb.width),bb.y), 4, QColor(0,255,0), 2, ""});
+//                            this->circsToDraw.push_back(drawnCircle {Point(qMin(this->finalImageB.size().width,bb.x+bb.width),qMin(this->finalImageB.size().height,bb.y+bb.height)), 4, QColor(0,255,0), 2, ""});
+//                            this->circsToDraw.push_back(drawnCircle {Point(bb.x,qMin(this->finalImageB.size().height,bb.y+bb.height)), 4, QColor(0,255,0), 2, ""});
+
+                            for (uint c = 0; c < circles_rematch.size(); ++c) {
+                                int cur_x = bb.x+cvRound(circles_rematch[c][0]);
+                                int cur_y = bb.y+cvRound(circles_rematch[c][1]);
+
+                                bool foundOverlapWithOtherKilobot = false;
+                                for (int k = 0; k < kilos.size(); ++k) {
+                                    // check if within small distance to a KB
+                                    if (qAbs(kilos[k]->getPosition().x()-cur_x) < (this->kbMinSize*1.5) && qAbs(kilos[k]->getPosition().y()-cur_y) < (this->kbMinSize*1.5)) { // it was 16
+                                        foundOverlapWithOtherKilobot = true;
+                                        break;
+                                    }
+                                }
+                                if (!foundOverlapWithOtherKilobot) {
+                                    qDebug() << "Lost bot #" << kID << "has been Found through local search";
+                                    // pair up on CPU!
+                                    kilos[i]->updateState(QPointF(cur_x,cur_y),kilos[i]->getVelocity(),kilos[i]->getLedColour());
+                                    // and GPU
+                                    kbLocsCpuX(Rect(i,0,1,1)) = cur_x;
+                                    kbLocsCpuY(Rect(i,0,1,1)) = cur_y;
+
+                                    kbChans[0].upload(kbLocsCpuX);
+                                    kbChans[1].upload(kbLocsCpuY);
+
+                                    this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0), 2, ""});
+                                    this->lost_count[i] = 0;
+                                    break;
+                                }
+                            }
+
+                        } else if (this->lost_count[i] > 10) { /* go through circles on full image */
 
                             // go through xCpu and yCpu (circle locs) and compare to KB locations
                             // Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0])
-                            for (uint c = 0; c < xCpu.size().width; ++c)
+                            for (int c = 0; c < xCpu.size().width; ++c)
                             {
                                 int cur_x = mean(xCpu(Rect(c,0,1,1)))[0];
                                 int cur_y = mean(yCpu(Rect(c,0,1,1)))[0];
 
-                                bool foundCirc = false;
+                                bool foundOverlapWithOtherKilobot = false;
                                 for (int k = 0; k < kilos.size(); ++k) {
                                     // check if within small distance to a KB
                                     if (qAbs(kilos[k]->getPosition().x()-cur_x) < (this->kbMinSize*1.5) && qAbs(kilos[k]->getPosition().y()-cur_y) < (this->kbMinSize*1.5)) { // it was 16
-                                        foundCirc = true;
+                                        foundOverlapWithOtherKilobot = true;
+                                        break;
                                     }
                                 }
-                                if (!foundCirc) {
+                                if (!foundOverlapWithOtherKilobot) {
                                     // check it is in a sane distance
                                     if (qAbs(kilos[i]->getPosition().x()-cur_x) < this->lost_count[i]*5 && qAbs(kilos[i]->getPosition().y()-cur_y) < this->lost_count[i]*5) {
-                                        qDebug() << "Lost bot #" << kID << "has been Found(!!)";
+                                        qDebug() << "Lost bot #" << kID << "has been Found through Global search";
                                         // pair up on CPU!
                                         kilos[i]->updateState(QPointF(cur_x,cur_y),kilos[i]->getVelocity(),kilos[i]->getLedColour());
                                         // and GPU
-                                        kbLocsCpuX(Rect(i,0,1,1)) = (mean(xCpu(Rect(c,0,1,1)))[0]);
-                                        kbLocsCpuY(Rect(i,0,1,1)) = (mean(yCpu(Rect(c,0,1,1)))[0]);
+                                        kbLocsCpuX(Rect(i,0,1,1)) = cur_x;
+                                        kbLocsCpuY(Rect(i,0,1,1)) = cur_y;
 
                                         kbChans[0].upload(kbLocsCpuX);
                                         kbChans[1].upload(kbLocsCpuY);
@@ -924,8 +1193,6 @@ void KilobotTracker::trackKilobots()
                                         this->circsToDraw.push_back(drawnCircle {Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()), 4, QColor(0,255,0), 2, ""});
                                         this->lost_count[i] = 0;
                                         break;
-                                    } else {
-                                        foundCirc = false;
                                     }
                                 }
                             }
@@ -945,12 +1212,35 @@ void KilobotTracker::trackKilobots()
                             kbChans[0].download(kbLocsCpuX);
                             kbChans[1].download(kbLocsCpuY);
 
-                            /* I move back the robot that has moved more in the last timestep */
+                            int which_revert = 0; // 0 don't know, 1 revert robot[i] to its previous position, 2 revert robot[j] to its previous position
+
+                            // whatever happens runtime-identification is triggered
+                            if (!this->pendingRuntimeIdentification.contains(i)) this->pendingRuntimeIdentification.push_back(i);
+                            if (!this->pendingRuntimeIdentification.contains(j)) this->pendingRuntimeIdentification.push_back(j);
+
+                            /* if one tag has been lost (i.e. lost_count[_] > 0) it has lower priority and stays where it was
+                             * The motivation is that we want to avoid that a lost tag (which remains somewhere) is picked up by another robot passing by */
+                            //if (previous_lost_count[i] > 0 && previous_lost_count[j] == 0) {
+                            if (previously_lost.contains(i) && !previously_lost.contains(j)) {
+                                this->lost_count[i] = previously_lost[i];
+                                which_revert = 1;
+                            } else if (!previously_lost.contains(i) && previously_lost.contains(j)) {
+                                this->lost_count[j] = previously_lost[j];
+                                which_revert = 2;
+                            } else
+                            /* If none was lost (both it's impossible), I move back the robot that has moved more in the last timestep */
                             if (  (pow(kilos[i]->getPosition().x()-previousPositions[i].x(),2)+pow(kilos[i]->getPosition().y()-previousPositions[i].y(),2))
                                   >
                                   (pow(kilos[j]->getPosition().x()-previousPositions[j].x(),2)+pow(kilos[j]->getPosition().y()-previousPositions[j].y(),2)) ){
-                                //qDebug() << "Reverted swap of tag #" << kilos[i]->getID() << " over robot #" << kilos[j]->getID() << ". Keep an eye on that area!";
-                                qDebug() << "Reverted swap of tag #" << kilos[i]->getID() << " ("<< kilos[i]->getPosition()<<", goes to pos:" <<previousPositions[i]<< ") over robot #" << kilos[j]->getID() << " ("<< kilos[j]->getPosition()<<"). Keep an eye on that area!";
+                                which_revert = 1;
+                            } else {
+                                which_revert = 2;
+                            }
+
+                            switch(which_revert){
+                            case 1:{
+                                qDebug() << "Reverted swap ("<<kilos[i]->getID()<<"/"<<kilos[j]->getID()<<") of tag #" << kilos[i]->getID() << " over robot #" << kilos[j]->getID() << ". Keep an eye on that area!";
+                                //qDebug() << "Reverted swap ("<<kilos[i]->getID()<<"/"<<kilos[j]->getID()<<") of tag #" << kilos[i]->getID() << " ("<< kilos[i]->getPosition()<<", goes to pos:" <<previousPositions[i]<< ") over robot #" << kilos[j]->getID() << " ("<< kilos[j]->getPosition()<<"). Keep an eye on that area!";
                                 // update CPU
                                 kilos[i]->updateState(QPointF(previousPositions[i].x(),previousPositions[i].y()),kilos[i]->getVelocity(), kilos[i]->getLedColour());
                                 // and GPU
@@ -960,9 +1250,11 @@ void KilobotTracker::trackKilobots()
                                 this->lost_count[i]++;
                                 cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),10,Scalar(0,255,255),5);
                                 cv::circle(display,Point(kilos[j]->getPosition().x(),kilos[j]->getPosition().y()),10,Scalar(0,255,255),5);
-                            } else {
-                                //qDebug() << "Reverted swap of tag #" << kilos[j]->getID() << " over robot #" << kilos[i]->getID() << ". Keep an eye on that area!";
-                                qDebug() << "Reverted swap of tag #" << kilos[j]->getID() << " ("<< kilos[j]->getPosition()<<", goes to pos:" <<previousPositions[j]<< ") over robot #" << kilos[i]->getID() << " ("<< kilos[i]->getPosition()<<"). Keep an eye on that area!";
+                                break;
+                            }
+                            case 2:{
+                                qDebug() << "Reverted swap ("<<kilos[j]->getID()<<"/"<<kilos[i]->getID()<<") of tag #" << kilos[j]->getID() << " over robot #" << kilos[i]->getID() << ". Keep an eye on that area!";
+                                //qDebug() << "Reverted swap ("<<kilos[j]->getID()<<"/"<<kilos[i]->getID()<<") of tag #" << kilos[j]->getID() << " ("<< kilos[j]->getPosition()<<", goes to pos:" <<previousPositions[j]<< ") over robot #" << kilos[i]->getID() << " ("<< kilos[i]->getPosition()<<"). Keep an eye on that area!";
                                 // update CPU
                                 kilos[j]->updateState(QPointF(previousPositions[j].x(),previousPositions[j].y()),kilos[j]->getVelocity(), kilos[j]->getLedColour());
                                 // and GPU
@@ -972,7 +1264,14 @@ void KilobotTracker::trackKilobots()
                                 this->lost_count[j]++;
                                 cv::circle(display,Point(kilos[i]->getPosition().x(),kilos[i]->getPosition().y()),15,Scalar(0,255,255),5);
                                 cv::circle(display,Point(kilos[j]->getPosition().x(),kilos[j]->getPosition().y()),15,Scalar(0,255,255),5);
+                                break;
                             }
+                            default:{ // I shouldn't arrive here
+                                qDebug() << "WARNING! Bug code in robot tracking, an unforecasted case has been triggered after tag-swapping.";
+                                break;
+                            }
+                            }
+
                             kbChans[0].upload(kbLocsCpuX);
                             kbChans[1].upload(kbLocsCpuY);
                         }

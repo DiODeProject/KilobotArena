@@ -65,6 +65,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->red_checkBox, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(detectred(bool)));
     connect(ui->green_checkBox, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(detectgreen(bool)));
     connect(ui->blue_checkBox, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(detectblue(bool)));
+    connect(ui->runtime_ids_ckbx, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(enableRuntimeIdentification(bool)));
 
     connect(ui->clicksignallabel, SIGNAL(clicked(QPoint)), &this->kbtracker, SLOT(manuallyassignID(QPoint)));
     connect(ui->maxIDtoTry_input, SIGNAL(textChanged(QString)), &this->kbtracker, SLOT(maxIDtoTry(QString)));

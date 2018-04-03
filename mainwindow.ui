@@ -379,9 +379,9 @@
       <property name="geometry">
        <rect>
         <x>0</x>
-        <y>240</y>
+        <y>230</y>
         <width>301</width>
-        <height>251</height>
+        <height>271</height>
        </rect>
       </property>
       <property name="minimumSize">
@@ -732,58 +732,6 @@
         <string>10</string>
        </property>
       </widget>
-      <widget class="QLabel" name="label_9">
-       <property name="geometry">
-        <rect>
-         <x>20</x>
-         <y>170</y>
-         <width>159</width>
-         <height>17</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>Color detection details:</string>
-       </property>
-      </widget>
-      <widget class="QWidget" name="layoutWidget">
-       <property name="geometry">
-        <rect>
-         <x>20</x>
-         <y>190</y>
-         <width>204</width>
-         <height>24</height>
-        </rect>
-       </property>
-       <layout class="QHBoxLayout" name="horizontalLayout_4">
-        <item>
-         <widget class="QCheckBox" name="red_checkBox">
-          <property name="text">
-           <string>Red</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="green_checkBox">
-          <property name="text">
-           <string>Green</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="blue_checkBox">
-          <property name="text">
-           <string>Blue</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
       <widget class="Line" name="line_8">
        <property name="geometry">
         <rect>
@@ -801,7 +749,7 @@
        <property name="geometry">
         <rect>
          <x>20</x>
-         <y>220</y>
+         <y>200</y>
          <width>251</width>
          <height>29</height>
         </rect>
@@ -816,6 +764,72 @@
         </item>
         <item>
          <widget class="QLineEdit" name="manualIDinput"/>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QCheckBox" name="runtime_ids_ckbx">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>230</y>
+         <width>231</width>
+         <height>22</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Enable runtime identification</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+      <widget class="QWidget" name="">
+       <property name="geometry">
+        <rect>
+         <x>20</x>
+         <y>170</y>
+         <width>254</width>
+         <height>26</height>
+        </rect>
+       </property>
+       <layout class="QHBoxLayout" name="horizontalLayout_7">
+        <item>
+         <widget class="QLabel" name="label_9">
+          <property name="text">
+           <string>Color detection:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QCheckBox" name="red_checkBox">
+            <property name="text">
+             <string>R</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="green_checkBox">
+            <property name="text">
+             <string>G</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QCheckBox" name="blue_checkBox">
+            <property name="text">
+             <string>B</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>
@@ -844,14 +858,15 @@
       <zorder>label_9</zorder>
       <zorder>layoutWidget</zorder>
       <zorder>line_8</zorder>
+      <zorder>runtime_ids_ckbx</zorder>
      </widget>
-     <widget class="QWidget" name="layoutWidget">
+     <widget class="QWidget" name="">
       <property name="geometry">
        <rect>
-        <x>0</x>
+        <x>10</x>
         <y>0</y>
-        <width>301</width>
-        <height>249</height>
+        <width>291</width>
+        <height>223</height>
        </rect>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -944,21 +959,25 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="show_ids">
-         <property name="text">
-          <string>show IDs</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QCheckBox" name="find_details">
-         <property name="text">
-          <string>details</string>
-         </property>
-        </widget>
+        <layout class="QHBoxLayout" name="horizontalLayout_6">
+         <item>
+          <widget class="QCheckBox" name="show_ids">
+           <property name="text">
+            <string>show IDs</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="find_details">
+           <property name="text">
+            <string>details</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </widget>

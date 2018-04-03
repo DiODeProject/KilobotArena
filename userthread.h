@@ -105,6 +105,7 @@ public slots:
                 connect(kbtracker, SIGNAL(startExperiment(bool)), &this->timer, SLOT(start()));
                 connect(kbtracker, SIGNAL(stopExperiment()), this->expts[currExpt], SLOT(stopExperiment()));
                 connect(kbtracker, SIGNAL(stopExperiment()), &this->timer, SLOT(stop()));
+                connect(kbtracker, SIGNAL(setRuntimeIdentificationLock(bool)), this->expts[currExpt], SLOT(setRuntimeIdentificationLock(bool)));
 
                 // ohc
                 connect(this->expts[currExpt], SIGNAL(broadcastMessage(kilobot_broadcast)), this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
