@@ -8,7 +8,6 @@ KilobotIDAssignment::KilobotIDAssignment(assignmethod method): method(method)
 
 void KilobotIDAssignment::initialise(bool)
 {
-
     if(method==BINARY) {
      numofdigits=11;
     }
@@ -19,7 +18,7 @@ void KilobotIDAssignment::initialise(bool)
 
     emit clearDrawings();
     // calibrate LEDs
-    emit setTrackingType(ADAPTIVE_LED);
+    emit setTrackingType(LED);
     emit getInitialKilobotStates();
     QVector<uint8_t> data;
     data.resize(9);
@@ -34,11 +33,9 @@ void KilobotIDAssignment::initialise(bool)
 //    this->numFound = 0;
     this->numSegments = 0;
 
-
-
     this->switchSegment = true;
     this->stage = START;
-    qDebug() << "INIT";
+    //qDebug() << "INIT";
     t.start();
 
     // Init Log File operations
@@ -101,20 +98,12 @@ void KilobotIDAssignment::run()
         emit broadcastMessage(msg);
     }
 
-
-    // check if this needs to be deleted as LED & ADAPTIVE_LED do the samething!
-    if (time > 2.0f && time < 2.15f) {
-        // finish adaptation
-        emit setTrackingType(LED);
-        qDebug() << "CHANGE TRACKING TYPE";
-    }
-
     if (time > 2.0f) {
 
         switch (this->stage) {
         case START:
         {
-            qDebug() << "START" << t.elapsed();
+            //qDebug() << "START" << t.elapsed();
             this->lastTime = 0;
             this->switchSegment = true;
 
@@ -147,7 +136,7 @@ void KilobotIDAssignment::run()
 
             if (this->switchSegment == true) {
 
-                qDebug() << "SWITCH" << lastTime << t.elapsed();
+                qDebug() << "Asking the robots to show new digit (t:" << lastTime << t.elapsed() <<")";
 
                 this->switchSegment = false;
 
@@ -247,12 +236,12 @@ void KilobotIDAssignment::run()
         case SEND:
         {
               if (lastTime > 25.0f) {
-                  for (int i = 0; i < tempIDs.size(); ++i) {
-                      qDebug() << i << "[" << this->isAssigned[i] << "]:" << this->tempIDs[i];
-                  }
+//                  for (int i = 0; i < tempIDs.size(); ++i) {
+//                      qDebug() << i << "[" << this->isAssigned[i] << "]:" << this->tempIDs[i];
+//                  }
 
                     for (int id = 0; id < tempIDs.size(); ++id) {
-                        qDebug() << "SEND" << lastTime;
+                        //qDebug() << "SEND" << lastTime;
                         if (this->tempIDs[id] != DUPE && !this->isAssigned[id]) {
                             QVector<uint8_t> data;
                             data.resize(9);
@@ -283,7 +272,7 @@ void KilobotIDAssignment::run()
         case RETRY:
         {
             if (t_since <= 0) {
-                qDebug() << "RETRY" << lastTime;
+                //qDebug() << "RETRY" << lastTime;
                 kilobot_broadcast msg;
                 msg.type = 3;
                 emit broadcastMessage(msg);
@@ -299,7 +288,7 @@ void KilobotIDAssignment::run()
         case COMPLETE:
         {
 
-            qDebug() << "DONE" << lastTime;
+            qDebug() << "Successfully assigned a sequentional ID to all the " << tempIDs.size() << " Kilobots on the table." << lastTime;
             if (!saveImages){
                 emit experimentComplete();
             }
@@ -337,117 +326,113 @@ void KilobotIDAssignment::updateKilobotState(Kilobot kilobotCopy)
 {
     if (isAssigned[kilobotCopy.getID()]){
         // mark with a small green dot the assigned robots
-        //for (int id = 0; id < tempIDs.size(); ++id) {
-        //if (this->isAssigned[id]){
         drawCircle(QPointF(kilobotCopy.getPosition().x(),kilobotCopy.getPosition().y()),2, QColor(0,255,0), 2,"");
     }
     // check colours
- if(this->stage==TEST){
-    if (isAssigned[kilobotCopy.getID()]){
-        return;
+    if(this->stage==TEST){
+        if (isAssigned[kilobotCopy.getID()]){
+            return;
+        }
+
+        lightColour col = kilobotCopy.getLedColour();
+
+//        QString colName;
+//        if (col == OFF) colName = "OFF";
+//        if (col == RED) colName = "RED";
+//        if (col == GREEN) colName = "GREEN";
+//        if (col == BLUE) colName = "BLUE";
+//        qDebug() << "KB" << kilobotCopy.getID() << "part " << numSegments -1 << " = " << colName << t.elapsed();
+
+        int col2 = 0;
+
+        if(method==BINARY){
+            if (col == RED) {
+                col2 = 0;
+            }
+            else if (col == BLUE) {
+                col2 = 1;
+            }
+            else {
+                //qDebug() << "DETECTION ERROR";
+            }
+            this->tempIDs[kilobotCopy.getID()] += int(col2) * binaryMultipliers[numSegments-1];
+        }
+
+        if(method==BASETHREE){
+            if (col == RED) {
+                col2 = 0;
+            }
+            else if (col == BLUE) {
+                col2 = 1;
+            }
+            else if (col == GREEN) {
+                col2 = 2;
+            }
+            else {
+                //qDebug() << "DETECTION ERROR";
+            }
+
+            this->tempIDs[kilobotCopy.getID()] += int(col2) * baseThreeMultipliers[numSegments-1];
+        }
+
+
+
+        if (saveImages){
+            kilobot_id kID = kilobotCopy.getID();
+            kilobot_colour kCol = kilobotCopy.getLedColour();
+            QPointF kPos = kilobotCopy.getPosition()*PIXEL_TO_MM;
+            //double kRot = qRadiansToDegrees(qAtan2(-kilobotCopy.getVelocity().y(), kilobotCopy.getVelocity().x()));
+            this->allKilos[kID].updateAllValues(kID, kPos, 0, kCol);
+            this->updatedCol = true;
+            this->allKilos[kID].digits[numSegments-1] = col2;
+        }
     }
+    if(this->stage==CONFIRM){
+        if (isAssigned[kilobotCopy.getID()])
+            return;
+        else{
+            lightColour col = kilobotCopy.getLedColour();
+            if (col == BLUE){
+                QString colName  = "BLUE";
+                qDebug() << "KB" << kilobotCopy.getID() << "confirms ID" << increment << "with" << colName << "light";
+            }
 
-    lightColour col = kilobotCopy.getLedColour();
-
-
-    //this->tempIDs[kilobotCopy.getID()] += int(col) * binaryMultipliers[numSegments-1];
-    QString colName;
-    if (col == OFF) colName = "OFF";
-    if (col == RED) colName = "RED";
-    if (col == GREEN) colName = "GREEN";
-    if (col == BLUE) colName = "BLUE";
-    qDebug() << "KB" << kilobotCopy.getID() << "part " << numSegments -1 << " = " << colName << t.elapsed();
-
-    int col2 = 0;
-
-    if(method==BINARY){
-    if (col == RED) {
-        col2 = 0;
+            if(kilobotCopy.getID()==increment){
+                if (col != BLUE) {
+                    tempIDs[increment]=DUPE;
+                    this->dupesFound = true;
+                }
+            }
+            else{
+                if (col == BLUE){
+                    tempIDs[increment]=DUPE;
+                    tempIDs[kilobotCopy.getID()]=DUPE;
+                    this->dupesFound = true;
+                }
+            }
+        }
     }
-    else if (col == BLUE) {
-        col2 = 1;
-    }
-    else {
-        qDebug() << "DETECTION ERROR";
-    }
-    this->tempIDs[kilobotCopy.getID()] += int(col2) * binaryMultipliers[numSegments-1];
-    }
+    //    clearDrawings();
+    //    QColor rgbColor(0,0,0);
+    //    switch (col){
+    //    case OFF:{
+    //        rgbColor.setRgb(0,0,0);
+    //        break;
+    //    }
+    //    case RED:{
+    //        rgbColor.setRgb(255,0,0);
+    //        break;
+    //    }
+    //    case GREEN:{
+    //        rgbColor.setRgb(0,255,0);
+    //        break;
+    //    }
+    //    case BLUE:{
+    //        rgbColor.setRgb(0,0,255);
+    //        break;
+    //    }
+    //    }
 
-    if(method==BASETHREE){
-    if (col == RED) {
-        col2 = 0;
-    }
-    else if (col == BLUE) {
-        col2 = 1;
-    }
-    else if (col == GREEN) {
-        col2 = 2;
-    }
-    else {
-        qDebug() << "DETECTION ERROR";
-    }
-
-    this->tempIDs[kilobotCopy.getID()] += int(col2) * baseThreeMultipliers[numSegments-1];
-    }
-
-
-
-    if (saveImages){
-        kilobot_id kID = kilobotCopy.getID();
-        kilobot_colour kCol = kilobotCopy.getLedColour();
-        QPointF kPos = kilobotCopy.getPosition()*PIXEL_TO_MM;
-        //double kRot = qRadiansToDegrees(qAtan2(-kilobotCopy.getVelocity().y(), kilobotCopy.getVelocity().x()));
-        this->allKilos[kID].updateAllValues(kID, kPos, 0, kCol);
-        this->updatedCol = true;
-        this->allKilos[kID].digits[numSegments-1] = col2;
-    }
-}
- if(this->stage==CONFIRM){
-     if (isAssigned[kilobotCopy.getID()])
-         return;
-     else{
-         lightColour col = kilobotCopy.getLedColour();
-         if (col == BLUE){
-             QString colName  = "BLUE";
-             qDebug() << "KB" << kilobotCopy.getID() << "confirming " << increment << " = " << colName ;
-         }
-
-         if(kilobotCopy.getID()==increment){
-             if (col != BLUE) {
-                 tempIDs[increment]=DUPE;
-                 this->dupesFound = true;
-             }
-         }
-         else{
-             if (col == BLUE){
-                 tempIDs[increment]=DUPE;
-                 tempIDs[kilobotCopy.getID()]=DUPE;
-                 this->dupesFound = true;
-             }
-         }
-     }
- }
-//    clearDrawings();
-//    QColor rgbColor(0,0,0);
-//    switch (col){
-//    case OFF:{
-//        rgbColor.setRgb(0,0,0);
-//        break;
-//    }
-//    case RED:{
-//        rgbColor.setRgb(255,0,0);
-//        break;
-//    }
-//    case GREEN:{
-//        rgbColor.setRgb(0,255,0);
-//        break;
-//    }
-//    case BLUE:{
-//        rgbColor.setRgb(0,0,255);
-//        break;
-//    }
-//    }
-
-//    drawCircle(kilobotCopy.getPosition(), 5, rgbColor, 2);
+    //    drawCircle(kilobotCopy.getPosition(), 5, rgbColor, 2);
 
 }

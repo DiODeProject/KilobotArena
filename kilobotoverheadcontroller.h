@@ -23,8 +23,6 @@ class KilobotOverheadController : public QObject
 public:
     explicit KilobotOverheadController(QObject *parent = 0);
     ~KilobotOverheadController();
-    void assignIDs(); // assign IDs
-    //getIDs(); // return list of ids
 
 signals:
     void errorMessage(QString);

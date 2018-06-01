@@ -74,7 +74,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
     QSignalMapper *mapper = new QSignalMapper(this);
-    mapper->setMapping(ui->run, TRACK);
+    mapper->setMapping(ui->run, USER_EXP);
     mapper->setMapping(ui->identify, IDENTIFY);
     connect(ui->run, SIGNAL(clicked(bool)), this, SLOT(runExpt()));
     connect(ui->identify, SIGNAL(clicked(bool)), mapper, SLOT(map()));
@@ -83,6 +83,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // from TRACKER
     connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
     connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
+    connect(&this->kbtracker, SIGNAL(toggleExpButton(int)), this, SLOT(toggleRunButton(int)));
 
     connect(ui->sel_video, SIGNAL(clicked(bool)), this, SLOT(setVideoSource()));
 
@@ -115,7 +116,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->identify , SIGNAL(clicked(bool)), this, SLOT(identify()));
     connect(ui->rotate_pos , SIGNAL(clicked(bool)), this, SLOT(rotate_pos()));
     connect(ui->rotate_neg , SIGNAL(clicked(bool)), this, SLOT(rotate_neg()));
-    connect(&this->kbtracker,SIGNAL(updateidentifybutton()),this,SLOT(identify()));
 
     // TESTING
     connect(ui->left, SIGNAL(clicked(bool)), this, SLOT(left()));
@@ -188,37 +188,54 @@ void MainWindow::getExperiment()
 }
 
 void MainWindow::assignIDs() {
-    if(ui->assignIDs->text() == "Start IDs Assignment"){
-        ui->assignIDs->setText("Stop IDs Assignment");}
-    else {
-    if(ui->assignIDs->text() == "Stop IDs Assignment")
-        ui->assignIDs->setText("Start IDs Assignment");
-    }
-
-    if(ui->binary_radio->isChecked()) this->thread->chooseInternalExperiments(0);
-    else this->thread->chooseInternalExperiments(1);
-    this->kbtracker.LOOPstartstop(TRACK);
+    if(ui->binary_radio->isChecked()) this->thread->chooseInternalExperiments(ID_ASSIGNMENT,2);
+    else this->thread->chooseInternalExperiments(ID_ASSIGNMENT,3);
+    this->kbtracker.LOOPstartstop(ID_ASSIGNMENT);
 }
 
 void MainWindow::calibrate() {
-    if(ui->calibrate->text() == "Start Motors Calibration"){
-        ui->calibrate->setText("Stop Motors Calibration");}
-    else {
-    if(ui->calibrate->text() == "Stop Motors Calibration")
-        ui->calibrate->setText("Start Motors Calibration");
-    }
-    this->thread->chooseInternalExperiments(2);
-    this->kbtracker.LOOPstartstop(TRACK);
+    this->thread->chooseInternalExperiments(CALIBRATION);
+    this->kbtracker.LOOPstartstop(CALIBRATION);
 }
 
-
-
 void MainWindow::identify() {
-    if(this->ui->identify->text() == "Start Identify Kilobots"){
-        ui->identify->setText("Stop Identify Kilobots");}
-    else {
-    if(ui->identify->text() == "Stop Identify Kilobots")
-        ui->identify->setText("Start Identify Kilobots");
+
+}
+
+void MainWindow::toggleRunButton(int expTypeInt){
+    experimentType expType = (experimentType) expTypeInt;
+    switch (expType) {
+    case IDENTIFY:
+        if (this->ui->identify->text() == "Start Identify Kilobots") {
+            ui->identify->setText("Stop Identify Kilobots");
+        } else if (ui->identify->text() == "Stop Identify Kilobots") {
+            ui->identify->setText("Start Identify Kilobots");
+        }
+        break;
+    case CALIBRATION:
+        if(ui->calibrate->text() == "Start Motors Calibration"){
+            ui->calibrate->setText("Stop Motors Calibration");}
+        else {
+        if(ui->calibrate->text() == "Stop Motors Calibration")
+            ui->calibrate->setText("Start Motors Calibration");
+        }
+        break;
+    case ID_ASSIGNMENT:
+        if(ui->assignIDs->text() == "Start IDs Assignment"){
+            ui->assignIDs->setText("Stop IDs Assignment");}
+        else {
+        if(ui->assignIDs->text() == "Stop IDs Assignment")
+            ui->assignIDs->setText("Start IDs Assignment");
+        }
+        break;
+    case USER_EXP:
+        if (ui->run->text()=="Run") {
+            if (this->thread->exptLoaded())
+                ui->run->setText("Stop");
+        } else {
+            ui->run->setText("Run");
+        }
+        break;
     }
 }
 
@@ -236,13 +253,13 @@ void MainWindow::runExpt() {
     if (!this->userExpt.isEmpty()) {
         if (ui->run->text()=="Run") {
             if (this->thread->exptLoaded()) {
-                this->kbtracker.LOOPstartstop(TRACK);
-                ui->run->setText("Stop");
+                this->kbtracker.LOOPstartstop(USER_EXP);
+                //ui->run->setText("Stop");
             }
         } else {
             //this->thread->loadLibrary(userExpt);  // resetting all value of the exp lib (by reloading it)
-            this->kbtracker.LOOPstartstop(TRACK);
-            ui->run->setText("Run");
+            this->kbtracker.LOOPstartstop(USER_EXP);
+            //ui->run->setText("Run");
         }
     }
 }

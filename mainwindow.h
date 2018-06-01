@@ -64,6 +64,9 @@ public slots:
     void calibrate();
 
     void identify();
+
+    void toggleRunButton(int expTypeInt);
+
     void rotate_pos();
     void rotate_neg();
 

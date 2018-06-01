@@ -275,31 +275,30 @@ KilobotTracker::~KilobotTracker()
         }
     }
 }
-void KilobotTracker::LOOPstartstop(int stage)
+void KilobotTracker::LOOPstartstop(int expType)
 {
 
-    this->stage = (stageType) stage;
-
+    this->expType = (experimentType) expType;
+    // update the run/stop button
+    emit toggleExpButton((int)expType);
 
     // check if running
     if (this->threads[0] && this->threads[0]->isRunning()) {
-
         // reset IDing
         //this->aStage = START;
         currentID = 0;
 
         emit errorMessage(QString("FPS = ") + QString::number(float(time)/(float(timer.elapsed())/1000.0f)));
         this->THREADSstop();
-
         // Stop the experiment
-        emit stopExperiment();
-
+        if (this->expType != IDENTIFY) {
+            emit stopExperiment();
+        }
 
         QThread::currentThread()->setPriority(QThread::NormalPriority);
 
         // Reset the time to zero for the next experiment
         time=0;
-
         return;
 
     }
@@ -400,7 +399,7 @@ void KilobotTracker::LOOPiterate()
 
         // we have tracking, so it is safe to start the experiment
         if (!this->loadFirstIm && time == 0) {
-            if (this->stage != IDENTIFY) {
+            if (this->expType != IDENTIFY) {
                 emit startExperiment(false /*we are not resuming the experiment*/);
             }
         }
@@ -509,8 +508,8 @@ void KilobotTracker::LOOPiterate()
             this->finalImageR = resultR;
         }
 
-        switch (this->stage) {
-        case TRACK:{
+        switch (this->expType) {
+        case USER_EXP:{
             this->trackKilobots();
 
             /** determine if executing the runtime-identification (RTI) */
@@ -538,6 +537,10 @@ void KilobotTracker::LOOPiterate()
         }
         case IDENTIFY:{
             this->identifyKilobots();
+            break;
+        }
+        default:{
+            this->trackKilobots();
             break;
         }
         }
@@ -854,7 +857,6 @@ void KilobotTracker::identifyKilobots()
 
         if (foundIDs.size() == kilos.size()) { // all robots has been found
             qDebug() << "All" << kilos.size() << "robots have been correcly identified. Well Done, mate! Now, it's time for serious stuff.";
-            emit updateidentifybutton();
             this->LOOPstartstop(IDENTIFY);
         }
         else { // next id

@@ -132,9 +132,11 @@ struct kiloLight {
     Point pos;
 };
 
-enum stageType {
+enum experimentType {
     IDENTIFY,
-    TRACK
+    ID_ASSIGNMENT,
+    CALIBRATION,
+    USER_EXP
 };
 
 
@@ -209,7 +211,7 @@ signals:
 
     void stopExperiment();
 
-    void updateidentifybutton();
+    void toggleExpButton(int);
 
     void setRuntimeIdentificationLock(bool);
 
@@ -489,7 +491,7 @@ private:
     QVector < uint > foundIDs;
     QVector < int > assignedCircles;
 
-    stageType stage = TRACK;
+    experimentType expType = USER_EXP;
 
     Mat testAdap;
 
