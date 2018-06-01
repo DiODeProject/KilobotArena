@@ -215,17 +215,23 @@ void MainWindow::toggleRunButton(int expTypeInt){
     case CALIBRATION:
         if(ui->calibrate->text() == "Start Motors Calibration"){
             ui->calibrate->setText("Stop Motors Calibration");}
-        else {
-        if(ui->calibrate->text() == "Stop Motors Calibration")
+        else if(ui->calibrate->text() == "Stop Motors Calibration") {
             ui->calibrate->setText("Start Motors Calibration");
+            // when calibration ends, we reload the previous user experiment (unfortunately this resets the user's value in the GUI)
+            if (!this->userExpt.isEmpty()) {
+                this->thread->loadLibrary(userExpt);
+            }
         }
         break;
     case ID_ASSIGNMENT:
         if(ui->assignIDs->text() == "Start IDs Assignment"){
             ui->assignIDs->setText("Stop IDs Assignment");}
-        else {
-        if(ui->assignIDs->text() == "Stop IDs Assignment")
+        else if(ui->assignIDs->text() == "Stop IDs Assignment") {
             ui->assignIDs->setText("Start IDs Assignment");
+            // when id-assignment ends, we reload the previous user experiment (unfortunately this resets the user's value in the GUI)
+            if (!this->userExpt.isEmpty()) {
+                this->thread->loadLibrary(userExpt);
+            }
         }
         break;
     case USER_EXP:

@@ -35,7 +35,7 @@ void KilobotIDAssignment::initialise(bool)
 
     this->switchSegment = true;
     this->stage = START;
-    //qDebug() << "INIT";
+    qDebug() << "Starting the ID Assignment";
     t.start();
 
     // Init Log File operations
