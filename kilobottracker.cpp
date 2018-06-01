@@ -665,13 +665,14 @@ void KilobotTracker::runtimeIdentify(){
             identifyKilobot(this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID(), true);
             qDebug() << "Runtime-ID: Signalled ID" << this->kilos[this->pendingRuntimeIdentification[currentID]]->getID();
             // check if I am trying identifying on lost robots
+            int maxTimeForRuntimeID = (this->pendingRuntimeIdentification.size() < 6)? 10000 : this->pendingRuntimeIdentification.size() * 2000;
             for (int i = 0; i < this->pendingRuntimeIdentification.size(); ++i) {
                 /* if a missing robot has been lost for more than 10 step, the runtime identification is stopped but pending list only partially cleared */
                 /* also stop if the process is running for more than 10s */
-                if (!this->foundIDs.contains(i) && this->lost_count[this->pendingRuntimeIdentification[i]] > 10 || this->runtimeIDtimer.elapsed() > 10000 ){
+                if (!this->foundIDs.contains(i) && this->lost_count[this->pendingRuntimeIdentification[i]] > 10 || this->runtimeIDtimer.elapsed() > maxTimeForRuntimeID ){
                     qDebug() << "Runtime-ID: Giving up runtime identification because involves lost robots or it's taking too much time, e.g. robot #" << this->kilos[this->pendingRuntimeIdentification[i]]->getID();
                     this->foundIDs.clear();
-                    this->m_runtimeIdentificationTimer = 0;
+                    this->m_runtimeIdentificationTimer = -50;
                     // stopping the runtime identification process
                     this->m_ongoingRuntimeIdentification = false;
                     // inform the experiment the runtime ID has stopped
@@ -801,6 +802,7 @@ void KilobotTracker::identifyKilobots()
         foundIDs.clear();
         assignedCircles.clear();
         this->circsToDraw.clear();
+        this->linesToDraw.clear();
 
         // broadcast ID
         identifyKilobot(currentID);
@@ -817,6 +819,8 @@ void KilobotTracker::identifyKilobots()
         identifyKilobot(currentID);
         qDebug() << "Try ID" << currentID;
     }
+    // broadcast ID
+    //identifyKilobot(currentID);
 
     this->getKiloBotLights(display);
 
@@ -866,7 +870,6 @@ void KilobotTracker::identifyKilobots()
     this->drawOverlay(display);
 
     this->showMat(display);
-
 }
 
 void KilobotTracker::identifyKilobot(int id, bool runtime = false){
@@ -1673,7 +1676,26 @@ void KilobotTracker::drawOverlay(Mat & display)
             }
         }
     }
-    if (!alphaCircles.empty()){
+    QVector < drawnLine > alphaLines;
+    for (int i = 0; i < this->linesToDraw.size(); ++i) {
+
+        if (this->linesToDraw[i].transparent) {
+            alphaLines.push_back(this->linesToDraw[i]);
+        } else{
+            cv::polylines(display, this->linesToDraw[i].pos, false,
+                          Scalar(this->linesToDraw[i].col.red(),this->linesToDraw[i].col.green(),this->linesToDraw[i].col.blue()),
+                          this->linesToDraw[i].thickness, LINE_8, 0 );
+
+            if (!this->linesToDraw[i].text.empty()){
+                cv::putText(display, this->linesToDraw[i].text,
+                            this->linesToDraw[i].pos[0]+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
+                            FONT_HERSHEY_DUPLEX, 1,
+                            Scalar(this->linesToDraw[i].col.red(),this->linesToDraw[i].col.green(),this->linesToDraw[i].col.blue()), 2, 8);
+            }
+        }
+    }
+
+    if (!alphaCircles.empty() || !alphaLines.empty() ){
         cv::Mat overlay;
         display.copyTo(overlay);
         for (int i = 0; i < alphaCircles.size(); ++i) {
@@ -1686,6 +1708,18 @@ void KilobotTracker::drawOverlay(Mat & display)
                             alphaCircles[i].pos+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
                             FONT_HERSHEY_DUPLEX, 1,
                             Scalar(alphaCircles[i].col.red(),alphaCircles[i].col.green(),alphaCircles[i].col.blue()), 2, 8);
+            }
+        }
+        for (int i = 0; i < alphaLines.size(); ++i) {
+            cv::polylines(display, alphaLines[i].pos, false,
+                          Scalar(alphaLines[i].col.red(),alphaLines[i].col.green(),alphaLines[i].col.blue()),
+                          alphaLines[i].thickness, LINE_8, 0 );
+
+            if (!alphaLines[i].text.empty()){
+                cv::putText(display, alphaLines[i].text,
+                            alphaLines[i].pos[0]+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
+                            FONT_HERSHEY_DUPLEX, 1,
+                            Scalar(alphaLines[i].col.red(),alphaLines[i].col.green(),alphaLines[i].col.blue()), 2, 8);
             }
         }
         double alpha = 0.2;

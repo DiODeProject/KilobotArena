@@ -87,6 +87,7 @@ public slots:
 
                 // drawing signal / slots
                 connect(expts[currExpt], SIGNAL(drawCircle(QPointF,float,QColor,int, std::string, bool)), this->kbtracker, SLOT(drawCircle(QPointF,float,QColor,int, std::string, bool)));
+                connect(expts[currExpt], SIGNAL(drawLine(std::vector<cv::Point>,QColor,int,std::string,bool)), this->kbtracker, SLOT(drawLine(std::vector<cv::Point>,QColor,int,std::string,bool)));
                 connect(expts[currExpt], SIGNAL(clearDrawings()), this->kbtracker, SLOT(clearDrawings()));
                 connect(expts[currExpt], SIGNAL(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)), this->kbtracker, SLOT(drawCircleOnRecordedImage(QPointF,float,QColor,int,std::string)));
                 connect(expts[currExpt], SIGNAL(clearDrawingsOnRecordedImage()), this->kbtracker, SLOT(clearDrawingsOnRecordedImage()));
@@ -136,7 +137,7 @@ public slots:
                 }
 
                 if (num == 2) { // calibrate
-                    this->expts.push_back(new KilobotCalibrate);
+                    this->expts.push_back(new KilobotCalibrate( (this->kbtracker->kbMinSize+this->kbtracker->kbMaxSize)/2.0 ));
                     this->currExpt = expts.size()-1;
                     this->connectExpt(this->currExpt);
                 }

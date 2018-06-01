@@ -15,7 +15,6 @@ public:
 
 signals:
     void transmitKiloState(kilobot_message);
-    //void broadcastMessage(kilobot_broadcast);
 
 public slots:
     virtual void update() {}

@@ -78,6 +78,7 @@ private:
     QVector < kilobot_message > message_q;
 
     QTimer timer;
+    QTime lastMsgTime;
 
 };
 

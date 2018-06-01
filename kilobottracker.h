@@ -154,6 +154,14 @@ struct drawnCircle {
     bool transparent;
 };
 
+struct drawnLine {
+    std::vector<Point> pos;
+    QColor col;
+    int thickness;
+    std::string text;
+    bool transparent;
+};
+
 class acquireThread;
 class KilobotExperiment;
 
@@ -245,15 +253,18 @@ public slots:
 
     // drawing slots
     void drawCircle(QPointF pos, float r, QColor col, int thickness = 2, std::string text ="", bool transparent = false) {
-
         int r_int = r;
         this->circsToDraw.push_back(drawnCircle {Point(pos.x(),pos.y()), r_int, col, thickness, text, transparent});
+    }
 
+    void drawLine(std::vector<cv::Point> pos, QColor col, int thickness = 2, std::string text ="", bool transparent = false) {
+        this->linesToDraw.push_back(drawnLine {pos, col, thickness, text, transparent});
     }
 
     void clearDrawings() {
 
         this->circsToDraw.clear();
+        this->linesToDraw.clear();
 
     }
 
@@ -483,6 +494,7 @@ private:
     Mat testAdap;
 
     QVector < drawnCircle > circsToDraw;
+    QVector < drawnLine > linesToDraw;
     QVector < drawnCircle > circsToDrawFinal;
 
 #ifdef USE_CUDA

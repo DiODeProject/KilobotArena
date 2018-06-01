@@ -9,38 +9,54 @@
 
 KilobotCalibrateEnv::KilobotCalibrateEnv(QObject *parent) : KilobotEnvironment(parent)
 {
-
     qDebug() << "Calibrate selected";
-    qDebug() << "Giovanni's version";
-
+    qDebug() << "Giovanni's heuristic";
 }
 
 // Only update if environment is dynamic:
 void KilobotCalibrateEnv::update()
 {
 
-
 }
 
-bool KilobotCalibrateEnv::evaluateSpeed(int step, int timeInterval, double robotRadius, int &speed, int index){
-    QLineF line = QLineF(this->posLog[index][step], this->posLog[index].back());
-    double distance = line.length();
-    double normalisedDist = (distance/float(this->posLog[index].size()-step));
 
-    qDebug() << normalisedDist;
+bool KilobotCalibrateEnv::evaluateSpeed(int step, int timeInterval, double robotRadius, int &speed, int index, command motionType){
+    double distance = 0;
+    for (int i = step; i < this->posLog[index].size()-1; ++i){
+        distance += QLineF(this->posLog[index][i], this->posLog[index][i+1]).length();
+    }
+//    double normalisedDist = (distance/float(this->posLog[index].size()-step)); // computed using the number of entries (rather than timeInterval)
+    double distOverSec = distance*1000.0/timeInterval;
 
-    if (normalisedDist < robotRadius*0.075){
-        qDebug() << index << "TOO SLOW!!";
-        speed = (normalisedDist < robotRadius*0.025)? +3 : +1;
+    double lowTresh, veryLowTresh;
+    double highTresh, veryHighTresh;
+    if (motionType == LEFT || motionType == RIGHT){
+        lowTresh = robotRadius*0.70;
+        veryLowTresh = robotRadius*0.25;
+        highTresh = robotRadius*0.95;
+        veryHighTresh = robotRadius*1.5;
+    } else {
+        lowTresh = robotRadius*0.70;
+        veryLowTresh = robotRadius*0.25;
+        highTresh = robotRadius*1.1;
+        veryHighTresh = robotRadius*1.5;
+    }
+
+
+    qDebug() << "computed distOverSec:" << distOverSec << " rr:" << robotRadius << " low-th:" << lowTresh << " high-th:" << highTresh;
+
+    if (distOverSec < lowTresh){
+        qDebug() << index << "TOO SLOW(" << ((motionType == LEFT)?this->left_right[index].x():this->left_right[index].y()) << ")!!";
+        speed = (distOverSec < veryLowTresh)? +3 : +1;
         return false;
     }
-    else if (normalisedDist > robotRadius*0.15){
-        qDebug() << index << "TOO QUICK!!";
-        speed = -1;
+    else if (distOverSec > highTresh){
+        qDebug() << index << "TOO QUICK(" << ((motionType == LEFT)?this->left_right[index].x():this->left_right[index].y()) << ")!!";
+        speed = (distOverSec > veryHighTresh)? -5 : -1;
         return false;
     }
     else {
-        qDebug() << index << "GOOD SPEED!!";
+        qDebug() << index << "GOOD SPEED(" << ((motionType == LEFT)?this->left_right[index].x():this->left_right[index].y()) << ")!!";
         return true;
     }
 }
@@ -50,15 +66,21 @@ double KilobotCalibrateEnv::euclideanDist(const cv::Point& a, const cv::Point& b
     return cv::sqrt(diff.x*diff.x + diff.y*diff.y);
 }
 
-// Rename:
+//void KilobotCalibrateEnv::rotateVect(QPointF& vector2d, double angleInDeg) {
+//    double radians = qDegreesToRadians(angleInDeg);
+//    double x = vector2d.x()*qCos(radians) - vector2d.y()*qSin(radians);
+//    double y = vector2d.x()*qSin(radians) - vector2d.y()*qCos(radians);
+//    vector2d.setX(x);
+//    vector2d.setY(y);
+//}
+
 void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
 {
-
-
-    QLineF kilobot_vect = QLineF(kilobot.getPosition(), kilobot.getPosition() + kilobot.getVelocity());
+    //QLineF kilobot_vect = QLineF(kilobot.getPosition(), kilobot.getPosition() + kilobot.getVelocity());
 
     if (kilobot.getID() > this->isInit.size() - 1) {
         this->isInit.resize(kilobot.getID()+1);
+        this->isInit[kilobot.getID()] = false;
         this->left_right.resize(kilobot.getID()+1);
         this->posLog.resize(kilobot.getID()+1);
         this->posLogTimes.resize(kilobot.getID()+1);
@@ -78,28 +100,47 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
         times[kilobot.getID()].start();
         num_kilobots++;
 
-        kilobot_message msg;
-        msg.id = kilobot.getID();
-        msg.type = LEFT;
-        msg.data = this->left_right[kilobot.getID()].x();
-        emit transmitKiloState(msg);
+        sendCalibMessage(kilobot.getID());
     }
 
+    if (this->posLog[kilobot.getID()].empty()) this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
     this->posLog[kilobot.getID()].push_back(kilobot.getPosition());
     this->posLogTimes[kilobot.getID()].push_back(times[kilobot.getID()].elapsed());
+    if (this->commandLog[kilobot.getID()] == STRAIGHT_L) {
+        std::vector<cv::Point> tmpPos;
+        tmpPos.resize(this->posLog[kilobot.getID()].size());
+        for (int i=0; i < this->posLog[kilobot.getID()].size(); ++i){
+//            tmpPos.push_back( cv::Point(this->posLog[kilobot.getID()][i].x(),this->posLog[kilobot.getID()][i].y()) );
+            tmpPos[i] = cv::Point(this->posLog[kilobot.getID()][i].x(),this->posLog[kilobot.getID()][i].y());
+        }
+        drawLine(tmpPos, QColor(0, 255, 0, 255), 2, "", false);
+        tmpPos.clear();
+        tmpPos.push_back( cv::Point(this->posLog[kilobot.getID()].first().x(),this->posLog[kilobot.getID()].first().y()) );
+        tmpPos.push_back( cv::Point(this->posLog[kilobot.getID()].last().x(), this->posLog[kilobot.getID()].last().y()) );
+        drawLine(tmpPos,  QColor(Qt::red), 2, "", false);
+    }
 
-    /* Time passed from last command sent */
+    /* Time passed from last command sent (in ms) */
     int timeInterval = times[kilobot.getID()].elapsed();
     /* Timeframes to wait before evaluating possible move occurred */
     int minTimeForEstimatingMove = 1000;
     /* Timeframes to wait before evaluating the speed of the robot in doing a revolution */
-    int minTimeForEstimatingRevSpeed = 8;
+    int minTimeForEstimatingRevQuality = 4000;
+    int minTimeForEstimatingStraightQuality = 10000;
+    int timeToConfirmStraightQuality = 15000;
     //int framesForMinEstRevSpeed = minTimeForEstimatingRevSpeed / 250;
     /* Max timeframes waited without noticing enough movement or limit for incorrect speed */
-    int maxTimeToDetectMove = 10;
+    int maxTimeToDetectMove = 2500;
+    /* Max consecutive times the motion speed is bad during the second phase of revolution shape estimation */
+    int maxCounterBadMotion = 10;
     /* Max timeframes waited without completing a revolution */
     int maxTimeToDetectRevolution = 15000;//ceil((revolutionTimeSecondsUpperBound*2)/frameLengthSeconds);
+    /* Lower bound of revolution time (in ms) */
+    int lowerBoundRevolution = 8000;
+    /* Upper bound of revolution time (in ms) */
+    int upperBoundRevolution = 15000;
     bool revolutionCompleted = false;
+//    bool straightCompleted = false;
     bool goodTrajectory = false;
     double revolutionTimeSeconds = 0;
 
@@ -110,17 +151,24 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
         lastTrajData.push_back(cv::Point(posLog[kilobot.getID()][i].x(), posLog[kilobot.getID()][i].y()));
     }
 
-    double robotRadius = 8.0f;
-
     int speed = 0;
 
     if (this->calibrationStage[kilobot.getID()] == DONE) {
         if (this->commandLog[kilobot.getID()] == LEFT) {
             this->commandLog[kilobot.getID()] = RIGHT;
             this->calibrationStage[kilobot.getID()] = DETECTING_MOVE;
-        }  else if (this->commandLog[kilobot.getID()] == RIGHT) {
+        } else if (this->commandLog[kilobot.getID()] == RIGHT) {
+            this->commandLog[kilobot.getID()] = STRAIGHT_L;
+            this->calibrationStage[kilobot.getID()] = DETECTING_MOVE;
+        } else if (this->commandLog[kilobot.getID()] == STRAIGHT_L) {
             this->commandLog[kilobot.getID()] = DONE_MOTION;
             num_done++;
+            kilobot_message msg;
+            msg.id = kilobot.getID();
+            msg.type = STOP;
+            msg.data = 0;
+            emit transmitKiloState(msg);
+            qDebug() << "STOP message sent to robot n." << kilobot.getID();
             if (num_done == num_kilobots) {
                 this->rotDone = true;
                 // now do straight
@@ -131,59 +179,56 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
         }
     }
 
-    qDebug() << kilobot.getID() << this->left_right[kilobot.getID()].x();
+    // qDebug() << kilobot.getID() << this->left_right[kilobot.getID()].x();
 
 
     switch (this->calibrationStage[kilobot.getID()]){
     /* Here, we check if the robot makes any movement at a decent speed which SHOULD be computed as a function of timeframe and desired speed */
     case DETECTING_MOVE:{
+//        qDebug() << "DETECTING MOVE timeInt:" << timeInterval;
         if (timeInterval > minTimeForEstimatingMove){
-            bool goodSpeed = evaluateSpeed(0, timeInterval, robotRadius, speed, kilobot.getID());
+            bool goodSpeed = evaluateSpeed(0, timeInterval, this->kilobotRadius, speed, kilobot.getID(), this->commandLog[kilobot.getID()]);
             if (goodSpeed){
-                calibrationStage[kilobot.getID()] = EVALUATING_REV_SPEED;
+                calibrationStage[kilobot.getID()] = (this->commandLog[kilobot.getID()] == LEFT || this->commandLog[kilobot.getID()] == RIGHT)?
+                            EVALUATING_REV_SPEED : EVALUATING_STRAIGHT_MOTION ;
             }
         }
-        if (timeInterval > maxTimeToDetectMove*250){
+        if (timeInterval > maxTimeToDetectMove){
             /* Sending a new command because the robot is not moving correctly */
-            this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
-            kilobot_message msg;
-            msg.id = kilobot.getID();
-            msg.type = this->commandLog[kilobot.getID()];
-            msg.data = this->left_right[kilobot.getID()].x();
-            emit transmitKiloState(msg);
-            times[kilobot.getID()].start();
-            this->posLog[kilobot.getID()].clear();
-            this->posLogTimes[kilobot.getID()].clear();
-            this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
-            //return true; // true sends a new message
+            if (this->commandLog[kilobot.getID()] == LEFT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
+            }
+            if (this->commandLog[kilobot.getID()] == RIGHT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+speed);
+            }
+            sendCalibMessage(kilobot.getID());
         }
         break;
     }
-    /* Here, we check if the trajectory of the robot is correct (a circle-like ellipse) and if the time of revolution is about 15s */
+        /* Here, we check if the trajectory of the robot is correct (a circle-like ellipse) and if the time of revolution is about 15s */
     case EVALUATING_REV_SPEED:{
-        if (timeInterval > 2500){
+        if (timeInterval > minTimeForEstimatingRevQuality){
             int lastVal = 0;
-            for (uint i = this->posLog[kilobot.getID()].size() - 1; i > 0; --i) {
-                if (timeInterval - this->posLogTimes[kilobot.getID()][i] > 2500) {
+            int lastTime = timeInterval;
+            for (int i = this->posLog[kilobot.getID()].size() - 1; i > 0; --i) {
+                lastTime = timeInterval - this->posLogTimes[kilobot.getID()][i];
+                if (lastTime > minTimeForEstimatingRevQuality) {
                     lastVal = i;
                     break;
                 }
             }
-            bool goodSpeed = evaluateSpeed(lastVal, timeInterval, robotRadius, speed, kilobot.getID());
+            bool goodSpeed = evaluateSpeed(lastVal, lastTime, this->kilobotRadius, speed, kilobot.getID(), this->commandLog[kilobot.getID()]);
             if (!goodSpeed) {
                 noGoodSpeedCounter[kilobot.getID()]++;
-                if (noGoodSpeedCounter[kilobot.getID()] >= maxTimeToDetectMove) {
+                if (noGoodSpeedCounter[kilobot.getID()] >= maxCounterBadMotion) {
                     if (speed != 0) {
-                        this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
-                        kilobot_message msg;
-                        msg.id = kilobot.getID();
-                        msg.type = this->commandLog[kilobot.getID()];
-                        msg.data = this->left_right[kilobot.getID()].x();
-                        emit transmitKiloState(msg);
-                        times[kilobot.getID()].start();
-                        this->posLog[kilobot.getID()].clear();
-                        this->posLogTimes[kilobot.getID()].clear();
-                        this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
+                        if (this->commandLog[kilobot.getID()] == LEFT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                            this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
+                        }
+                        if (this->commandLog[kilobot.getID()] == RIGHT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                            this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+speed);
+                        }
+                        sendCalibMessage(kilobot.getID());
                     }
                 }
                 break;
@@ -191,8 +236,8 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
             noGoodSpeedCounter[kilobot.getID()] = 0;
             cv::RotatedRect fittedEllipse = cv::fitEllipse(lastTrajData);
             /* We need that the ellipse size (diameters) are bigger than the robot radius and smaller than the robot 1.5*diameter */
-            if (fittedEllipse.size.width > robotRadius && fittedEllipse.size.width < robotRadius*3 &&
-                    fittedEllipse.size.height > robotRadius && fittedEllipse.size.height < robotRadius*3){
+            if (fittedEllipse.size.width > this->kilobotRadius && fittedEllipse.size.width < this->kilobotRadius*3 &&
+                    fittedEllipse.size.height > this->kilobotRadius && fittedEllipse.size.height < this->kilobotRadius*3){
                 /* the ellipse must be very similar to a circle (ratio between 0.9 and 1.1) */
                 double sizeRatio = fittedEllipse.size.width/fittedEllipse.size.height;
                 if (sizeRatio > 0.9 && sizeRatio <= 1.1) {
@@ -202,14 +247,106 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
             }
 
             /* Here, checking if the robot has completed a revolution */
-            QLineF kilobot_old_vect = QLineF(QPointF(0,0), this->velocityLog[kilobot.getID()]);
-            qreal ang = kilobot_old_vect.angleTo(kilobot_vect);
-            if (ang > 180.0f) ang -= 360.0f;
-            qDebug() << kilobot.getID() << qAbs(ang);
-            if (qAbs(ang) < 20.0f) {
+            //            QLineF kilobot_old_vect = QLineF(QPointF(0,0), this->velocityLog[kilobot.getID()]);
+            //            qreal ang = kilobot_old_vect.angleTo(kilobot_vect);
+            //            if (ang > 180.0f) ang -= 360.0f;
+            //            QLineF initVel(this->posLog[kilobot.getID()][0], this->velocityLog[kilobot.getID()] );
+            //            qreal initRot = initVel.angle();
+            //            QLineF currentVel(this->posLog[kilobot.getID()].back(), kilobot.getVelocity() );
+            //            qreal currentRot = currentVel.angle();
+            //            double ang = qMin(360 - fabs(initRot - currentRot), fabs(initRot - currentRot));
+            //            qDebug() << kilobot.getID() << qAbs(ang);
+            //            if (qAbs(ang) < 20.0f) {
+            //                revolutionCompleted = true;
+            //            }
+            qreal dist = QLineF(this->posLog[kilobot.getID()][0], this->posLog[kilobot.getID()].back()).length();
+            // qDebug() << kilobot.getID() << "rev dist:" << dist;
+            if (dist < this->kilobotRadius/4.0){
                 revolutionCompleted = true;
             }
             revolutionTimeSeconds = timeInterval;
+        }
+        break;
+    }
+    /* Here, we check if the trajectory is straight */
+    case EVALUATING_STRAIGHT_MOTION:{
+        if (timeInterval > minTimeForEstimatingStraightQuality){
+            double pixelPerSec = QLineF( this->posLog[kilobot.getID()].first(), this->posLog[kilobot.getID()].last() ).length() / timeInterval * 1000;
+            bool goodSpeed = true;
+            if (pixelPerSec < 9){
+                goodSpeed = false;
+                if ( evaluateSpeed(0, timeInterval, this->kilobotRadius, speed, kilobot.getID(), this->commandLog[kilobot.getID()]) || speed < 0){
+                    // moving badly due to too high values
+                    speed -= 2;
+                    calibrationStage[kilobot.getID()] = DETECTING_MOVE;
+                } else {
+                    speed = +1;
+                }
+            }
+            if (pixelPerSec > 14){
+                goodSpeed = false;
+                speed = -1;
+            }
+//            bool goodSpeed = evaluateSpeed(0, timeInterval, this->kilobotRadius, speed, kilobot.getID(), this->commandLog[kilobot.getID()]);
+            if (!goodSpeed) {
+                noGoodSpeedCounter[kilobot.getID()]++;
+                if (noGoodSpeedCounter[kilobot.getID()] >= maxCounterBadMotion) {
+                    if (speed != 0) {
+                        this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
+                        this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+speed);
+                        sendCalibMessage(kilobot.getID());
+                    }
+                }
+                break;
+            }
+            noGoodSpeedCounter[kilobot.getID()] = 0;
+            double step_x = (this->posLog[kilobot.getID()].last().x() - this->posLog[kilobot.getID()].first().x()) / this->posLog[kilobot.getID()].size();
+            double step_y = (this->posLog[kilobot.getID()].last().y() - this->posLog[kilobot.getID()].first().y()) / this->posLog[kilobot.getID()].size();
+//            double coef = (this->posLog[kilobot.getID()].last().y() - this->posLog[kilobot.getID()].first().y()) / (this->posLog[kilobot.getID()].last().x() - this->posLog[kilobot.getID()].first().x());
+//            double step = QLineF( this->posLog[kilobot.getID()].first(), this->posLog[kilobot.getID()].last() ).length() / this->posLog[kilobot.getID()].size();
+            double dist_sum = 0;
+            for (int i = 1; i < this->posLog[kilobot.getID()].size(); ++i){
+                QPointF idealPoint = this->posLog[kilobot.getID()].first() + QPointF(step_x*i,step_y*i);
+                dist_sum += QLineF(this->posLog[kilobot.getID()][i], idealPoint).length();
+            }
+            dist_sum /=  (this->posLog[kilobot.getID()].size()-1);
+
+            /* We need that the ellipse size (diameters) are bigger than the robot radius and smaller than the robot 1.5*diameter */
+            qDebug() << kilobot.getID() << " line dist is " << dist_sum;
+            if (dist_sum < this->kilobotRadius*0.9){
+                    qDebug() << kilobot.getID() << "Good trajectory (speed px/s:"<< pixelPerSec << ")!";
+                    goodTrajectory = true;
+                    if (goodTrajectory && timeToConfirmStraightQuality <= timeInterval){
+        //                straightCompleted = true;
+                        qDebug() << "* * * * * * * * * * * * * * * * * * *" ;
+                        qDebug() << "* * * * CALIBRATION KB" <<kilobot.getID()<< "DONE!* * * *";
+                        qDebug() << "* * * * * * * * * * * * * * * * * * *" ;
+                        this->calibrationStage[kilobot.getID()] = DONE;
+                    }
+            } else {
+                /* estimating if it's drifting left or right */
+                // computing the angle of the vector start-to-end
+//                QLineF straightLine( this->posLog[kilobot.getID()].last(), this->posLog[kilobot.getID()].first() );
+//                QLineF midLine( this->posLog[kilobot.getID()][this->posLog[kilobot.getID()].size()/2], this->posLog[kilobot.getID()].first() );
+                double straightLineAngle = QLineF( this->posLog[kilobot.getID()].last(), this->posLog[kilobot.getID()].first() ).angle();
+                double midLineAngle = QLineF( this->posLog[kilobot.getID()].last(), this->posLog[kilobot.getID()].first() ).angle();
+                double diffAngle = straightLineAngle - midLineAngle;
+                while (diffAngle > 180) diffAngle -= 360;
+                while (diffAngle <= -180) diffAngle += 360;
+                if (diffAngle < 0){ // drifting to the right
+//                    // increasing left value of +1
+//                    this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+1);
+                    // decreasing right value of -1
+                    this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()-1);
+                } else { // drifting to the left
+//                    // increasing right value of +1
+//                    this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+1);
+                    // decreasing left value of -1
+                    this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()-1);
+                }
+                sendCalibMessage(kilobot.getID());
+            }
+
         }
         break;
     }
@@ -221,334 +358,85 @@ void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
 
     if (revolutionCompleted){
         qDebug() << kilobot.getID() << "* * * REVOLUTION DONE IN " << timeInterval << " frames that are " << revolutionTimeSeconds << "s" ;
-        revolutionCompleted = true;
-        if (revolutionTimeSeconds > 25000) {
+        if (revolutionTimeSeconds > upperBoundRevolution) {
             qDebug() << kilobot.getID() << "TOO SLOW!" ;
             speed = +1;
         }
-        else if (revolutionTimeSeconds < 10000) {
+        else if (revolutionTimeSeconds < lowerBoundRevolution) {
             qDebug() << kilobot.getID() << "TOO QUICK!" ;
             speed = -1;
         } else {
             qDebug() << "* * * * * * * * * * * * * * * * * * *" ;
-            qDebug() << "* * * * * CALIBRATION DONE! * * * * *" << kilobot.getID() ;
+            qDebug() << "* * * * CALIBRATION KB" <<kilobot.getID()<< "DONE!* * * *";
             qDebug() << "* * * * * * * * * * * * * * * * * * *" ;
             speed = 0;
             this->calibrationStage[kilobot.getID()] = DONE;
-            kilobot_message msg;
-            msg.id = kilobot.getID();
-            msg.type = STOP;
-            msg.data = 0;
-            emit transmitKiloState(msg);
         }
         //qDebug() << "Sending a new command or terminate calibration." ;
         if (speed != 0) {
-            this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
-            kilobot_message msg;
-            msg.id = kilobot.getID();
-            msg.type = this->commandLog[kilobot.getID()];
-            msg.data = this->left_right[kilobot.getID()].x();
-            emit transmitKiloState(msg);
-            times[kilobot.getID()].start();
-            this->posLog[kilobot.getID()].clear();
-            this->posLogTimes[kilobot.getID()].clear();
-            this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
+            if (this->commandLog[kilobot.getID()] == LEFT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
+            }
+            if (this->commandLog[kilobot.getID()] == RIGHT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+speed);
+            }
+            sendCalibMessage(kilobot.getID());
         }
     }
     /* if for too long time the revolution is not completed, either:
      * the robot is not doing a circle (i.e., !goodTrajectory) thus we decrease speed
      * the robot does a circle (i.e., goodTrajectory) but moves too slow (?) */
-    if (timeInterval > maxTimeToDetectRevolution){
-        bool goodSpeed = evaluateSpeed(0, timeInterval, robotRadius, speed, kilobot.getID());
+    if (timeInterval > maxTimeToDetectRevolution && (this->calibrationStage[kilobot.getID()] == LEFT || this->calibrationStage[kilobot.getID()] == RIGHT) ){
+        bool goodSpeed = evaluateSpeed(0, timeInterval, this->kilobotRadius, speed, kilobot.getID(), this->commandLog[kilobot.getID()]);
         if (goodSpeed && goodTrajectory) {
             qDebug() << "Trajectory and avg speed was good but the robot is completing the revolution slowly (speed up +1)" ;
             speed = +1;
         } else {
             if (goodSpeed){
-                //std::cout << "Speed was good, but Trajectory was not circular, thus probably it was too quick [NOT SURE]." ;
-                qDebug() << "Speed was good, but Trajectory was not circular, thus I randomly add +2 to test new values." ;
-                speed = +2;
+                qDebug() << "Speed was good, but Trajectory was not circular, thus probably it was too quick [NOT SURE] (-2)." ;
+//                qDebug() << "Speed was good, but Trajectory was not circular, thus I randomly add +2 to test new values." ;
+                speed = -2;
             }
         }
         if (speed != 0) {
-            this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
-            kilobot_message msg;
-            msg.id = kilobot.getID();
-            msg.type = this->commandLog[kilobot.getID()];
-            msg.data = this->left_right[kilobot.getID()].x();
-            emit transmitKiloState(msg);
-            times[kilobot.getID()].start();
-            this->posLog[kilobot.getID()].clear();
-            this->posLogTimes[kilobot.getID()].clear();
-            this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
+            if (this->commandLog[kilobot.getID()] == LEFT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+speed);
+            }
+            if (this->commandLog[kilobot.getID()] == RIGHT || this->commandLog[kilobot.getID()] == STRAIGHT_L){
+                this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+speed);
+            }
+            sendCalibMessage(kilobot.getID());
         }
     }
 }
 
-
-
-/*void KilobotCalibrateEnv::updateVirtualSensor(Kilobot kilobot)
-{
-
-
-    //
-    QLineF kilobot_vect = QLineF(kilobot.getPosition(), kilobot.getPosition() + kilobot.getVelocity());
-
-    //bool first = false;
-
-    if (kilobot.getID() > this->left_right.size() - 1) {
-        this->left_right.resize(kilobot.getID()+1);
-        this->dual_offset.resize(kilobot.getID()+1);
-        this->velocityLog.resize(kilobot.getID()+1);
-        this->commandLog.resize(kilobot.getID()+1);
-        this->count.resize(kilobot.getID()+1);
-        this->times.resize(kilobot.getID()+1);
+void KilobotCalibrateEnv::sendCalibMessage(kilobot_id kID){
+    /* composing the message */
+    kilobot_message msg;
+    msg.id = kID;
+    msg.type = this->commandLog[kID];
+    if (this->commandLog[kID] == LEFT || this->commandLog[kID] == STRAIGHT_L){
+        msg.data = (uint16_t)(this->left_right[kID].x());
     }
-    // init
-    if (this->left_right[kilobot.getID()].x() == 0) {
-        this->left_right[kilobot.getID()] = QPoint(40,40);
-        this->dual_offset[kilobot.getID()] = 20;
-        this->commandLog[kilobot.getID()] = STOP;
-        count[kilobot.getID()] = 0;
-        times[kilobot.getID()].start();
-        //first = true;
+    if (this->commandLog[kID] == RIGHT) {
+        msg.data = (uint16_t)(this->left_right[kID].y());
     }
-
-    if (stage == 0) {
-
-        // ROUGH CALIBRATE LEFT
-        if (count[kilobot.getID()] == 0) {
-
-            if (this->commandLog[kilobot.getID()] == STOP) {
-                times[kilobot.getID()].start();
-                kilobot_message msg;
-                msg.id = kilobot.getID();
-                msg.type = LEFT;
-                msg.data = this->left_right[kilobot.getID()].x();
-                emit transmitKiloState(msg);
-                this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
-                this->commandLog[kilobot.getID()] = LEFT;
-            }
-
-            if (times[kilobot.getID()].elapsed() > 1000 && times[kilobot.getID()].elapsed() < 1300) { // check
-                qDebug() << kilobot.getID() << this->left_right[kilobot.getID()] << times[kilobot.getID()].elapsed();
-                // test rotation
-                QLineF old_vect(QPointF(0,0), this->velocityLog[kilobot.getID()]);
-                qreal ang2 = old_vect.angleTo(kilobot_vect);
-                qDebug() << kilobot.getID() << ang2;
-                if (ang2 > 180.0f) ang2 -= 360.0f;
-                if (ang2 < 10.0f || old_vect.length() < 0.01) { // quick check for any movement
-                    this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+1);
-                    kilobot_message msg;
-                    msg.id = kilobot.getID();
-                    msg.type = STOP;
-                    msg.data = 0;
-                    emit transmitKiloState(msg);
-                    this->commandLog[kilobot.getID()] = STOP;
-                }
-            }
-            if (times[kilobot.getID()].elapsed() > 7500) {
-                qDebug() << kilobot.getID() << this->left_right[kilobot.getID()] << times[kilobot.getID()].elapsed();
-                //times[kilobot.getID()].start();
-                // test rotation
-                QLineF old_vect(QPointF(0,0), this->velocityLog[kilobot.getID()]);
-                qreal ang2 = old_vect.angleTo(kilobot_vect);
-                if (ang2 > 180.0f) ang2 -= 360.0f;
-                if (ang2 > -90.0f || old_vect.length() < 0.01) { // if > -90 then hasn't gone far enough to flip from +ve to -ve (i.e. less than 180deg)
-                    this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+1);
-                    kilobot_message msg;
-                    msg.id = kilobot.getID();
-                    msg.type = STOP;
-                    msg.data = 0;
-                    emit transmitKiloState(msg);
-                    this->commandLog[kilobot.getID()] = STOP;
-                } else {
-                    // yay - left is done
-                    kilobot_message msg;
-                    msg.id = kilobot.getID();
-                    msg.type = STOP;
-                    msg.data = 0;
-                    emit transmitKiloState(msg);
-                    ++num_done;
-                    if (num_done == count.size()) {
-                        stage = 1;
-                        num_done = 0;
-                        count[kilobot.getID()] = 1;
-                        qDebug() << "LEFT DONE" << this->left_right[kilobot.getID()].x();
-                    } else {
-                        count[kilobot.getID()] = 1;
-                        qDebug() << kilobot.getID() << "LEFT DONE" << this->left_right[kilobot.getID()].x();
-                    }
-                }
-                // store for next time
-                this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
-            }
-        }
-
-
-    } else if (stage == 1) {
-
-        // ROUGH CALIBRATE RIGHT
-        if (count[kilobot.getID()] == 1) {
-
-            if (this->commandLog[kilobot.getID()] == STOP) {
-                times[kilobot.getID()].start();
-                kilobot_message msg;
-                msg.id = kilobot.getID();
-                msg.type = RIGHT;
-                msg.data = this->left_right[kilobot.getID()].y();
-                emit transmitKiloState(msg);
-                this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
-                this->commandLog[kilobot.getID()] = RIGHT;
-            }
-
-            if (times[kilobot.getID()].elapsed() > 1000 && times[kilobot.getID()].elapsed() < 1300) { // check
-                qDebug() << kilobot.getID() << this->left_right[kilobot.getID()] << times[kilobot.getID()].elapsed();
-                // test rotation
-                QLineF old_vect(QPointF(0,0), this->velocityLog[kilobot.getID()]);
-                qreal ang2 = old_vect.angleTo(kilobot_vect);
-                if (ang2 > 180.0f) ang2 -= 360.0f;
-                if (ang2 > -10.0f || old_vect.length() < 0.01) { // quick check for any movement
-                    this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+1);
-                    kilobot_message msg;
-                    msg.id = kilobot.getID();
-                    msg.type = STOP;
-                    msg.data = 0;
-                    emit transmitKiloState(msg);
-                    this->commandLog[kilobot.getID()] = STOP;
-                }
-            }
-            if (times[kilobot.getID()].elapsed() > 7500) {
-                // test rotation
-                qDebug() << kilobot.getID() << this->left_right[kilobot.getID()] << times[kilobot.getID()].elapsed();
-                times[kilobot.getID()].start();
-                QLineF old_vect(QPointF(0,0), this->velocityLog[kilobot.getID()]);
-                qreal ang2 = old_vect.angleTo(kilobot_vect);
-                if (ang2 > 180.0f) ang2 -= 360.0f;
-                if (ang2 < 90.0f) {
-                    this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+1);
-                    kilobot_message msg;
-                    msg.id = kilobot.getID();
-                    msg.type = STOP;
-                    msg.data = 0;
-                    emit transmitKiloState(msg);
-                    this->commandLog[kilobot.getID()] = STOP;
-                } else {
-                    // yay - left is done
-                    kilobot_message msg;
-                    msg.id = kilobot.getID();
-                    msg.type = STOP;
-                    msg.data = 0;
-                    emit transmitKiloState(msg);
-                    ++num_done;
-                    if (num_done == count.size()) {
-                        stage = 2;
-                        num_done = 0;
-                        this->rotDone = true;
-                        count[kilobot.getID()] = 2;
-                        for (int i = 0; i < this->times.size(); ++i) {
-                            this->times[i].start();
-                        }
-                        qDebug() << "RIGHT DONE" << this->left_right[kilobot.getID()].y();
-                    } else {
-                        count[kilobot.getID()] = 2;
-                        qDebug() << kilobot.getID() << "RIGHT DONE" << this->left_right[kilobot.getID()].y();
-                    }
-                }
-                // store for next time
-                this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
-            }
-        }
-
-    } else if (stage == 2) {
-
-       // CALIBRATE STRAIGHT
-
-       // initial straight command
-       if (count[kilobot.getID()] == 2 && times[kilobot.getID()].elapsed() > 1000) {
-           this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()-5);
-           this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()-5);
-           kilobot_message msg;
-           msg.id = kilobot.getID();
-           msg.type = STRAIGHT_L;
-           msg.data = this->left_right[kilobot.getID()].x();
-           emit transmitKiloState(msg);
-           kilobot_message msg2;
-           msg2.id = kilobot.getID();
-           msg2.type = STRAIGHT_R;
-           msg2.data = this->left_right[kilobot.getID()].y();
-           emit transmitKiloState(msg2);
-           this->commandLog[kilobot.getID()] = STRAIGHT_L;
-           count[kilobot.getID()] = 3;
-           times[kilobot.getID()].start();
-           this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
-       }
-       else if (count[kilobot.getID()] == 3) {
-           if (times[kilobot.getID()].elapsed() > 3000) {
-               times[kilobot.getID()].start();
-               // get angle between prev and curr directions
-               QLineF old_vect(QPointF(0,0), this->velocityLog[kilobot.getID()]);
-               qreal ang2 = old_vect.angleTo(kilobot_vect);
-               if (kilobot_vect.length() > 1.0f) {
-                   if (ang2 > 180.0f) ang2 -= 360.0f;
-                   if (ang2 > 20.0f) {
-
-                        qDebug() << kilobot.getID() << "IS LEANING LEFT";
-                        this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+1);
-                        kilobot_message msg;
-                        msg.id = kilobot.getID();
-                        msg.type = STRAIGHT_R;
-                        msg.data = this->left_right[kilobot.getID()].y();
-                        emit transmitKiloState(msg);
-
-                   } else if (ang2 < -20.0f) {
-
-                       qDebug() << kilobot.getID() << "IS LEANING RIGHT";
-                       this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+1);
-                       kilobot_message msg;
-                       msg.id = kilobot.getID();
-                       msg.type = STRAIGHT_L;
-                       msg.data = this->left_right[kilobot.getID()].x();
-                       emit transmitKiloState(msg);
-
-                   } else {
-                       ++ num_done;
-                       count[kilobot.getID()] = 4;
-                       qDebug() << kilobot.getID() << "IS STRAIGHT";
-                       kilobot_message msg;
-                       msg.id = kilobot.getID();
-                       msg.type = STOP;
-                       msg.data = 0;
-                       emit transmitKiloState(msg);
-                       if (num_done == count.size()) {
-                           this->strDone = true;
-                       }
-                   }
-               } else {
-                   qDebug() << kilobot.getID() << "IS SLOW";
-                   this->left_right[kilobot.getID()].setX(this->left_right[kilobot.getID()].x()+1);
-                   kilobot_message msg;
-                   msg.id = kilobot.getID();
-                   msg.type = STRAIGHT_L;
-                   msg.data = this->left_right[kilobot.getID()].x();
-                   emit transmitKiloState(msg);
-                   this->left_right[kilobot.getID()].setY(this->left_right[kilobot.getID()].y()+1);
-                   kilobot_message msg2;
-                   msg2.id = kilobot.getID();
-                   msg2.type = STRAIGHT_R;
-                   msg2.data = this->left_right[kilobot.getID()].y();
-                   emit transmitKiloState(msg2);
-               }
-               this->velocityLog[kilobot.getID()] = kilobot.getVelocity();
-           }
-       }
-
-
+    emit transmitKiloState(msg);
+    /* if we are calibrating the straight motion we need to send both left and right values */
+    if (this->commandLog[kID] == STRAIGHT_L){
+        msg.type = STRAIGHT_R;
+        msg.data = (uint16_t)(this->left_right[kID].y());
+        emit transmitKiloState(msg);
+        qDebug() << "New fwd motion values (" << this->left_right[kID].x() << "," << this->left_right[kID].y() << ") sent to robot n." << kID;
+    } else {
+        qDebug() << "New rot motion value (" << this->left_right[kID].x() << ") sent to robot n." << kID;
     }
+    /* reset counters and variables */
+    times[kID].start();
+    this->posLog[kID].clear();
+    this->posLogTimes[kID].clear();
+}
 
-
-
-}*/
 
 
 

@@ -42,7 +42,7 @@ static const int NUM_KILO_COMMANDS = sizeof(KILO_COMMANDS)/sizeof(kilo_cmd_t);
 
 KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(parent), device(2), sending(false), connected(false)
 {
-
+    lastMsgTime.start();
     // OHC link setup
     serial_conn = new SerialConnection();
 
@@ -95,7 +95,12 @@ void KilobotOverheadController::signalKilobot(kilobot_message message)
 
 void KilobotOverheadController::sendBatch()
 {
+    //qDebug() << "Running sendBatch()" << this->lastMsgTime.currentTime();
+    if (message_q.empty() && !sending && this->lastMsgTime.elapsed() > 50) {
+        stopSending();
+    }
     while (message_q.size() > 0) {
+        this->lastMsgTime.restart();
         if (message_q.size() > 2) {
             uint8_t type = 0; // reserved for three-in-one messages
             uint8_t data[9] = {0,0,0,0,0,0,0,0,0}; // intialise to zero
@@ -172,10 +177,10 @@ void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
     if (message.data.isEmpty()) {
         uint8_t data[9] = {0,0,0,0,0,0,0,0,0};
         this->sendDataMessage(data, message.type);
-
+        sending=true;
     } else {
         this->sendDataMessage(&message.data[0], message.type);
-
+        sending=true;
     }
     //qDebug() << "Broadcasting" << message.type << " content" << message.data;
 }

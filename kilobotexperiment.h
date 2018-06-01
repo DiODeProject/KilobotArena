@@ -7,6 +7,7 @@
 #include <kilobotenvironment.h>
 #include <kilobot.h>
 #include <QColor>
+#include <opencv2/core/core.hpp>
 
 class KilobotExperiment : public QObject
 {
@@ -18,7 +19,6 @@ public:
     }
 
     int serviceInterval = 100; // ms
-    QVector <KilobotEnvironment *> environments;
 
     virtual QWidget * createGUI() {return NULL;}
 
@@ -34,6 +34,7 @@ signals:
 
     // drawing
     void drawCircle(QPointF pos, float r, QColor col, int thickness, std::string text, bool transparent=false);
+    void drawLine(std::vector<cv::Point> pos, QColor col, int thickness, std::string text, bool transparent);
     void clearDrawings();
     void drawCircleOnRecordedImage(QPointF pos, float r, QColor col, int thickness, std::string text);
     void clearDrawingsOnRecordedImage();

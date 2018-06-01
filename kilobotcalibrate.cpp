@@ -3,18 +3,16 @@
 #include <QDebug>
 #include <QThread>
 
-KilobotCalibrate::KilobotCalibrate()
+KilobotCalibrate::KilobotCalibrate(double kilobot_radius)
 {
     // setup the environments here
-    this->environments.push_back(new KilobotCalibrateEnv());
+    calibEnvironment.setKilobotRadius(kilobot_radius);
 
     // link to OHC
-    for (int i = 0; i < this->environments.size(); ++i) {
-        connect(this->environments[i],SIGNAL(transmitKiloState(kilobot_message)), this, SLOT(signalKilobotExpt(kilobot_message)));
-    }
+    connect(&calibEnvironment,SIGNAL(transmitKiloState(kilobot_message)), this, SLOT(signalKilobotExpt(kilobot_message)));
+    connect(&calibEnvironment,SIGNAL(drawLine(std::vector<cv::Point>,QColor,int,std::string,bool)), this, SLOT(drawLineFromEnv(std::vector<cv::Point>,QColor,int,std::string,bool)));
 
-    this->serviceInterval = 250;
-
+    this->serviceInterval = 100;
 }
 
 
@@ -39,46 +37,38 @@ void KilobotCalibrate::run()
 {
     this->time += 0.1; // 100 ms in sec
 
-    // maybe?
-    for (int i = 0; i < this->environments.size(); ++i) {
-        this->environments[i]->update();
-    }
+    this->calibEnvironment.update();
 
     // required to change kilobot virtual sensory data / environment...
     emit clearDrawings();
     emit updateKilobotStates();
 
-    if (((KilobotCalibrateEnv *)this->environments[0])->rotDone) {
-        ((KilobotCalibrateEnv *)this->environments[0])->rotDone = false;
+    if (calibEnvironment.rotDone) {
+        qDebug() << "Calibration of right/left rotation completed.";
+        calibEnvironment.rotDone = false;
         // broadcast to store calib data
         kilobot_broadcast msg;
         msg.type = 110;
         emit broadcastMessage(msg);
     }
-    if (((KilobotCalibrateEnv *)this->environments[0])->strDone) {
-        ((KilobotCalibrateEnv *)this->environments[0])->strDone = false;
+    if (calibEnvironment.strDone) {
+        qDebug() << "Calibration of straight motion completed.";
+        calibEnvironment.strDone = false;
         // broadcast to store calib data
         kilobot_broadcast msg;
         msg.type = 111;
         emit broadcastMessage(msg);
     }
-
 }
 
 // run once for each kilobot after emitting getInitialKilobotStates() signal
 void KilobotCalibrate::setupInitialKilobotState(Kilobot /*kilobotCopy*/)
 {
-
-    this->setCurrentKilobotEnvironment(this->environments[0]);
-
-
-
+    this->setCurrentKilobotEnvironment(&this->calibEnvironment);
 }
 
 // run once for each kilobot after emitting updateKilobotStates() signal
 void KilobotCalibrate::updateKilobotState(Kilobot kilobotCopy)
 {
-
-    emit drawCircle(kilobotCopy.getPosition(), 20, QColor(255,0,0), 2, "");
 
 }
