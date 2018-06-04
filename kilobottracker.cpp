@@ -331,6 +331,13 @@ void KilobotTracker::LOOPstartstop(int expType)
         return;
     }
 
+    // when the ID-ASSIGNMENT starts, new sequential (random) IDs are assigned to each ARK-Kilobot at the start of the process (to avoid duplicates)
+    if (this->expType == ID_ASSIGNMENT){
+        for (int i = 0; i < this->kilos.size(); ++i) {
+            this->kilos[i]->setID(i);
+        }
+    }
+
     // launch threads
     this->THREADSlaunch();
 
