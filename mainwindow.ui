@@ -783,7 +783,7 @@
         <bool>true</bool>
        </property>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <property name="geometry">
         <rect>
          <x>20</x>
@@ -855,12 +855,11 @@
       <zorder>arena_height_y_slider</zorder>
       <zorder>label_13</zorder>
       <zorder>arena_height_x_label_2</zorder>
-      <zorder>label_9</zorder>
       <zorder>layoutWidget</zorder>
       <zorder>line_8</zorder>
       <zorder>runtime_ids_ckbx</zorder>
      </widget>
-     <widget class="QWidget" name="">
+     <widget class="QWidget" name="layoutWidget">
       <property name="geometry">
        <rect>
         <x>10</x>
@@ -879,6 +878,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="identify">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string>Start Identify Kilobots</string>
          </property>
@@ -888,6 +890,9 @@
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
           <widget class="QLabel" name="label_8">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
              <horstretch>0</horstretch>
@@ -901,6 +906,9 @@
          </item>
          <item>
           <widget class="QLineEdit" name="maxIDtoTry_input">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -924,6 +932,9 @@
         <layout class="QHBoxLayout" name="horizontalLayout_3">
          <item>
           <widget class="QRadioButton" name="binary_radio">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>Binary</string>
            </property>
@@ -934,6 +945,9 @@
          </item>
          <item>
           <widget class="QRadioButton" name="basethree_radio">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="text">
             <string>Base three</string>
            </property>
@@ -946,6 +960,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="assignIDs">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string>Start IDs Assignment</string>
          </property>
@@ -953,6 +970,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="calibrate">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string>Start Motors Calibration</string>
          </property>
@@ -1024,6 +1044,9 @@
       </property>
      </widget>
      <widget class="QPushButton" name="run">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
       <property name="geometry">
        <rect>
         <x>20</x>
@@ -1090,8 +1113,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>497</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">

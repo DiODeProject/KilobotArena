@@ -67,6 +67,8 @@ public slots:
 
     void toggleRunButton(int expTypeInt);
 
+    void activateExpButtons(bool enable);
+
     void rotate_pos();
     void rotate_neg();
 

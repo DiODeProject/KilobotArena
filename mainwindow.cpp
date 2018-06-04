@@ -84,6 +84,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(&this->kbtracker,SIGNAL(errorMessage(QString)), ui->error_label, SLOT(setText(QString)));
     connect(&this->kbtracker, SIGNAL(setStitchedImage(QPixmap)),ui->result_final,SLOT(setPixmap(QPixmap)));
     connect(&this->kbtracker, SIGNAL(toggleExpButton(int)), this, SLOT(toggleRunButton(int)));
+    connect(&this->kbtracker, SIGNAL(activateExpButtons(bool)), this, SLOT(activateExpButtons(bool)));
 
     connect(ui->sel_video, SIGNAL(clicked(bool)), this, SLOT(setVideoSource()));
 
@@ -243,6 +244,17 @@ void MainWindow::toggleRunButton(int expTypeInt){
         }
         break;
     }
+}
+
+// activate the indentification, ID-assignment, and calibration buttons only if at least one Kilobot has been detected
+void MainWindow::activateExpButtons(bool enable){
+    ui->identify->setEnabled(enable);
+    ui->label_8->setEnabled(enable);
+    ui->maxIDtoTry_input->setEnabled(enable);
+    ui->assignIDs->setEnabled(enable);
+    ui->binary_radio->setEnabled(enable);
+    ui->basethree_radio->setEnabled(enable);
+    ui->calibrate->setEnabled(enable);
 }
 
 void MainWindow::rotate_pos() {

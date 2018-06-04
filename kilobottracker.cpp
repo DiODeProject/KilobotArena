@@ -770,6 +770,7 @@ void KilobotTracker::SETUPfindKilobots()
     this->kiloHeadings.clear();
     this->kiloHeadings.resize(this->kilos.size());
     emit errorMessage(QString::fromStdString(to_string(kilos.size()))+ QString(" kilobots found!"));
+    emit activateExpButtons(!this->kilos.empty());
 }
 
 void KilobotTracker::identifyKilobots()

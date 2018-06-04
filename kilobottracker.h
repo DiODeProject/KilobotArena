@@ -213,6 +213,8 @@ signals:
 
     void toggleExpButton(int);
 
+    void activateExpButtons(bool);
+
     void setRuntimeIdentificationLock(bool);
 
 public slots:
