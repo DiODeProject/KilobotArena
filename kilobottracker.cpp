@@ -2720,13 +2720,13 @@ void KilobotTracker::SETUPstitcher()
 
     // assign indices...
     for (int j = 0; j < 4; ++j) {
-        if (corners[j].x - fullCorner.x < fullSize.width/4 && corners[j].y - fullCorner.y < fullSize.height/4) {
+        if (corners[j].x - fullCorner.x < fullSize.width/5 && corners[j].y - fullCorner.y < fullSize.height/5) {
             clData.inds[0] = j;
-        } else if (corners[j].x - fullCorner.x > fullSize.width/4 && corners[j].y - fullCorner.y < fullSize.height/4) {
+        } else if (corners[j].x - fullCorner.x > fullSize.width/5 && corners[j].y - fullCorner.y < fullSize.height/5) {
             clData.inds[1] = j;
-        } else if (corners[j].x - fullCorner.x < fullSize.width/4 && corners[j].y - fullCorner.y > fullSize.height/4) {
+        } else if (corners[j].x - fullCorner.x < fullSize.width/5 && corners[j].y - fullCorner.y > fullSize.height/5) {
             clData.inds[2] = j;
-        } else if (corners[j].x - fullCorner.x > fullSize.width/4 && corners[j].y - fullCorner.y > fullSize.height/4) {
+        } else if (corners[j].x - fullCorner.x > fullSize.width/5 && corners[j].y - fullCorner.y > fullSize.height/5) {
             clData.inds[3] = j;
         }
     }
