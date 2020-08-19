@@ -214,7 +214,7 @@ signals:
 
     void toggleExpButton(int);
 
-    void activateExpButtons(bool);
+    void activateExpButtons(int);
 
     void setRuntimeIdentificationLock(bool);
 

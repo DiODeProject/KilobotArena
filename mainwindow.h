@@ -67,7 +67,7 @@ public slots:
 
     void toggleRunButton(int expTypeInt);
 
-    void activateExpButtons(bool enable);
+    void activateExpButtons(int swarmSize);
 
     void rotate_pos();
     void rotate_neg();
