@@ -145,7 +145,7 @@ void SerialConnection::open() {
         status_msg = QString("unable to get exclusive access");
     } else if (fcntl(fd, F_SETFL, 0) == -1) {
         status_msg = QString("unable to restore blocking access");
-    } else if (tcgetattr(fd, &toptions) < 0) { 
+    } else if (tcgetattr(fd, &toptions) < 0) {
         status_msg = QString("unable to get device attributes");
     } else {
         cfsetispeed(&toptions, B38400);
@@ -170,7 +170,7 @@ void SerialConnection::open() {
         // see: http://unixwiz.net/techtips/termios-vmin-vtime.html
         toptions.c_cc[VMIN]  = 0;
         toptions.c_cc[VTIME] = 0;
-    
+
         tcsetattr(fd, TCSANOW, &toptions);
         if (tcsetattr(fd, TCSAFLUSH, &toptions) < 0) {
             status_msg = QString("unable to set device attributes");
@@ -183,15 +183,20 @@ void SerialConnection::open() {
     emit status(status_msg);
 }
 
+void SerialConnection::clearQueue() {
+    cmds.clear();
+}
+
 void SerialConnection::queueCommand(QByteArray cmd) {
     cmds.push_back(cmd);
     //QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
-    //qDebug() << "Command q'd" << delay.currentTime() << "now on list we have" << cmds.size() << "msgs.";
+//    qDebug() << "Command q'd" << delay.currentTime() << "now on list we have" << cmds.size() << "msgs.";
+    emit SendMsgsQueueState(true);
     this->sendQueuedCommand();
 }
 
 void SerialConnection::sendQueuedCommand() {
-    if (delay.elapsed() < 50) {
+    if (delay.elapsed() < TIMEPERMSG_ms ) {
         if (!this->cmds.isEmpty()) {
             QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
             //qDebug() << "q func called" << delay.currentTime();
@@ -210,6 +215,9 @@ void SerialConnection::sendQueuedCommand() {
             //qDebug() << "popped()" << delay.currentTime();
             if (!this->cmds.isEmpty()) {
                 QMetaObject::invokeMethod(this, "sendQueuedCommand", Qt::QueuedConnection);
+            }
+            else {
+                emit SendMsgsQueueState(false);
             }
         }
     }

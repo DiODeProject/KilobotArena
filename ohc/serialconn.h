@@ -7,6 +7,8 @@
 #include <QTime>
 #include "intelhex.h"
 
+#define TIMEPERMSG_ms 50
+
 class SerialConnection: public QObject {
     Q_OBJECT
 
@@ -25,11 +27,14 @@ public:
     static QVector<QString> enumerate();
     void setPort(QString);
     QString getPort() const;
+    void clearQueue();
+    int cmdQueueSize() {return this->cmds.size();}
 
 signals:
     void readText(QString);
     void status(QString);
     void error(QString);
+    void SendMsgsQueueState(bool);
 
 public slots:
     void queueCommand(QByteArray);

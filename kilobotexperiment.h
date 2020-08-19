@@ -31,6 +31,7 @@ signals:
     void signalKilobot(kilobot_message);
     void broadcastMessage(kilobot_broadcast);
     void setTrackingType(int);
+    void sendBroadcastingState(bool);
 
     // drawing
     void drawCircle(QPointF pos, float r, QColor col, int thickness, std::string text, bool transparent=false);
@@ -45,7 +46,7 @@ public slots:
     virtual void stopExperiment() {}
     virtual void run() {}
     void setRuntimeIdentificationLock(bool lock) {this->runtimeIdentificationLock = lock;}
-
+    void GetMsgsQueueState(bool state){ ThereIsMsgsToSend=state;}
 
     /*!
      * \brief updateStateRequiredCode
@@ -88,6 +89,7 @@ public slots:
 protected:
     double time;
     bool runtimeIdentificationLock = false;
+    bool ThereIsMsgsToSend=false;
 
     void setCurrentKilobotEnvironment(KilobotEnvironment * environment) {
         if (currKilobot != NULL && environment != NULL) {

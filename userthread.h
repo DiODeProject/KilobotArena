@@ -69,6 +69,7 @@ public slots:
             connect(this->currExpt,SIGNAL(updateKilobotStates()), kbtracker, SLOT(updateKilobotStates()));
             connect(this->currExpt,SIGNAL(getInitialKilobotStates()), kbtracker, SLOT(getInitialKilobotStates()));
             connect(this->currExpt,SIGNAL(setTrackingType(int)), kbtracker, SLOT(setTrackingType(int)));
+            connect(this->currExpt,SIGNAL(sendBroadcastingState(bool)), kbtracker, SLOT(updateExperimentBroadcastingState(bool)));
 
             if (mapper != NULL) mapper->deleteLater();
             mapper = new QSignalMapper(this);
@@ -102,6 +103,7 @@ public slots:
             // ohc
             connect(this->currExpt, SIGNAL(broadcastMessage(kilobot_broadcast)), this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
             connect(this->currExpt, SIGNAL(signalKilobot(kilobot_message)), this->ohc, SLOT(signalKilobot(kilobot_message)));
+            connect(this->ohc, SIGNAL(SignalMsgsQueueState(bool)), this->currExpt, SLOT(GetMsgsQueueState(bool)));
 
             this->kbtracker->expt = this->currExpt;
 

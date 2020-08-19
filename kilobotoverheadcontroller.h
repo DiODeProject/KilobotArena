@@ -27,6 +27,7 @@ public:
 signals:
     void errorMessage(QString);
     void setStopButton(bool);
+    void SignalMsgsQueueState(bool);
 
 public slots:
     void identifyKilobot(uint8_t id);
@@ -34,6 +35,10 @@ public slots:
     void signalKilobot(kilobot_message);
     void serialUpdateStatus(QString);
     void showError(QString);
+    void SendMsgsQueueState(bool state){emit SignalMsgsQueueState(state);}
+
+
+    void clearMsgQueue(){this->serial_conn->clearQueue();}
 
     // connect / disconnect
     void toggleConnection();
