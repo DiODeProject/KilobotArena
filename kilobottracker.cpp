@@ -303,6 +303,8 @@ void KilobotTracker::LOOPstartstop(int expType)
 
     }
 
+    emit clearMsgQueue();
+
 #ifdef USE_CUDA
     // setup kb initial locs
     Mat tempKbLocs(1,kilos.size(), CV_32FC2);
@@ -313,11 +315,11 @@ void KilobotTracker::LOOPstartstop(int expType)
     }
     kbLocs.upload(tempKbLocs);
     
-    //     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,5000); // kilobot detection
+    //this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,5000); // kilobot detection
     //this->hough = cuda::createHoughCirclesDetector(1.0,this->kbMinSize/1.4,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,3000); // kilobot detection
     this->hough = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize,20000); // kilobot detection
     this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize/7,this->kbMinSize*10/7,10000);// led detection
-//    this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,1,this->kbMinSize*10/7,10000);// led detection
+    //this->hough2 = cuda::createHoughCirclesDetector(1.0,1.0,this->cannyThresh,this->houghAcc,1,this->kbMinSize*10/7,10000);// led detection
 
     clahe=cuda::createCLAHE(10);
     dilateFilter=cuda::createMorphologyFilter(MORPH_DILATE,CV_8UC1, element);
@@ -388,14 +390,14 @@ void KilobotTracker::LOOPiterate()
            !(this->threads[1]->savecamerasframes) &&
            !(this->threads[2]->savecamerasframes) &&
            !(this->threads[3]->savecamerasframes)){
-        for (uint i = 0; i < 4; ++i)
-        {
-            this->threads[i]->savecamerasframes = true;
-            this->threads[i]->videoframeprefix=savecamerasframesdir+QString("/")+QString("frame_%1_%2").arg(/*time+*/time-1, 5,10, QChar('0')).arg(i)+QString(".jpg"); 
+            for (uint i = 0; i < 4; ++i)
+            {
+                this->threads[i]->savecamerasframes = true;
+                this->threads[i]->videoframeprefix=savecamerasframesdir+QString("/")+QString("frame_%1_%2").arg(/*time+*/time-1, 5,10, QChar('0')).arg(i)+QString(".jpg");
+            }
         }
-    }
         else return;
-   }
+    }
     else savecamerasframes=false;
     // wait for semaphores
     if ((srcUsed[0].available() > 0 && \
@@ -520,7 +522,8 @@ void KilobotTracker::LOOPiterate()
             this->trackKilobots();
 
             /** determine if executing the runtime-identification (RTI) */
-            if (this->m_runtimeIDenabled){
+            if (this->m_runtimeIDenabled && !experimentIsBroadcasting)
+            {
                 bool runRTI = false;
                 if (this->m_ongoingRuntimeIdentification){ // if already running, keep running
                     runRTI = true;
@@ -583,15 +586,15 @@ void KilobotTracker::runtimeIdentify(){
         qDebug() << "Runtime-ID: Signalled ID" << this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID();
     }
 
-//#ifdef USE_CUDA
-//    Mat display;
-//    this->finalImageB.download(display);
-//    cv::cvtColor(display, display, CV_GRAY2RGB);
-//#else
-//    Mat display;
-//    cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
-//#endif
-//    this->getKiloBotLights(display);
+    //#ifdef USE_CUDA
+    //    Mat display;
+    //    this->finalImageB.download(display);
+    //    cv::cvtColor(display, display, CV_GRAY2RGB);
+    //#else
+    //    Mat display;
+    //    cv::cvtColor(this->finalImage, display, CV_GRAY2RGB);
+    //#endif
+    //    this->getKiloBotLights(display);
 
     if(this->m_runtimeIdentificationTimer++ >= 10) {
         this->m_runtimeIdentificationTimer = 0;
@@ -600,7 +603,7 @@ void KilobotTracker::runtimeIdentify(){
 
         // I allow only swaps between robots on the pending list, if there is some false detect I update the list
         for (int i = 0; i < this->pendingRuntimeIdentification.size(); ++i) {
-//            if (this->kilos[this->pendingRuntimeIdentification[i]]->getLedColour() == BLUE) {
+            //            if (this->kilos[this->pendingRuntimeIdentification[i]]->getLedColour() == BLUE) {
             if (this->lost_count[this->pendingRuntimeIdentification[i]] < 10 && this->kilos[this->pendingRuntimeIdentification[i]]->getLedColour() == BLUE) {
                 qDebug() << "Runtime-ID: found blue LED robot #" << this->kilos[this->pendingRuntimeIdentification[i]]->getID();
                 blueBots++;
@@ -647,7 +650,7 @@ void KilobotTracker::runtimeIdentify(){
                     blueBots++;
                     bot = i;
                     qDebug() << "Runtime-ID: Found robot #" << kilos[i]->getID() << "with blue LED. Added to pending for runtime identification";
-                    this->pendingRuntimeIdentification.push_back(i);
+                    if (!this->pendingRuntimeIdentification.contains(i)) this->pendingRuntimeIdentification.push_back(i);
                 }
             }
             if (!blueBots) qDebug() << "No Blue response from all the swarm.";
@@ -674,8 +677,10 @@ void KilobotTracker::runtimeIdentify(){
             }
             identifyKilobot(this->kilos[this->pendingRuntimeIdentification[this->currentID]]->getID(), true);
             qDebug() << "Runtime-ID: Signalled ID" << this->kilos[this->pendingRuntimeIdentification[currentID]]->getID();
+            // setting maximum time allowed for runtime ID identification
+            //int maxTimeForRuntimeID = (this->pendingRuntimeIdentification.size() < 6)? 10000 : this->pendingRuntimeIdentification.size() * 2000;
+            int maxTimeForRuntimeID = qMax<int>(30000,1000*5*this->pendingRuntimeIdentification.size());
             // check if I am trying identifying on lost robots
-            int maxTimeForRuntimeID = (this->pendingRuntimeIdentification.size() < 6)? 10000 : this->pendingRuntimeIdentification.size() * 2000;
             for (int i = 0; i < this->pendingRuntimeIdentification.size(); ++i) {
                 /* if a missing robot has been lost for more than 10 step, the runtime identification is stopped but pending list only partially cleared */
                 /* also stop if the process is running for more than 10s */
@@ -970,15 +975,15 @@ void KilobotTracker::trackKilobots()
 
             //***************************************************************
             // FOR DEGUB: draw all the circles found through GPU-hough
-//            vector<Vec3f> circles;
-//            circlesGpu.download(circles);
-//            for( size_t i = 0; i < circles.size(); i++ )
-//            {
-//                Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-//                int radius = cvRound(circles[i][2]);
-//                // draw the circle outline
-//                circle( display, center, radius, Scalar(50,255,255), 1, 8, 0 );
-//            }
+            //            vector<Vec3f> circles;
+            //            circlesGpu.download(circles);
+            //            for( size_t i = 0; i < circles.size(); i++ )
+            //            {
+            //                Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+            //                int radius = cvRound(circles[i][2]);
+            //                // draw the circle outline
+            //                circle( display, center, radius, Scalar(50,255,255), 1, 8, 0 );
+            //            }
             //***************************************************************
 
             // get the channels so we can get rid of the sizes and use locations only
@@ -1053,10 +1058,10 @@ void KilobotTracker::trackKilobots()
                 circChans[1].download(circChansYCpu);
 
                 QMap <int,int> previously_lost;
-//                previous_lost_count.resize(this->lost_count.size());
-//                for (int i=0; i<this->lost_count.size(); ++i){
-//                    previous_lost_count[i] = this->lost_count[i];
-//                }
+                //                previous_lost_count.resize(this->lost_count.size());
+                //                for (int i=0; i<this->lost_count.size(); ++i){
+                //                    previous_lost_count[i] = this->lost_count[i];
+                //                }
 
                 // assign the new position of each kilobot as the new closest detected circle (if within a small distance from previous pos)
                 for (int i = 0; i < this->kilos.size(); ++i) {
@@ -1065,7 +1070,7 @@ void KilobotTracker::trackKilobots()
                     //cv::cuda::minMaxLoc(all_x_c(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
                     if (this->lost_count[i]>0) previously_lost[i] = this->lost_count[i];
                     // work out if we should update...
-                    if (*min < float(this->kbMinSize)/1.3 && this->lost_count[i] < 10) { // check if the distance between the old and new position is small enough
+                    if (*min < float(this->kbMinSize)/1.15 && this->lost_count[i] < 10) { // check if the distance between the old and new position is small enough
                         circChans[0](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[0](Rect(i,0,1,1)));
                         circChans[1](Rect((*minLoc).y,0,1,1)).copyTo(kbChans[1](Rect(i,0,1,1)));
                         //cout << endl << circChansXCpu << endl;
@@ -1099,31 +1104,31 @@ void KilobotTracker::trackKilobots()
                             Mat temp[3];
 #endif
                             // switch cam/vid source depending on position...
-//                            if (bb.x < 2000/2 && bb.y < 2000/2) {
-//                                Rect bb_adj = bb;
-//                                bb_adj.x = bb_adj.x +100;
-//                                bb_adj.y = bb_adj.y +100;
-//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
-//                                temp = this->fullImages[clData.inds[0]][0](bb_adj);
-//                            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
-//                                Rect bb_adj = bb;
-//                                bb_adj.x = bb_adj.x -900;
-//                                bb_adj.y = bb_adj.y +100;
-//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
-//                                temp = this->fullImages[clData.inds[1]][0](bb_adj);
-//                            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
-//                                Rect bb_adj = bb;
-//                                bb_adj.x = bb_adj.x +100;
-//                                bb_adj.y = bb_adj.y -900;
-//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
-//                                temp = this->fullImages[clData.inds[2]][0](bb_adj);
-//                            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
-//                                Rect bb_adj = bb;
-//                                bb_adj.x = bb_adj.x -900;
-//                                bb_adj.y = bb_adj.y -900;
-//                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
-//                                temp = this->fullImages[clData.inds[3]][0](bb_adj);
-//                            }
+                            //                            if (bb.x < 2000/2 && bb.y < 2000/2) {
+                            //                                Rect bb_adj = bb;
+                            //                                bb_adj.x = bb_adj.x +100;
+                            //                                bb_adj.y = bb_adj.y +100;
+                            //                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[0]][c](bb_adj);
+                            //                                temp = this->fullImages[clData.inds[0]][0](bb_adj);
+                            //                            } else if (bb.x > 2000/2-1 && bb.y < 2000/2) {
+                            //                                Rect bb_adj = bb;
+                            //                                bb_adj.x = bb_adj.x -900;
+                            //                                bb_adj.y = bb_adj.y +100;
+                            //                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[1]][c](bb_adj);
+                            //                                temp = this->fullImages[clData.inds[1]][0](bb_adj);
+                            //                            } else if (bb.x < 2000/2 && bb.y > 2000/2-1) {
+                            //                                Rect bb_adj = bb;
+                            //                                bb_adj.x = bb_adj.x +100;
+                            //                                bb_adj.y = bb_adj.y -900;
+                            //                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[2]][c](bb_adj);
+                            //                                temp = this->fullImages[clData.inds[2]][0](bb_adj);
+                            //                            } else if (bb.x > 2000/2-1 && bb.y > 2000/2-1) {
+                            //                                Rect bb_adj = bb;
+                            //                                bb_adj.x = bb_adj.x -900;
+                            //                                bb_adj.y = bb_adj.y -900;
+                            //                                //for (uint c = 0; c < 3; ++c) temp[c] = this->fullImages[clData.inds[3]][c](bb_adj);
+                            //                                temp = this->fullImages[clData.inds[3]][0](bb_adj);
+                            //                            }
                             temp = this->finalImageB(bb);
 
                             std::vector<cv::Vec3f> circles_rematch;
@@ -1138,11 +1143,11 @@ void KilobotTracker::trackKilobots()
                             HoughCircles(temp[0],circles_rematch,CV_HOUGH_GRADIENT,1.0,1.0,this->cannyThresh,this->houghAcc,this->kbMinSize,this->kbMaxSize);
 #endif
 
-//                            qDebug() << "circ size: " << circles_rematch.size();
-//                            this->circsToDraw.push_back(drawnCircle {Point(bb.x,bb.y), 4, QColor(0,255,0), 2, ""});
-//                            this->circsToDraw.push_back(drawnCircle {Point(qMin(this->finalImageB.size().width,bb.x+bb.width),bb.y), 4, QColor(0,255,0), 2, ""});
-//                            this->circsToDraw.push_back(drawnCircle {Point(qMin(this->finalImageB.size().width,bb.x+bb.width),qMin(this->finalImageB.size().height,bb.y+bb.height)), 4, QColor(0,255,0), 2, ""});
-//                            this->circsToDraw.push_back(drawnCircle {Point(bb.x,qMin(this->finalImageB.size().height,bb.y+bb.height)), 4, QColor(0,255,0), 2, ""});
+                            //                            qDebug() << "circ size: " << circles_rematch.size();
+                            //                            this->circsToDraw.push_back(drawnCircle {Point(bb.x,bb.y), 4, QColor(0,255,0), 2, ""});
+                            //                            this->circsToDraw.push_back(drawnCircle {Point(qMin(this->finalImageB.size().width,bb.x+bb.width),bb.y), 4, QColor(0,255,0), 2, ""});
+                            //                            this->circsToDraw.push_back(drawnCircle {Point(qMin(this->finalImageB.size().width,bb.x+bb.width),qMin(this->finalImageB.size().height,bb.y+bb.height)), 4, QColor(0,255,0), 2, ""});
+                            //                            this->circsToDraw.push_back(drawnCircle {Point(bb.x,qMin(this->finalImageB.size().height,bb.y+bb.height)), 4, QColor(0,255,0), 2, ""});
 
                             for (uint c = 0; c < circles_rematch.size(); ++c) {
                                 int cur_x = bb.x+cvRound(circles_rematch[c][0]);
@@ -1241,14 +1246,14 @@ void KilobotTracker::trackKilobots()
                                 this->lost_count[j] = previously_lost[j];
                                 which_revert = 2;
                             } else
-                            /* If none was lost (both it's impossible), I move back the robot that has moved more in the last timestep */
-                            if (  (pow(kilos[i]->getPosition().x()-previousPositions[i].x(),2)+pow(kilos[i]->getPosition().y()-previousPositions[i].y(),2))
-                                  >
-                                  (pow(kilos[j]->getPosition().x()-previousPositions[j].x(),2)+pow(kilos[j]->getPosition().y()-previousPositions[j].y(),2)) ){
-                                which_revert = 1;
-                            } else {
-                                which_revert = 2;
-                            }
+                                /* If none was lost (both it's impossible), I move back the robot that has moved more in the last timestep */
+                                if (  (pow(kilos[i]->getPosition().x()-previousPositions[i].x(),2)+pow(kilos[i]->getPosition().y()-previousPositions[i].y(),2))
+                                      >
+                                      (pow(kilos[j]->getPosition().x()-previousPositions[j].x(),2)+pow(kilos[j]->getPosition().y()-previousPositions[j].y(),2)) ){
+                                    which_revert = 1;
+                                } else {
+                                    which_revert = 2;
+                                }
 
                             switch(which_revert){
                             case 1:{
@@ -1666,6 +1671,9 @@ void KilobotTracker::trackKilobots()
     this->showMat(display);
 
 }
+
+
+
 void KilobotTracker::drawOverlay(Mat & display)
 {
     QVector < drawnCircle > alphaCircles;
@@ -1699,8 +1707,8 @@ void KilobotTracker::drawOverlay(Mat & display)
             if (!this->linesToDraw[i].text.empty()){
                 cv::putText(display, this->linesToDraw[i].text,
                             this->linesToDraw[i].pos[0]+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
-                            FONT_HERSHEY_DUPLEX, 1,
-                            Scalar(this->linesToDraw[i].col.red(),this->linesToDraw[i].col.green(),this->linesToDraw[i].col.blue()), 2, 8);
+                        FONT_HERSHEY_DUPLEX, 1,
+                        Scalar(this->linesToDraw[i].col.red(),this->linesToDraw[i].col.green(),this->linesToDraw[i].col.blue()), 2, 8);
             }
         }
     }
@@ -1728,8 +1736,8 @@ void KilobotTracker::drawOverlay(Mat & display)
             if (!alphaLines[i].text.empty()){
                 cv::putText(display, alphaLines[i].text,
                             alphaLines[i].pos[0]+Point(-15,10) , //+Point(this->circsToDraw[i].r,-this->circsToDraw[i].r),
-                            FONT_HERSHEY_DUPLEX, 1,
-                            Scalar(alphaLines[i].col.red(),alphaLines[i].col.green(),alphaLines[i].col.blue()), 2, 8);
+                        FONT_HERSHEY_DUPLEX, 1,
+                        Scalar(alphaLines[i].col.red(),alphaLines[i].col.green(),alphaLines[i].col.blue()), 2, 8);
             }
         }
         double alpha = 0.2;
@@ -1804,10 +1812,10 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
     // **********************************************************************
     // *********************** FOR DEBUG ************************************
-//    for (size_t k = 0; k < kilos.size(); ++k) {
-//        Point center(kilos[k]->getPosition().x(),kilos[k]->getPosition().y());
-//        circle( display, center, float(this->kbMaxSize)/1.4, Scalar(250,250,50), 1, 8, 0 );
-//    }
+    //    for (size_t k = 0; k < kilos.size(); ++k) {
+    //        Point center(kilos[k]->getPosition().x(),kilos[k]->getPosition().y());
+    //        circle( display, center, float(this->kbMaxSize)/1.4, Scalar(250,250,50), 1, 8, 0 );
+    //    }
     // **********************************************************************
 #ifdef TESTLEDS
     cuda::GpuMat yay;
@@ -1816,14 +1824,14 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
     cv::cvtColor(display,display,CV_GRAY2RGB);
 #endif
 
-    int circlyness = 7;
+    int circlyness = 6;
 
     QVector < bool > isBlue;
     isBlue.resize(this->kilos.size());
 
     QVector < bool > updated;
     updated.resize(this->kilos.size());
-// BLUE
+    // BLUE
     if(m_detectblue){
 
 
@@ -1918,7 +1926,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
         }
     }
-// RED
+    // RED
     if(m_detectred){
 
         int circle_acc = circlyness;
@@ -2006,7 +2014,7 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
         }
     }
-// Green
+    // Green
     if(m_detectgreen){
         int circle_acc = circlyness;
         cuda::GpuMat circlesGpu;
@@ -2097,10 +2105,10 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
     // Set the robots which have not been updated as LED=off
     for (int i = 0; i < this->kilos.size(); ++i) {
 
-    if (!updated[i]){
-        kilos[i]->colBuffer.addColour(OFF);
-        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-    }
+        if (!updated[i]){
+            kilos[i]->colBuffer.addColour(OFF);
+            kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+        }
     }
 }
 #endif
@@ -2183,9 +2191,9 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
 
 #ifdef TESTLEDS
-//    cuda::GpuMat yay;
-//    cuda::multiply(fullthresh,3.0,yay,1,-1,stream2);
-//    mask.download(display);
+    //    cuda::GpuMat yay;
+    //    cuda::multiply(fullthresh,3.0,yay,1,-1,stream2);
+    //    mask.download(display);
     g.download(display);
     cv::cvtColor(display,display,CV_GRAY2RGB);
 #endif
@@ -2221,16 +2229,16 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         cuda::GpuMat all_x_kb;
         cuda::GpuMat all_y_kb;
 
-//#ifdef TESTLEDS
-//        Mat xCpu;
-//        Mat yCpu;
-//        circChans[0].download(xCpu);
-//        circChans[1].download(yCpu);
+        //#ifdef TESTLEDS
+        //        Mat xCpu;
+        //        Mat yCpu;
+        //        circChans[0].download(xCpu);
+        //        circChans[1].download(yCpu);
 
-//        for (int i = 0; i < xCpu.size().width;++i) {
-//            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
-//        }
-//#endif
+        //        for (int i = 0; i < xCpu.size().width;++i) {
+        //            cv::circle(display,Point(mean(xCpu(Rect(i,0,1,1)))[0],mean(yCpu(Rect(i,0,1,1)))[0]),3,Scalar(255,0,0),2);
+        //        }
+        //#endif
 
         if (circChans[0].size().width  > 0) {
 
@@ -2270,22 +2278,22 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
             for (int i = 0; i < this->kilos.size(); ++i) {
 
                 if (!updated[i]){
-                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
-                //                qDebug() << "robot" << kilos[i]->getID();
-                //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
-                // work out if we should update...
-                if (*min < float(this->kbMaxSize)) {
+                    minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                    //                qDebug() << "robot" << kilos[i]->getID();
+                    //                qDebug() << "[" << float(this->kbMaxSize)/2.0 << "] minDist is" << *min;
+                    // work out if we should update...
+                    if (*min < float(this->kbMaxSize)) {
 
-                    lightColour col;
-                    col = BLUE;
-                    updated[i] = true;
+                        lightColour col;
+                        col = BLUE;
+                        updated[i] = true;
 
-                    // on the cpu
-                    //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
-                    kilos[i]->colBuffer.addColour(col);
-                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                        // on the cpu
+                        //                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), col);
+                        kilos[i]->colBuffer.addColour(col);
+                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    }
                 }
-            }
             }
 
         }
@@ -2303,16 +2311,16 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
         this->hough2->setVotesThreshold(circle_acc);
         this->hough2->detect(r,circlesGpu,stream1);
 
-//        // FOR DEGUB: draw all the circles found through GPU-hough
-//        vector<Vec3f> circles;
-//        circlesGpu.download(circles);
-//        for( size_t i = 0; i < circles.size(); i++ )
-//        {
-//            Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-//            int radius = cvRound(circles[i][2]);
-//            // draw the circle outline
-//            circle( display, center, radius, Scalar(250,250,50), 1, 8, 0 );
-//        }
+        //        // FOR DEGUB: draw all the circles found through GPU-hough
+        //        vector<Vec3f> circles;
+        //        circlesGpu.download(circles);
+        //        for( size_t i = 0; i < circles.size(); i++ )
+        //        {
+        //            Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+        //            int radius = cvRound(circles[i][2]);
+        //            // draw the circle outline
+        //            circle( display, center, radius, Scalar(250,250,50), 1, 8, 0 );
+        //        }
 
         // get the channels so we can get rid of the sizes and use locations only
         cuda::split(circlesGpu,circChans,stream1);
@@ -2369,16 +2377,16 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
             for (int i = 0; i < this->kilos.size(); ++i) {
 
                 if (!updated[i]){
-                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                    minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
 
-                if (*min < float(this->kbMaxSize)) {
+                    if (*min < float(this->kbMaxSize)) {
 
-                    lightColour col;
-                    col = RED;
-                    updated[i] = true;
-                    kilos[i]->colBuffer.addColour(col);
-                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-                }
+                        lightColour col;
+                        col = RED;
+                        updated[i] = true;
+                        kilos[i]->colBuffer.addColour(col);
+                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                    }
                 }
             }
 
@@ -2451,15 +2459,15 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
             for (int i = 0; i < this->kilos.size(); ++i) {
 
                 if (!updated[i]){
-                minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
-                if (*min < float(this->kbMaxSize)/1.8) {
+                    minMaxLoc(localDists(Rect(i,0,1,localDists.size().height)),min,NULL,minLoc,NULL);
+                    if (*min < float(this->kbMaxSize)/1.8) {
 
-                    lightColour col;
+                        lightColour col;
 
-                    col = GREEN;
-                    updated[i] = true;
-                    kilos[i]->colBuffer.addColour(col);
-                    kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+                        col = GREEN;
+                        updated[i] = true;
+                        kilos[i]->colBuffer.addColour(col);
+                        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
                     }
 
                 }
@@ -2471,10 +2479,10 @@ void KilobotTracker::getKiloBotLights(Mat &display) {
 
     for (int i = 0; i < this->kilos.size(); ++i) {
 
-    if (!updated[i]){
-        kilos[i]->colBuffer.addColour(OFF);
-        kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
-    }
+        if (!updated[i]){
+            kilos[i]->colBuffer.addColour(OFF);
+            kilos[i]->updateState(kilos[i]->getPosition(),kilos[i]->getVelocity(), kilos[i]->colBuffer.getAvgColour());
+        }
     }
 
 }
@@ -2600,90 +2608,97 @@ void KilobotTracker::SETUPloadCalibration()
         emit errorMessage("No video file selected!");
     else
     {
-    // Load the calibration data
+        // Load the calibration data
 
-    // nicety - load last used directory
-    QSettings settings;
-    QString lastDir = settings.value("lastDirOut", QDir::homePath()).toString();
-    QString fileName = QFileDialog::getOpenFileName((QWidget *) sender(), tr("Load Calibration"), lastDir, tr("Calib files (*.xml *.yaml);; All files (*)"));
+        // nicety - load last used directory
+        QSettings settings;
+        QString lastDir = settings.value("lastDirOut", QDir::homePath()).toString();
+        QString fileName = QFileDialog::getOpenFileName((QWidget *) sender(), tr("Load Calibration"), lastDir, tr("Calib files (*.xml *.yaml);; All files (*)"));
 
-    if (fileName.isEmpty()) {
-        emit errorMessage("No file selected");
-        return;
+        if (fileName.isEmpty()) {
+            emit errorMessage("No file selected");
+            return;
+        }
+
+        // load the data
+        FileStorage fs(fileName.toStdString(),FileStorage::READ);
+
+        fs["corner1"] >> this->arenaCorners[0];
+        fs["corner2"] >> this->arenaCorners[1];
+        fs["corner3"] >> this->arenaCorners[2];
+        fs["corner4"] >> this->arenaCorners[3];
+
+        fs["R"] >> this->Rs;
+        fs["K"] >> this->Ks;
+
+        // need more sanity checks than this...
+        if (Rs.size() != 4 || Ks.size() != 4) {
+            emit errorMessage("Invalid calibration data");
+            this->haveCalibration = false;
+            return;
+        }
+
+        for (uint i = 0; i < Rs.size(); ++i) {
+            Mat R;
+            Rs[i].convertTo(R, CV_32F);
+            Rs[i] = R;
+        }
+        for (uint i = 0; i < Ks.size(); ++i) {
+            Mat K;
+            Ks[i].convertTo(K, CV_32F);
+            Ks[i] = K;
+        }
+
+        QDir lastDirectory (fileName);
+        lastDirectory.cdUp();
+        settings.setValue ("lastDirOut", lastDirectory.absolutePath());
+
+        this->SETUPstitcher();
+
+        // load first images
+
+        // launch threads
+        this->THREADSlaunch();
+
+        if (!this->compensator) {
+            // calculate to compensate for exposure
+            compensator = detail::ExposureCompensator::createDefault(detail::ExposureCompensator::GAIN);
+        }
+
+        if (!this->blender) {
+            // blend the images
+            blender = detail::Blender::createDefault(detail::Blender::FEATHER, true);
+        }
+
+
+
+        this->warpedImages.resize(4);
+        this->warpedMasks.resize(4);
+        this->corners.resize(4);
+        this->sizes.resize(4);
+
+
+        this->time = 0;
+
+        // run stitcher once
+        this->loadFirstIm = true;
+        this->LOOPiterate();
+        this->loadFirstIm = false;
+
+
+
+
+        this->THREADSstop();
+
+        this->time = 0;
+
+        this->haveCalibration = true;
     }
-
-    // load the data
-    FileStorage fs(fileName.toStdString(),FileStorage::READ);
-
-    fs["corner1"] >> this->arenaCorners[0];
-    fs["corner2"] >> this->arenaCorners[1];
-    fs["corner3"] >> this->arenaCorners[2];
-    fs["corner4"] >> this->arenaCorners[3];
-
-    fs["R"] >> this->Rs;
-    fs["K"] >> this->Ks;
-
-    // need more sanity checks than this...
-    if (Rs.size() != 4 || Ks.size() != 4) {
-        emit errorMessage("Invalid calibration data");
-        this->haveCalibration = false;
-        return;
-    }
-
-    for (uint i = 0; i < Rs.size(); ++i) {
-        Mat R;
-        Rs[i].convertTo(R, CV_32F);
-        Rs[i] = R;
-    }
-    for (uint i = 0; i < Ks.size(); ++i) {
-        Mat K;
-        Ks[i].convertTo(K, CV_32F);
-        Ks[i] = K;
-    }
-
-    QDir lastDirectory (fileName);
-    lastDirectory.cdUp();
-    settings.setValue ("lastDirOut", lastDirectory.absolutePath());
-
-    this->SETUPstitcher();
-
-    // load first images
-
-    // launch threads
-    this->THREADSlaunch();
-
-    if (!this->compensator) {
-        // calculate to compensate for exposure
-        compensator = detail::ExposureCompensator::createDefault(detail::ExposureCompensator::GAIN);
-    }
-
-    if (!this->blender) {
-        // blend the images
-        blender = detail::Blender::createDefault(detail::Blender::FEATHER, true);
-    }
-
-    this->warpedImages.resize(4);
-    this->warpedMasks.resize(4);
-    this->corners.resize(4);
-    this->sizes.resize(4);
-
-    this->time = 0;
-
-    // run stitcher once
-    this->loadFirstIm = true;
-    this->LOOPiterate();
-    this->loadFirstIm = false;
-
-    this->THREADSstop();
-
-    this->time = 0;
-
-    this->haveCalibration = true;
-}
 }
 
 void KilobotTracker::SETUPstitcher()
 {
+
 
     // initial config
     Ptr<WarperCreator> warper_creator;
@@ -2735,6 +2750,9 @@ void KilobotTracker::SETUPstitcher()
 
 void KilobotTracker::THREADSlaunch()
 {
+
+
+
     for (uint i = 0; i < 4; ++i)
     {
         if (srcStop[i].available()) srcStop[i].acquire();
@@ -2759,6 +2777,7 @@ void KilobotTracker::THREADSlaunch()
         this->threads[i]->height_y_adj = this->height_y_adj;
         this->threads[i]->start();
     }
+
 }
 
 void KilobotTracker::THREADSstop()
@@ -2846,24 +2865,37 @@ void KilobotTracker::SETUPsetCamOrder()
 
 void KilobotTracker::RefreshDisplayedImage()
 {
-    if(this->haveCalibration){
-        // launch threads
-        for (int i=0;i<2;i++){
-            this->THREADSlaunch();
+    if(this->threads[0] && !this->threads[0]->isRunning()){
 
-            this->time =0;
-            // run stitcher once
-            this->loadFirstIm = true;
-            this->trackType=NO_TRACK;
-            this->LOOPiterate();
-            this->trackType=CIRCLES_NAIVE;
-            this->loadFirstIm = false;
-            this->THREADSstop();
+        if(this->haveCalibration){
+            // launch threads
+            for (int i=0;i<2;i++){
+                this->THREADSlaunch();
 
-            this->time = 0;
+                this->time =0;
+                // run stitcher once
+                this->loadFirstIm = true;
+                this->trackType=NO_TRACK;
+                this->LOOPiterate();
+                this->trackType=CIRCLES_NAIVE;
+                this->loadFirstIm = false;
+                this->THREADSstop();
+
+                this->time = 0;
+            }
         }
+        else emit errorMessage(QString("No arena calibration loaded yet!"));
     }
-    else emit errorMessage(QString("No arena calibration loaded yet!"));
+    else emit errorMessage(QString("Your can't rotate the display when experiment is running!"));
+
+}
+
+
+void KilobotTracker::setFlipangle(double angle) {
+    if(this->threads[0] && !this->threads[0]->isRunning() ){
+        flipangle=flipangle+angle;
+        if( (flipangle==360) || (flipangle==-360) ) flipangle=0;
+    }
 }
 
 /* method to move the position of kilobot (with known ID) to specific position inicated by the user through a mouse click */

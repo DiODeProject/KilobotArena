@@ -58,8 +58,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->kbMin_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setKbMin(int)));
     connect(ui->arena_height_x_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHeightXSlider(int)));
     connect(ui->arena_height_y_slider, SIGNAL(valueChanged(int)), &this->kbtracker, SLOT(setHeightYSlider(int)));
-    ui->arena_height_x_slider->setValue(11);
-    ui->arena_height_y_slider->setValue(4);
+    ui->arena_height_x_slider->setValue(20);
+    ui->arena_height_y_slider->setValue(7);
     if (ui->show_ids->isChecked()) this->kbtracker.showIds(true);
     connect(ui->show_ids, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(showIds(bool)));
     connect(ui->red_checkBox, SIGNAL(toggled(bool)), &this->kbtracker, SLOT(detectred(bool)));
@@ -105,6 +105,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // TRACKER -> OHC
     connect(&this->kbtracker,SIGNAL(identifyKilo(uint8_t)), &this->ohc, SLOT(identifyKilobot(uint8_t)));
     connect(&this->kbtracker,SIGNAL(broadcastMessage(kilobot_broadcast)), &this->ohc, SLOT(broadcastMessage(kilobot_broadcast)));
+    connect(&this->kbtracker,SIGNAL(clearMsgQueue()), &this->ohc, SLOT(clearMsgQueue()));
 
     // USERTHREAD -> UI
     connect(this->thread, SIGNAL(setLibName(QString)), ui->expt_msg, SLOT(setText(QString)));

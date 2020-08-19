@@ -62,11 +62,11 @@ using namespace std;
 #include <opencv2/cudawarping.hpp>
 
 #ifdef USE_CUDA
-    #define MAT_TYPE cuda::GpuMat
-    #define CV_NS cv::cuda::
+#define MAT_TYPE cuda::GpuMat
+#define CV_NS cv::cuda::
 #else
-    #define MAT_TYPE UMat
-    #define CV_NS cv::
+#define MAT_TYPE UMat
+#define CV_NS cv::
 #endif
 
 #endif
@@ -183,10 +183,10 @@ public:
     KilobotExperiment * expt;
 
     //Default tracking parameters and identification parameters
-    int kbMinSize = 12;
-    int kbMaxSize = 22;
+    int kbMinSize = 11;
+    int kbMaxSize = 19;
     int houghAcc = 12;
-    int cannyThresh = 50;
+    int cannyThresh = 90;
     int maxIDtoCheck = 100;
     uint manualID;
     // camera parameters
@@ -205,6 +205,8 @@ signals:
     void identifyKilo(uint8_t);
 
     void broadcastMessage(kilobot_broadcast);
+
+    void clearMsgQueue();
 
     void startExperiment(bool);
 
@@ -297,9 +299,9 @@ public slots:
     }
 
     void saveVideoFrames(QString file, unsigned int numofframes) {
-            savecamerasframes = true;
-            savecamerasframesdir=file;
-            numberofframes=numofframes;
+        savecamerasframes = true;
+        savecamerasframesdir=file;
+        numberofframes=numofframes;
     }
 
 
@@ -328,6 +330,10 @@ public slots:
     void getInitialKilobotStates();
 
     void setTrackingType(int t_type) {this->t_type = t_type;}
+    void updateExperimentBroadcastingState(bool BroadcastingState)
+    {
+        experimentIsBroadcasting=BroadcastingState;
+    }
 
     /*!
      * \brief showIds
@@ -345,8 +351,7 @@ public slots:
 
     void maxIDtoTry(QString maxIdStr) {this->maxIDtoCheck = maxIdStr.toInt();}
     void setManualID(QString manID) {this->manualID = manID.toUInt();}
-    void setFlipangle(double angle) {flipangle=flipangle+angle;
-                                     if( (flipangle==360) || (flipangle==-360) ) flipangle=0;}
+    void setFlipangle(double angle);
 
     /*!
      * \brief RefreshDisplayedImage
@@ -424,7 +429,7 @@ private:
 
     int t_type = POS | ADAPTIVE_LED | ROT;
 
-
+    bool experimentIsBroadcasting=false;
 
     Mat finalImageCol;
 

@@ -28,6 +28,7 @@ typedef struct {
 #define COMMAND_STOP 250
 #define COMMAND_LEDTOGGLE 251
 
+
 static const kilo_cmd_t KILO_COMMANDS[] = {
     {"Reset", RESET},
     {"Run", RUN},
@@ -48,6 +49,7 @@ KilobotOverheadController::KilobotOverheadController(QObject *parent) : QObject(
 
     connect(serial_conn, SIGNAL(error(QString)), this, SLOT(showError(QString)));
     connect(serial_conn, SIGNAL(status(QString)), this, SLOT(serialUpdateStatus(QString)));
+    connect(serial_conn, SIGNAL(SendMsgsQueueState(bool)), this, SLOT(SendMsgsQueueState(bool)));
 
     // Create thread
     QThread *thread = new QThread();
@@ -96,12 +98,13 @@ void KilobotOverheadController::signalKilobot(kilobot_message message)
 void KilobotOverheadController::sendBatch()
 {
     //qDebug() << "Running sendBatch()" << this->lastMsgTime.currentTime();
-    if (message_q.empty() && !sending && this->lastMsgTime.elapsed() > 50) {
+    //bool enoughTimeOrEmptyList = (serial_conn->cmdQueueSize() > 2 && this->lastMsgTime.elapsed() > 100) || this->lastMsgTime.elapsed() > 30;
+    if (message_q.empty() && !sending && this->lastMsgTime.elapsed() > TIMEPERMSG_ms) {
         this->stopSending();
     }
     while (message_q.size() > 0) {
-        this->lastMsgTime.restart();
         if (message_q.size() > 2) {
+            this->lastMsgTime.restart();
             uint8_t type = 0; // reserved for three-in-one messages
             uint8_t data[9] = {0,0,0,0,0,0,0,0,0}; // intialise to zero
 
@@ -120,7 +123,8 @@ void KilobotOverheadController::sendBatch()
             this->sendDataMessage(data, type);
 
 
-        } else if (message_q.size() > 0) {
+        } else if (message_q.size() > 0 && this->lastMsgTime.elapsed() > TIMEPERMSG_ms) {
+            this->lastMsgTime.restart();
             uint8_t type = 0; // reserved for three-in-one messages
             uint8_t data[9] = {0,0,0,0,0,0,0,0,0}; // intialise to zero
 
