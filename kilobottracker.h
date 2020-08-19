@@ -26,7 +26,7 @@
 #include <opencv2/stitching/stitcher.hpp>
 #include <opencv2/opencv.hpp>
 //GPU stuff
-#include <opencv2/gpu/gpu.hpp>
+//#include <opencv2/gpu/gpu.hpp>
 #include <opencv2/gpu/gpumat.hpp>
 
 #ifdef USE_CUDA

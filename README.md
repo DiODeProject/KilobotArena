@@ -16,6 +16,13 @@ QtCreator will run the Makefile for you - from the command line you'll have to d
 
 You also need to install the calibration program to generate calibrated camera maps: [KilobotArenaCalibration](https://github.com/DiODeProject/KilobotArenaCalibration).
 
+### User permission
+In order to operate the Kilobot's OHC, the user needs to be part of the dialout group. Therefore, add the user to the group `dialout` with command
+
+```
+sudo usermod -a -G dialout <user-name>
+```
+
 ### Citation
 
 If you use or adapt ARK in order to generate experimental results, please cite the following paper in any resulting publications:

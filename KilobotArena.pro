@@ -13,7 +13,7 @@ TEMPLATE = app
 
 # switch between OpenCV2 and 3
 CONFIG += use_opencv3
-
+QMAKE_CXXFLAGS += -std=c++11
 
 SOURCES += main.cpp\
         mainwindow.cpp \
@@ -76,21 +76,21 @@ LIBS += -L/usr/local/lib/ \
         -lopencv_imgproc \
         -lopencv_features2d\
         -lopencv_highgui\
-        -lopencv_contrib\
+#        -lopencv_contrib\
         -lopencv_calib3d\
         -lopencv_objdetect\
         -lopencv_photo\
         -lopencv_stitching\
         -lopencv_flann\
-        -lopencv_gpu \
-        -lopencv_legacy \
+ #       -lopencv_gpu \
+ #       -lopencv_legacy \
         -lopencv_ml \
         -lopencv_objdetect  \
-        -lopencv_ocl \
+ #       -lopencv_ocl \
         -lopencv_photo \
         -lopencv_stitching \
         -lopencv_superres \
-        -lopencv_ts \
+  #      -lopencv_ts \
         -lopencv_video \
         -lopencv_videostab \
         -lopencv_videoio \
