@@ -97,7 +97,7 @@ void KilobotOverheadController::sendBatch()
 {
     //qDebug() << "Running sendBatch()" << this->lastMsgTime.currentTime();
     if (message_q.empty() && !sending && this->lastMsgTime.elapsed() > 50) {
-        stopSending();
+        this->stopSending();
     }
     while (message_q.size() > 0) {
         this->lastMsgTime.restart();
@@ -176,11 +176,11 @@ void KilobotOverheadController::broadcastMessage(kilobot_broadcast message)
 
     if (message.data.isEmpty()) {
         uint8_t data[9] = {0,0,0,0,0,0,0,0,0};
+        sending=true;
         this->sendDataMessage(data, message.type);
-        sending=true;
     } else {
-        this->sendDataMessage(&message.data[0], message.type);
         sending=true;
+        this->sendDataMessage(&message.data[0], message.type);
     }
     //qDebug() << "Broadcasting" << message.type << " content" << message.data;
 }
@@ -231,7 +231,7 @@ void KilobotOverheadController::sendMessage(int type_int) {
         packet[PACKET_SIZE-1]=PACKET_HEADER^PACKET_STOP;
     } else  {
         if (sending) {
-            stopSending();
+            this->stopSending();
             //return;
         }
 
@@ -303,7 +303,7 @@ void KilobotOverheadController::chooseProgramFile() {
 
 void KilobotOverheadController::uploadProgram() {
     if (sending) {
-        stopSending();
+        this->stopSending();
         emit setStopButton(true);
     }
     if (program_file.isEmpty()) {

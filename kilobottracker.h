@@ -55,7 +55,6 @@ using namespace std;
 //#include <opencv2/tracking/tracker.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/core/ocl.hpp>
-#include <opencv2/gpu/gpu.hpp>
 #include <opencv2/cudaarithm.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudafilters.hpp>

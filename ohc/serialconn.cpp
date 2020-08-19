@@ -103,6 +103,7 @@ void SerialConnection::open() {
     if (theport.length() == 0) {
         QVector<QString> ports = enumerate();
         if (ports.size() > 0) {
+            if (ports.size() > 1) theport = ports[1]; else //this line has been added only to use ARK with the light dimmer
             theport = ports[0];
         } else {
             emit status("no serial port found");
@@ -200,7 +201,7 @@ void SerialConnection::sendQueuedCommand() {
         // send next q'd command
         if (!this->cmds.isEmpty()) {
             // send
-            delay.restart(); // AJC - sending a command - wait before sending another
+            delay.restart(); // reset the time counter to count how much to wait before sending another command
             //qDebug() << "Command to send" << delay.currentTime();
             //this->sendCommand(this->cmds[0]);
             QByteArray tmp = !cmds.isEmpty() ? cmds[0] : QByteArray();
