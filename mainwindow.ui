@@ -817,6 +817,9 @@
             <property name="text">
              <string>G</string>
             </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
            </widget>
           </item>
           <item>
@@ -1007,8 +1010,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>497</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">
@@ -1113,8 +1116,8 @@
       <rect>
        <x>0</x>
        <y>0</y>
-       <width>321</width>
-       <height>497</height>
+       <width>98</width>
+       <height>28</height>
       </rect>
      </property>
      <attribute name="label">

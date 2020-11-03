@@ -27,32 +27,24 @@ void ColourBuffer::addColour(lightColour newColour){
 }
 
 lightColour ColourBuffer::getAvgColour(){
-//    int countOFF = 0;
-//    int countRED = 0;
-//    int countGREEN = 0;
-//    int countBLUE = 0;
     std::vector <int> counters;
-    counters.resize(4); // OFF, RED, GREEN, BLUE
+    counters.resize(4); // OFF, RED, GREEN, BLUE, MAGENTA
     for (int i = 0; i < buffer.size(); ++i){
         switch (buffer.at(i)) {
         case (OFF):{
             counters[0]++;
-//            countOFF++;
             break;
         }
         case (RED):{
             counters[1]++;
-//            countRED++;
             break;
         }
         case (GREEN):{
             counters[2]++;
-//            countGREEN++;
             break;
         }
         case (BLUE):{
             counters[3]++;
-//            countBLUE++;
             break;
         }
         }
@@ -61,26 +53,20 @@ lightColour ColourBuffer::getAvgColour(){
     double * maxVal = new double;
     int * maxLoc = new int;
     cv::minMaxIdx(counters, minVal, maxVal, NULL, maxLoc);
-//    qDebug() << "buffer" << buffer << "counters" << counters;
-//    qDebug() << "maxLoc" << *maxLoc << "[0]" << maxLoc[0] << "[1]" << maxLoc[1];
     switch (maxLoc[1]) {
     case (0):{
-//        qDebug() << " returning OFF";
         return OFF;
         break;
     }
     case (1):{
-//        qDebug() << " returning RED";
         return RED;
         break;
     }
     case (2):{
-//        qDebug() << " returning GREEN";
         return GREEN;
         break;
     }
     case (3):{
-//        qDebug() << " returning BLUE";
         return BLUE;
         break;
     }

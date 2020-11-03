@@ -885,6 +885,7 @@ void KilobotTracker::identifyKilobots()
     this->drawOverlay(display);
 
     this->showMat(display);
+    //this->showMat(this->finalImageCol);
 }
 
 void KilobotTracker::identifyKilobot(int id, bool runtime = false){
@@ -1669,6 +1670,7 @@ void KilobotTracker::trackKilobots()
 
     this->drawOverlay(display);
     this->showMat(display);
+    //this->showMat(finalImageCol);
 
 }
 

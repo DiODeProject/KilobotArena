@@ -519,7 +519,7 @@ private:
     bool showIDs = true;
     int flipangle = 0;
     bool m_detectred=true;
-    bool m_detectgreen=false;
+    bool m_detectgreen=true;
     bool m_detectblue=true;
     bool m_assignIDmanually=false;
     bool m_runtimeIDenabled=true;
